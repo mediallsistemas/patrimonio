@@ -1,0 +1,7 @@
+{
+  "/page": "app/page.js",
+  "/retirada/page": "app/retirada/page.js",
+  "/cadastro/page": "app/cadastro/page.js",
+  "/devolucao/page": "app/devolucao/page.js",
+  "/dashboard/page": "app/dashboard/page.js"
+}

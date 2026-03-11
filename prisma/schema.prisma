@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Pessoa {
+  id             String         @id @default(uuid())
+  nome           String
+  cpf            String         @unique
+  faceDescriptor String
+  createdAt      DateTime       @default(now())
+  movimentacoes  Movimentacao[]
+
+  @@map("pessoas")
+}
+
+model Movimentacao {
+  id       String   @id @default(uuid())
+  pessoaId String
+  tipo     String
+  dataHora DateTime @default(now())
+  pessoa   Pessoa   @relation(fields: [pessoaId], references: [id])
+
+  @@map("movimentacoes")
+}
