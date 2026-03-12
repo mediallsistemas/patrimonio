@@ -14,8 +14,8 @@ import Header from '@/components/header'
 type Ambiente = 'HRPG' | 'UEI'
 
 const AMBIENTE_CONFIG: Record<Ambiente, { icon: React.ElementType; color: string; bg: string }> = {
-  HRPG: { icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-300 hover:bg-blue-100' },
-  UEI:  { icon: Factory,   color: 'text-purple-600', bg: 'bg-purple-50 border-purple-300 hover:bg-purple-100' },
+  HRPG: { icon: Building2, color: 'text-white', bg: 'bg-blue-600 border-blue-600 hover:bg-blue-700' },
+  UEI:  { icon: Factory,   color: 'text-white', bg: 'bg-violet-600 border-violet-600 hover:bg-violet-700' },
 }
 type TipoAlteracao = 'eletrica' | 'hidraulica' | 'patrimonio'
 type Etapa = 'ambiente' | 'medicoes' | 'alteracao_pergunta' | 'alteracao_detalhe' | 'trilogo' | 'sucesso'
