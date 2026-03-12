@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, Loader2 } from 'lucide-react'
 import Text from './text'
 
-// Models served locally from /public/models
 const MODELS_URL = '/models'
+
+// Cache models on window so they load only once per browser session
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const w = typeof window !== 'undefined' ? (window as any) : {}
 
 type Status = 'loading-models' | 'loading-camera' | 'ready' | 'detecting' | 'error'
 
 interface CameraViewProps {
-  /** When true, the component will attempt to detect and return a face descriptor */
   capturing: boolean
   onDescriptor: (descriptor: number[]) => void
   onError?: (error: string) => void
@@ -25,27 +27,27 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const faceApiRef = useRef<any>(null)
 
-  // Step 1: Load models
+  // Step 1: Load models (cached on window after first load)
   useEffect(() => {
     async function loadModels() {
       try {
         const faceapi = await import('face-api.js')
-        // Ensure TensorFlow uses CPU backend if WebGL is unavailable
-        const tf = (faceapi as any).tf ?? (await import('@tensorflow/tfjs-core').catch(() => null))
-        if (tf) {
-          try { await tf.setBackend('webgl') } catch { await tf.setBackend('cpu') }
+
+        if (!w.__faceApiModelsLoaded) {
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL),
+          ])
+          w.__faceApiModelsLoaded = true
         }
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL),
-        ])
+
         faceApiRef.current = faceapi
         setStatus('loading-camera')
       } catch (err) {
         console.error('Erro ao carregar modelos:', err)
         setStatus('error')
-        onError?.(`Erro ao carregar modelos de reconhecimento facial.`)
+        onError?.('Erro ao carregar modelos de reconhecimento facial.')
       }
     }
     loadModels()
@@ -60,7 +62,7 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: 'user' },
         })
         if (videoRef.current) {
           videoRef.current.srcObject = stream
@@ -79,7 +81,7 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
     }
   }, [status, onError])
 
-  // Step 3: Detection loop when capturing=true
+  // Step 3: Detection loop
   useEffect(() => {
     const faceapi = faceApiRef.current
     if (!faceapi || status !== 'ready' || !capturing) return
@@ -93,22 +95,25 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
 
       try {
         const result = await faceapi
-          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+          .detectSingleFace(
+            videoRef.current,
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 })
+          )
           .withFaceLandmarks()
           .withFaceDescriptor()
 
         if (result && !capturedRef.current) {
           capturedRef.current = true
-          onDescriptor(Array.from(result.descriptor as Float32Array))
           if (intervalRef.current) clearInterval(intervalRef.current)
+          onDescriptor(Array.from(result.descriptor as Float32Array))
           setStatus('ready')
         }
       } catch {
-        // silently ignore per-frame errors
+        // ignore per-frame errors
       }
     }
 
-    intervalRef.current = setInterval(detect, 800)
+    intervalRef.current = setInterval(detect, 500)
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
@@ -116,7 +121,6 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
     }
   }, [capturing, status, onDescriptor])
 
-  // Reset when capturing flips back to true
   useEffect(() => {
     if (capturing) capturedRef.current = false
   }, [capturing])
@@ -126,7 +130,7 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
     'loading-camera': 'Iniciando câmera...',
     ready: 'Câmera pronta',
     detecting: label || 'Posicione seu rosto na câmera...',
-    error: 'Erro ao acessar a câmera',
+    error: 'Erro',
   }
 
   return (
@@ -139,7 +143,6 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
         className="w-full h-full object-cover"
       />
 
-      {/* Loading overlay */}
       {(status === 'loading-models' || status === 'loading-camera') && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-dark/85">
           <Loader2 className="w-8 h-8 text-red-base animate-spin mb-3" />
@@ -149,7 +152,6 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
         </div>
       )}
 
-      {/* Detecting indicator */}
       {status === 'detecting' && (
         <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-dark/70 to-transparent p-4">
           <div className="flex items-center gap-2">
@@ -161,7 +163,6 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
         </div>
       )}
 
-      {/* Error overlay */}
       {status === 'error' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-dark/85 gap-3">
           <Camera className="w-10 h-10 text-red-base" />
