@@ -136,7 +136,7 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
       {/* Loading overlay */}
       {(status === 'loading-models' || status === 'loading-camera') && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-dark/85">
-          <Loader2 className="w-8 h-8 text-teal-base animate-spin mb-3" />
+          <Loader2 className="w-8 h-8 text-red-base animate-spin mb-3" />
           <Text variant="body-sm" className="text-white text-center px-4">
             {statusMessages[status]}
           </Text>
@@ -147,7 +147,7 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
       {status === 'detecting' && (
         <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-dark/70 to-transparent p-4">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-base animate-pulse" />
+            <span className="w-2.5 h-2.5 rounded-full bg-red-base animate-pulse" />
             <Text variant="body-sm" className="text-white">
               {statusMessages.detecting}
             </Text>
