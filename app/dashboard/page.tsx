@@ -54,7 +54,7 @@ function groupByPerson(movs: Movimentacao[]) {
 
     groups.push({
       pessoaId: mov.pessoa_id,
-      nome: mov.pessoa_nome,
+      nome: mov.pessoa_nome ?? '',
       cpf: mov.pessoa_cpf ?? '',
       retirada: mov,
       devolucao,
