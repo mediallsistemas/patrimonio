@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, Loader2 } from 'lucide-react'
 import Text from './text'
 
-// Models loaded from CDN — no local file setup required
-const MODELS_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
+// Models served locally from /public/models
+const MODELS_URL = '/models'
 
 type Status = 'loading-models' | 'loading-camera' | 'ready' | 'detecting' | 'error'
 
