@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle, ChevronRight, Upload, X, History } from 'lucide-react'
+import { CheckCircle, ChevronRight, Upload, X, History, Building2, Factory } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import Card from '@/components/card'
@@ -12,6 +12,11 @@ import Text from '@/components/text'
 import Header from '@/components/header'
 
 type Ambiente = 'HRPG' | 'UEI'
+
+const AMBIENTE_CONFIG: Record<Ambiente, { icon: React.ElementType; color: string; bg: string }> = {
+  HRPG: { icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-300 hover:bg-blue-100' },
+  UEI:  { icon: Factory,   color: 'text-purple-600', bg: 'bg-purple-50 border-purple-300 hover:bg-purple-100' },
+}
 type TipoAlteracao = 'eletrica' | 'hidraulica' | 'patrimonio'
 type Etapa = 'ambiente' | 'medicoes' | 'alteracao_pergunta' | 'alteracao_detalhe' | 'trilogo' | 'sucesso'
 
@@ -81,8 +86,8 @@ export default function InspecaoPage() {
     try {
       await salvar(false)
       setEtapa('sucesso')
-    } catch {
-      toast.error('Erro ao salvar inspeção')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar inspeção')
     } finally {
       setSubmitting(false)
     }
@@ -118,8 +123,8 @@ export default function InspecaoPage() {
     try {
       await salvar(true, { ...detalhe, trilogoChamado })
       setEtapa('sucesso')
-    } catch {
-      toast.error('Erro ao salvar inspeção')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar inspeção')
     } finally {
       setSubmitting(false)
     }
@@ -145,7 +150,10 @@ export default function InspecaoPage() {
         } : undefined,
       }),
     })
-    if (!res.ok) throw new Error('Erro ao salvar')
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error ?? `Erro ${res.status}`)
+    }
   }
 
   // ── Progresso ───────────────────────────────────────────────────────────────
@@ -189,16 +197,19 @@ export default function InspecaoPage() {
                 Escolha a usina que será inspecionada
               </Text>
               <div className="grid grid-cols-2 gap-4">
-                {AMBIENTES.map((a) => (
-                  <button
-                    key={a}
-                    onClick={() => handleAmbiente(a)}
-                    className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-gray-200 hover:border-red-base hover:bg-red-light transition-all duration-200 font-sans font-bold text-dark text-lg active:scale-95"
-                  >
-                    <span className="text-3xl">🏭</span>
-                    {a}
-                  </button>
-                ))}
+                {AMBIENTES.map((a) => {
+                  const { icon: Icon, color, bg } = AMBIENTE_CONFIG[a]
+                  return (
+                    <button
+                      key={a}
+                      onClick={() => handleAmbiente(a)}
+                      className={`flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 transition-all duration-200 font-sans font-bold text-lg active:scale-95 ${bg}`}
+                    >
+                      <Icon className={`w-8 h-8 ${color}`} />
+                      <span className={color}>{a}</span>
+                    </button>
+                  )
+                })}
               </div>
               <div className="mt-5 pt-4 border-t border-gray-100">
                 <Link href="/inspecao/historico" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-red-base font-sans transition-colors">

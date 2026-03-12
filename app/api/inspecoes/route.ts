@@ -21,32 +21,40 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json()
-  const { ambiente, purezaO2, pressaoO2, pressaoAr, backupLigado, temAlteracao, alteracao } = body
+  try {
+    const body = await req.json()
+    const { ambiente, purezaO2, pressaoO2, pressaoAr, backupLigado, temAlteracao, alteracao } = body
 
-  const inspecao = await prisma.inspecao.create({
-    data: {
-      ambiente,
-      purezaO2: Number(purezaO2),
-      pressaoO2: Number(pressaoO2),
-      pressaoAr: Number(pressaoAr),
-      backupLigado: Boolean(backupLigado),
-      temAlteracao: Boolean(temAlteracao),
-      ...(temAlteracao && alteracao
-        ? {
-            alteracao: {
-              create: {
-                tipo: alteracao.tipo,
-                descricao: alteracao.descricao,
-                foto: alteracao.foto ?? null,
-                trilogoChamado: Boolean(alteracao.trilogoChamado),
+    const inspecao = await prisma.inspecao.create({
+      data: {
+        ambiente,
+        purezaO2: Number(purezaO2),
+        pressaoO2: Number(pressaoO2),
+        pressaoAr: Number(pressaoAr),
+        backupLigado: Boolean(backupLigado),
+        temAlteracao: Boolean(temAlteracao),
+        ...(temAlteracao && alteracao
+          ? {
+              alteracao: {
+                create: {
+                  tipo: alteracao.tipo,
+                  descricao: alteracao.descricao,
+                  foto: alteracao.foto ?? null,
+                  trilogoChamado: Boolean(alteracao.trilogoChamado),
+                },
               },
-            },
-          }
-        : {}),
-    },
-    include: { alteracao: true },
-  })
+            }
+          : {}),
+      },
+      include: { alteracao: true },
+    })
 
-  return NextResponse.json(inspecao, { status: 201 })
+    return NextResponse.json(inspecao, { status: 201 })
+  } catch (err) {
+    console.error('Erro ao salvar inspeção:', err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Erro interno' },
+      { status: 500 }
+    )
+  }
 }
