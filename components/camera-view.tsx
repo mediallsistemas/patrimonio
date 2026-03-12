@@ -30,6 +30,11 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
     async function loadModels() {
       try {
         const faceapi = await import('face-api.js')
+        // Ensure TensorFlow uses CPU backend if WebGL is unavailable
+        const tf = (faceapi as any).tf ?? (await import('@tensorflow/tfjs-core').catch(() => null))
+        if (tf) {
+          try { await tf.setBackend('webgl') } catch { await tf.setBackend('cpu') }
+        }
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
@@ -37,9 +42,10 @@ export default function CameraView({ capturing, onDescriptor, onError, label }: 
         ])
         faceApiRef.current = faceapi
         setStatus('loading-camera')
-      } catch {
+      } catch (err) {
+        console.error('Erro ao carregar modelos:', err)
         setStatus('error')
-        onError?.('Erro ao carregar modelos de reconhecimento facial.')
+        onError?.(`Erro ao carregar modelos de reconhecimento facial.`)
       }
     }
     loadModels()
