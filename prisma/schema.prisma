@@ -27,3 +27,29 @@ model Movimentacao {
 
   @@map("movimentacoes")
 }
+
+model Inspecao {
+  id            String     @id @default(uuid())
+  ambiente      String     // "HRPG" | "UEI"
+  purezaO2      Float
+  pressaoO2     Float
+  pressaoAr     Float
+  backupLigado  Boolean
+  temAlteracao  Boolean
+  criadoEm      DateTime   @default(now())
+  alteracao     Alteracao?
+
+  @@map("inspecoes")
+}
+
+model Alteracao {
+  id              String   @id @default(uuid())
+  inspecaoId      String   @unique
+  tipo            String   // "eletrica" | "hidraulica" | "patrimonio"
+  descricao       String
+  foto            String?  // base64
+  trilogoChamado  Boolean
+  inspecao        Inspecao @relation(fields: [inspecaoId], references: [id])
+
+  @@map("alteracoes")
+}
