@@ -1,8 +1,0 @@
-{
-  "/api/dashboard/route": "app/api/dashboard/route.js",
-  "/page": "app/page.js",
-  "/retirada/page": "app/retirada/page.js",
-  "/devolucao/page": "app/devolucao/page.js",
-  "/cadastro/page": "app/cadastro/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
-}
