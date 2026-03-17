@@ -5,7 +5,7 @@ function euclideanDistance(a: number[], b: number[]): number {
   return Math.sqrt(a.reduce((sum, val, i) => sum + Math.pow(val - b[i], 2), 0))
 }
 
-const THRESHOLD = 0.5
+const THRESHOLD = 0.6
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
