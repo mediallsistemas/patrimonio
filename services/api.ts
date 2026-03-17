@@ -6,7 +6,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...((options.headers as Record<string, string>) || {}),
   }
 
-  const response = await fetch(`${API_BASE}/${endpoint}`, { ...options, headers })
+  const response = await fetch(`${API_BASE}/${endpoint}`, { ...options, headers, credentials: 'include' })
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Erro na requisição' }))
