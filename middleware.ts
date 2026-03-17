@@ -37,16 +37,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── /:tenantSlug raiz sem login → redireciona para hotelaria (público) ─────
-  const tenantRootPublic = pathname.match(/^\/([a-z0-9-]+)\/?$/)
-  if (tenantRootPublic && !req.cookies.get(SESSION_COOKIE)?.value) {
-    return NextResponse.redirect(new URL(`/${tenantRootPublic[1]}/hotelaria`, req.url))
-  }
-
-  // ── A partir daqui, todas as rotas requerem autenticação ──────────────────
+  // ── Sem token: redireciona rotas públicas antes de exigir autenticação ──────
   const token = req.cookies.get(SESSION_COOKIE)?.value
 
   if (!token) {
+    // raiz "/" sem token → /login
+    if (pathname === '/') {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
+    // /:tenantSlug ou /:tenantSlug/ sem token → hotelaria pública
+    const tenantRootPublic = pathname.match(/^\/([a-z0-9-]+)\/?$/)
+    if (tenantRootPublic) {
+      return NextResponse.redirect(new URL(`/${tenantRootPublic[1]}/hotelaria`, req.url))
+    }
+    // qualquer outra rota sem token → login
     const loginUrl = new URL('/login', req.url)
     loginUrl.searchParams.set('from', pathname)
     return NextResponse.redirect(loginUrl)
@@ -74,6 +78,7 @@ export async function middleware(req: NextRequest) {
     }
     return NextResponse.redirect(new URL('/login', req.url))
   }
+
 
   // ── /admin/* — apenas super_admin ─────────────────────────────────────────
   if (pathname.startsWith('/admin')) {
