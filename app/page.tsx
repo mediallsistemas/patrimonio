@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BarChart3, FlaskConical } from 'lucide-react'
+import { BarChart3, FlaskConical, ClipboardList } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
 import { TbFaceId } from 'react-icons/tb'
 import Text from '@/components/text'
@@ -41,6 +41,15 @@ const actions = [
     iconColor: 'text-white',
     accent: 'border-t-[#7c3aed]',
   },
+  {
+    href: '/ocorrencias',
+    icon: ClipboardList,
+    title: 'Ocorrências',
+    description: 'Registro de ocorrências em ambientes hospitalares',
+    iconBg: 'bg-[#0f766e]',
+    iconColor: 'text-white',
+    accent: 'border-t-[#0f766e]',
+  },
 ]
 
 export default function Home() {
@@ -62,7 +71,7 @@ export default function Home() {
         </div>
 
         {/* Action cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
           {actions.map(({ href, icon: Icon, title, description, iconBg, iconColor, accent }) => (
             <Link key={href} href={href} className="group">
               <div className={`bg-white rounded-2xl border border-gray-200 shadow-sm group-hover:shadow-md group-hover:border-red-base transition-all duration-200 p-6 h-full flex flex-col border-t-4 ${accent}`}>

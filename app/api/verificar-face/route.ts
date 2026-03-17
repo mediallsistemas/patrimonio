@@ -10,12 +10,22 @@ const THRESHOLD = 0.5
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const descriptor: number[] = body.descriptor
+  const tenantSlug: string | undefined = body.tenantSlug
 
   if (!descriptor || !Array.isArray(descriptor) || descriptor.length !== 128) {
     return NextResponse.json({ message: 'Descriptor inválido' }, { status: 400 })
   }
 
-  const pessoas = await prisma.pessoa.findMany()
+  let tenantId: string | undefined
+  if (tenantSlug) {
+    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
+    if (!tenant) return NextResponse.json({ message: 'Tenant não encontrado' }, { status: 404 })
+    tenantId = tenant.id
+  }
+
+  const pessoas = await prisma.pessoa.findMany({
+    where: tenantId ? { tenantId } : undefined,
+  })
 
   let melhorMatch: (typeof pessoas)[0] | null = null
   let menorDistancia = Infinity

@@ -7,49 +7,147 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Multi-tenant Auth ─────────────────────────────────────────────────────────
+
+model Tenant {
+  id           String         @id @default(uuid())
+  slug         String         @unique  // ex: "hrpg", "upa-norte"
+  nome         String
+  ativo        Boolean        @default(true)
+  criadoEm     DateTime       @default(now())
+  usuarios     Usuario[]
+  pessoas      Pessoa[]
+  movimentacoes Movimentacao[]
+
+  @@map("tenants")
+}
+
+model Usuario {
+  id           String   @id @default(uuid())
+  tenantId     String?  // null = super_admin (acesso a todos os tenants)
+  email        String   @unique
+  senhaHash    String
+  nome         String
+  role         String   @default("tenant_admin")  // "super_admin" | "tenant_admin" | "viewer"
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@map("usuarios")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 model Pessoa {
   id             String         @id @default(uuid())
+  tenantId       String
   nome           String
-  cpf            String         @unique
+  cpf            String
   faceDescriptor String
   createdAt      DateTime       @default(now())
   movimentacoes  Movimentacao[]
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
 
+  @@unique([tenantId, cpf])
   @@map("pessoas")
 }
 
 model Movimentacao {
   id       String   @id @default(uuid())
+  tenantId String
   pessoaId String
   tipo     String
   dataHora DateTime @default(now())
   pessoa   Pessoa   @relation(fields: [pessoaId], references: [id])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
 
   @@map("movimentacoes")
 }
 
-model Inspecao {
-  id            String     @id @default(uuid())
-  ambiente      String     // "HRPG" | "UEI"
-  purezaO2      Float
-  pressaoO2     Float
-  pressaoAr     Float
-  backupLigado  Boolean
-  temAlteracao  Boolean
-  criadoEm      DateTime   @default(now())
-  alteracao     Alteracao?
+// ── Inspeção de Gases Medicinais ──────────────────────────────────────────────
 
-  @@map("inspecoes")
+model Rodada {
+  id            String                  @id @default(uuid())
+  tenantId      String
+  iniciadoEm    DateTime                @default(now())
+  finalizadoEm  DateTime?
+  ambientes     AmbienteInspecionado[]
+
+  @@map("rodadas")
+}
+
+model AmbienteInspecionado {
+  id              String         @id @default(uuid())
+  rodadaId        String
+  ambiente        String         // "HRPG" | "UEI"
+  purezaO2        Float
+  pressaoO2       Float
+  pressaoAr       Float
+  backupLigado    Boolean
+  temAbastecimento Boolean       @default(false)
+  temAlteracao    Boolean
+  concluidoEm     DateTime       @default(now())
+  rodada          Rodada         @relation(fields: [rodadaId], references: [id])
+  abastecimento   Abastecimento?
+  alteracao       Alteracao?
+
+  @@map("ambientes_inspecionados")
+}
+
+model Abastecimento {
+  id                     String               @id @default(uuid())
+  ambienteInspecionadoId String               @unique
+  quantidade             Int
+  tamanho                String               // "P7" | "P45" | etc.
+  ambienteInspecionado   AmbienteInspecionado @relation(fields: [ambienteInspecionadoId], references: [id])
+
+  @@map("abastecimentos")
 }
 
 model Alteracao {
-  id              String   @id @default(uuid())
-  inspecaoId      String   @unique
-  tipo            String   // "eletrica" | "hidraulica" | "patrimonio"
-  descricao       String
-  foto            String?  // base64
-  trilogoChamado  Boolean
-  inspecao        Inspecao @relation(fields: [inspecaoId], references: [id])
+  id                     String               @id @default(uuid())
+  ambienteInspecionadoId String               @unique
+  tipo                   String               // "eletrica" | "hidraulica" | "patrimonio"
+  descricao              String
+  foto                   String?              // base64 — lazy loaded
+  trilogoChamado         Boolean
+  ambienteInspecionado   AmbienteInspecionado @relation(fields: [ambienteInspecionadoId], references: [id])
 
   @@map("alteracoes")
+}
+
+// ── Registro de Ocorrências Hospitalares ──────────────────────────────────────
+
+model RondaOcorrencia {
+  id           String              @id @default(uuid())
+  tenantId     String
+  iniciadoEm   DateTime            @default(now())
+  finalizadoEm DateTime?
+  ambientes    RegistroAmbiente[]
+
+  @@map("rondas_ocorrencias")
+}
+
+model RegistroAmbiente {
+  id             String           @id @default(uuid())
+  rondaId        String
+  ambiente       String
+  temOcorrencia  Boolean
+  concluidoEm    DateTime         @default(now())
+  ronda          RondaOcorrencia  @relation(fields: [rondaId], references: [id])
+  ocorrencia     OcorrenciaDetalhe?
+
+  @@map("registros_ambientes")
+}
+
+model OcorrenciaDetalhe {
+  id               String           @id @default(uuid())
+  registroId       String           @unique
+  tipo             String           // "eletrica" | "hidraulica" | "patrimonio"
+  descricao        String
+  foto             String?          // base64 — lazy loaded
+  trilogoChamado   Boolean
+  registro         RegistroAmbiente @relation(fields: [registroId], references: [id])
+
+  @@map("ocorrencias_detalhe")
 }
