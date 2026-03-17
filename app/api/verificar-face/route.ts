@@ -12,8 +12,11 @@ export async function POST(req: NextRequest) {
   const descriptor: number[] = body.descriptor
   const tenantSlug: string | undefined = body.tenantSlug
 
-  if (!descriptor || !Array.isArray(descriptor) || descriptor.length !== 128) {
-    return NextResponse.json({ message: 'Descriptor inválido' }, { status: 400 })
+  if (!descriptor || !Array.isArray(descriptor)) {
+    return NextResponse.json({ message: 'Descriptor ausente ou inválido' }, { status: 400 })
+  }
+  if (descriptor.length !== 128) {
+    return NextResponse.json({ message: `Descriptor com tamanho incorreto: ${descriptor.length} (esperado 128)` }, { status: 400 })
   }
 
   let tenantId: string | undefined

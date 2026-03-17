@@ -36,8 +36,8 @@ export default function DevolucaoPage() {
       } else {
         setEstado('nao_encontrado')
       }
-    } catch {
-      toast.error('Erro ao verificar rosto. Tente novamente.')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao verificar rosto. Tente novamente.')
       setEstado('camera')
     }
   }, [estado])
