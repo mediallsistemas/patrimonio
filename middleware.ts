@@ -77,6 +77,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // ── /api/hotelaria/* — público, sem autenticação necessária ───────────────
+  if (pathname.startsWith('/api/hotelaria/')) {
+    return NextResponse.next()
+  }
+
   // ── /api/* — deixa passar (APIs protegem internamente via getSession) ─────
   if (pathname.startsWith('/api/')) {
     return NextResponse.next()
