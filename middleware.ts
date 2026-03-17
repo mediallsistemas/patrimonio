@@ -37,6 +37,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // ── /:tenantSlug raiz sem login → redireciona para hotelaria (público) ─────
+  const tenantRootPublic = pathname.match(/^\/([a-z0-9-]+)\/?$/)
+  if (tenantRootPublic && !req.cookies.get(SESSION_COOKIE)?.value) {
+    return NextResponse.redirect(new URL(`/${tenantRootPublic[1]}/hotelaria`, req.url))
+  }
+
   // ── A partir daqui, todas as rotas requerem autenticação ──────────────────
   const token = req.cookies.get(SESSION_COOKIE)?.value
 
