@@ -47,7 +47,7 @@ export default function CadastroPage() {
 
     setSubmitting(true)
     try {
-      await api.post('pessoas', { nome: nome.trim(), cpf, faceDescriptor })
+      await api.post('pessoas', { nome: nome.trim(), cpf, faceDescriptor, tenantSlug })
       toast.success('Cadastro realizado com sucesso!')
       router.push(`/${tenantSlug}/hotelaria`)
     } catch (err: unknown) {

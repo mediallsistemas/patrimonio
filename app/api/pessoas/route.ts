@@ -18,12 +18,18 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
-  const tenantId = session.tenantId
+  const { nome, cpf, faceDescriptor, tenantSlug } = await req.json()
+
+  let tenantId = session?.tenantId ?? null
+
+  if (!tenantId && tenantSlug) {
+    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
+    if (!tenant) return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 404 })
+    tenantId = tenant.id
+  }
+
   if (!tenantId) return NextResponse.json({ error: 'Sem tenant' }, { status: 403 })
-
-  const { nome, cpf, faceDescriptor } = await req.json()
 
   if (!nome || !cpf || !faceDescriptor) {
     return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 })
