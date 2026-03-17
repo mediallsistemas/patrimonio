@@ -29,7 +29,7 @@ export default function RetiradaPage() {
     if (estado !== 'camera') return
     setEstado('verificando')
     try {
-      const res = await api.post<VerificarFaceResponse>('verificar-face', { descriptor })
+      const res = await api.post<VerificarFaceResponse>('verificar-face', { descriptor, tenantSlug })
       if (res.encontrado && res.pessoa) {
         setPessoa(res.pessoa)
         setEstado('encontrado')
@@ -46,7 +46,7 @@ export default function RetiradaPage() {
     if (!pessoa) return
     setConfirmando(true)
     try {
-      await api.post('movimentacoes', { pessoaId: pessoa.id, tipo: 'retirada' })
+      await api.post('movimentacoes', { pessoaId: pessoa.id, tipo: 'retirada', tenantSlug })
       setEstado('sucesso')
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao registrar retirada')

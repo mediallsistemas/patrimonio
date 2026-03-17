@@ -10,7 +10,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Erro na requisição' }))
-    throw new Error(error.message || `HTTP ${response.status}`)
+    throw new Error(error.message || error.error || `HTTP ${response.status}`)
   }
 
   return response.json()
