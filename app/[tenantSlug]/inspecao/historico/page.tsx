@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronDown, ChevronUp, ArrowLeft, Building2, Factory, Package } from 'lucide-react'
+import { ChevronDown, ChevronUp, ArrowLeft, Building2, Package } from 'lucide-react'
 import Link from 'next/link'
 import Card from '@/components/card'
 import Text from '@/components/text'
@@ -53,10 +54,8 @@ const TIPO_LABEL: Record<string, { label: string; color: string }> = {
   patrimonio: { label: 'Patrimônio', color: 'bg-purple-100 text-purple-700' },
 }
 
-const AMBIENTE_ICON: Record<string, { icon: React.ElementType; bgColor: string }> = {
-  HRPG: { icon: Building2, bgColor: '#2563eb' },
-  UEI:  { icon: Factory,   bgColor: '#7c3aed' },
-}
+// Ícone genérico para qualquer tenant
+const AMBIENTE_ICON_DEFAULT = { icon: Building2, bgColor: '#2563eb' }
 
 // ── Foto lazy ─────────────────────────────────────────────────────────────────
 
@@ -88,9 +87,7 @@ function FotoLazy({ ambienteId }: { ambienteId: string }) {
 
 function AmbienteCard({ amb }: { amb: AmbienteInspecionado }) {
   const [aberto, setAberto] = useState(false)
-  const cfg = AMBIENTE_ICON[amb.ambiente]
-  const Icon = cfg?.icon ?? Building2
-  const bgColor = cfg?.bgColor ?? '#6b7280'
+  const { icon: Icon, bgColor } = AMBIENTE_ICON_DEFAULT
 
   return (
     <div className={`rounded-xl border transition-all ${amb.temAlteracao ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-white'}`}>
@@ -173,11 +170,58 @@ function AmbienteCard({ amb }: { amb: AmbienteInspecionado }) {
   )
 }
 
+// ── Grupo de ambientes (conformidade / ocorrências) ───────────────────────────
+
+function GrupoAmbientes({
+  titulo,
+  ambientes,
+  variante,
+}: {
+  titulo: string
+  ambientes: AmbienteInspecionado[]
+  variante: 'normal' | 'ocorrencia'
+}) {
+  const [aberto, setAberto] = useState(false)
+
+  const estilos =
+    variante === 'normal'
+      ? { header: 'bg-green-50 border-green-200 text-green-800', badge: 'bg-green-100 text-green-700' }
+      : { header: 'bg-orange-50 border-orange-200 text-orange-800', badge: 'bg-orange-100 text-orange-700' }
+
+  if (ambientes.length === 0) return null
+
+  return (
+    <div className={`rounded-xl border ${estilos.header.split(' ').filter(c => c.startsWith('border')).join(' ')} overflow-hidden`}>
+      <button
+        className={`w-full flex items-center justify-between px-3 py-2.5 text-left ${estilos.header}`}
+        onClick={() => setAberto((v) => !v)}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold font-sans">{titulo}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${estilos.badge}`}>
+            {ambientes.length}
+          </span>
+        </div>
+        {aberto ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
+      </button>
+
+      {aberto && (
+        <div className="px-3 pb-3 pt-2 space-y-2">
+          {ambientes.map((amb) => (
+            <AmbienteCard key={amb.id} amb={amb} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Card de rodada ────────────────────────────────────────────────────────────
 
 function RodadaCard({ rodada }: { rodada: Rodada }) {
   const [aberto, setAberto] = useState(false)
-  const comOcorrencia = rodada.ambientes.filter((a) => a.temAlteracao).length
+  const normais = rodada.ambientes.filter((a) => !a.temAlteracao)
+  const ocorrencias = rodada.ambientes.filter((a) => a.temAlteracao)
   const total = rodada.ambientes.length
 
   return (
@@ -191,9 +235,9 @@ function RodadaCard({ rodada }: { rodada: Rodada }) {
             <span className="font-semibold font-sans text-dark text-sm">
               {format(new Date(rodada.iniciadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </span>
-            {comOcorrencia > 0 ? (
+            {ocorrencias.length > 0 ? (
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-orange-100 text-orange-700">
-                {comOcorrencia} ocorrência{comOcorrencia > 1 ? 's' : ''}
+                {ocorrencias.length} ocorrência{ocorrencias.length > 1 ? 's' : ''}
               </span>
             ) : (
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">
@@ -213,9 +257,8 @@ function RodadaCard({ rodada }: { rodada: Rodada }) {
 
       {aberto && (
         <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
-          {rodada.ambientes.map((amb) => (
-            <AmbienteCard key={amb.id} amb={amb} />
-          ))}
+          <GrupoAmbientes titulo="Conformidade" ambientes={normais} variante="normal" />
+          <GrupoAmbientes titulo="Ocorrências" ambientes={ocorrencias} variante="ocorrencia" />
         </div>
       )}
     </div>
@@ -225,6 +268,7 @@ function RodadaCard({ rodada }: { rodada: Rodada }) {
 // ── Página ────────────────────────────────────────────────────────────────────
 
 export default function HistoricoPage() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>()
   const { data: rodadas = [], isLoading } = useQuery<Rodada[]>({
     queryKey: ['rodadas'],
     queryFn: () => fetch('/api/rodadas').then((r) => r.json()),
@@ -241,15 +285,15 @@ export default function HistoricoPage() {
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Histórico de Inspeções" />
+      <Header title="Histórico de Inspeções" backHref={`/${tenantSlug}/inspecao`} />
 
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
 
         <div className="flex items-center justify-between mb-5">
-          <Link href="/inspecao" className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-red-base font-sans transition-colors">
+          <Link href={`/${tenantSlug}/inspecao`} className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-red-base font-sans transition-colors">
             <ArrowLeft className="w-4 h-4" /> Voltar
           </Link>
-          <Link href="/inspecao" className="text-sm font-semibold text-red-base font-sans hover:text-red-dark transition-colors">
+          <Link href={`/${tenantSlug}/inspecao`} className="text-sm font-semibold text-red-base font-sans hover:text-red-dark transition-colors">
             + Nova inspeção
           </Link>
         </div>

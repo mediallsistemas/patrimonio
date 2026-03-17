@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import {
   CheckCircle, ChevronRight, Upload, X, History,
-  Building2, Factory, FlaskConical, Package,
+  FlaskConical, Package,
   BatteryFull, BatteryLow,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -17,7 +17,6 @@ import Header from '@/components/header'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
-type Ambiente = 'HRPG' | 'UEI'
 type TipoAlteracao = 'eletrica' | 'hidraulica' | 'patrimonio'
 type TamanhoCilindro = 'P7' | 'P10' | 'P45' | 'P50'
 type Etapa =
@@ -49,24 +48,7 @@ interface DetalheAlteracao {
   trilogoChamado: boolean | null
 }
 
-interface AmbienteConcluido {
-  ambiente: Ambiente
-  backupLigado: boolean
-  temAbastecimento: boolean
-  qtdCilindros?: number
-  tamCilindros?: string
-  temAlteracao: boolean
-  tipo?: TipoAlteracao
-}
-
 // ── Config ───────────────────────────────────────────────────────────────────
-
-const AMBIENTES_LISTA: Ambiente[] = ['HRPG', 'UEI']
-
-const AMBIENTE_CONFIG: Record<Ambiente, { icon: React.ElementType; bgColor: string }> = {
-  HRPG: { icon: Building2, bgColor: '#2563eb' },
-  UEI:  { icon: Factory,   bgColor: '#7c3aed' },
-}
 
 const TIPOS_ALTERACAO: { value: TipoAlteracao; label: string; color: string }[] = [
   { value: 'eletrica',   label: 'Elétrica',   color: 'border-yellow-400 bg-yellow-50 text-yellow-700' },
@@ -87,17 +69,19 @@ const ETAPA_NUM: Record<Etapa, number> = {
   trilogo: 6,
   resumo: 7,
 }
-const TOTAL_ETAPAS_INTERNAS = 6
+const TOTAL_ETAPAS = 6
 
 // ── Componente ───────────────────────────────────────────────────────────────
 
 export default function InspecaoPage() {
   const router = useRouter()
+  const { tenantSlug } = useParams<{ tenantSlug: string }>()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // O ambiente inspecionado é sempre o próprio tenant (em maiúsculas)
+  const ambiente = tenantSlug.toUpperCase()
+
   const [rodadaId, setRodadaId] = useState<string | null>(null)
-  const [ambienteIdx, setAmbienteIdx] = useState(0)
-  const [concluidos, setConcluidos] = useState<AmbienteConcluido[]>([])
   const [etapa, setEtapa] = useState<Etapa>('inicio')
 
   const [medicoes, setMedicoes] = useState<Medicoes>({
@@ -110,13 +94,18 @@ export default function InspecaoPage() {
   const [detalhe, setDetalhe] = useState<DetalheAlteracao>({
     tipo: null, descricao: '', foto: null, trilogoChamado: null,
   })
+  const [resumo, setResumo] = useState<{
+    temAbastecimento: boolean
+    qtdCilindros?: number
+    tamCilindros?: string
+    temAlteracao: boolean
+    tipo?: TipoAlteracao
+  } | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const ambienteAtual = AMBIENTES_LISTA[ambienteIdx]
-  const totalAmbientes = AMBIENTES_LISTA.length
-  const isUltimoAmbiente = ambienteIdx === totalAmbientes - 1
+  const progressoTotal = (ETAPA_NUM[etapa] / TOTAL_ETAPAS) * 100
 
   // ── Iniciar rodada ────────────────────────────────────────────────────────
   async function handleIniciar() {
@@ -151,7 +140,6 @@ export default function InspecaoPage() {
   }
 
   // ── Backup ────────────────────────────────────────────────────────────────
-  // Backup SIM ou NÃO → ambos avançam para abastecimento_pergunta
   function handleBackup(ligado: boolean) {
     setBackupLigado(ligado)
     setEtapa('abastecimento_pergunta')
@@ -173,12 +161,12 @@ export default function InspecaoPage() {
     setEtapa('alteracao_pergunta')
   }
 
-  // ── Sem alteração → salva e avança ────────────────────────────────────────
+  // ── Sem alteração → salva e finaliza ──────────────────────────────────────
   async function handleSemAlteracao() {
     setSubmitting(true)
     try {
       await salvarAmbiente(false)
-      avancarAmbiente(false)
+      await finalizarRodada(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
@@ -209,14 +197,14 @@ export default function InspecaoPage() {
     setEtapa('trilogo')
   }
 
-  // ── Trilogo → salva e avança ──────────────────────────────────────────────
+  // ── Trilogo → salva e finaliza ────────────────────────────────────────────
   async function handleTrilogo(trilogoChamado: boolean) {
     const det = { ...detalhe, trilogoChamado }
     setDetalhe(det)
     setSubmitting(true)
     try {
       await salvarAmbiente(true, det)
-      avancarAmbiente(true, det.tipo ?? undefined)
+      await finalizarRodada(true, det.tipo ?? undefined)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
@@ -231,11 +219,11 @@ export default function InspecaoPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ambiente:         ambienteAtual,
+        ambiente,
         purezaO2:         medicoes.purezaO2,
         pressaoO2:        medicoes.pressaoO2,
         pressaoAr:        medicoes.pressaoAr,
-        backupLigado:     backupLigado,
+        backupLigado,
         temAbastecimento: temAbast,
         abastecimento: temAbast ? {
           quantidade: abastecimento.quantidade,
@@ -256,56 +244,39 @@ export default function InspecaoPage() {
     }
   }
 
-  // ── Avançar para próximo ambiente ou resumo ───────────────────────────────
-  function avancarAmbiente(temAlteracao: boolean, tipo?: TipoAlteracao) {
-    const temAbast = Boolean(abastecimento.quantidade && abastecimento.tamanho)
-    setConcluidos((prev) => [
-      ...prev,
-      {
-        ambiente:         ambienteAtual,
-        backupLigado:     backupLigado ?? false,
-        temAbastecimento: temAbast,
-        qtdCilindros:     temAbast ? Number(abastecimento.quantidade) : undefined,
-        tamCilindros:     temAbast ? abastecimento.tamanho ?? undefined : undefined,
-        temAlteracao,
-        tipo,
-      },
-    ])
-
-    if (!isUltimoAmbiente) {
-      setAmbienteIdx((i) => i + 1)
-      setMedicoes({ purezaO2: '', pressaoO2: '', pressaoAr: '' })
-      setBackupLigado(null)
-      setAbastecimento({ quantidade: '', tamanho: null })
-      setDetalhe({ tipo: null, descricao: '', foto: null, trilogoChamado: null })
-      setErrors({})
-      setEtapa('medicoes')
-    } else {
-      finalizarRodada()
-    }
-  }
-
-  async function finalizarRodada() {
+  // ── Finalizar rodada ──────────────────────────────────────────────────────
+  async function finalizarRodada(temAlteracao: boolean, tipo?: TipoAlteracao) {
     try {
       await fetch(`/api/rodadas/${rodadaId}`, { method: 'PATCH' })
     } catch {
       // não crítico
     }
+    const temAbast = Boolean(abastecimento.quantidade && abastecimento.tamanho)
+    setResumo({
+      temAbastecimento: temAbast,
+      qtdCilindros:     temAbast ? Number(abastecimento.quantidade) : undefined,
+      tamCilindros:     temAbast ? abastecimento.tamanho ?? undefined : undefined,
+      temAlteracao,
+      tipo,
+    })
     setEtapa('resumo')
   }
 
-  // ── Progresso ─────────────────────────────────────────────────────────────
-  const progressoInterno = ETAPA_NUM[etapa] / TOTAL_ETAPAS_INTERNAS
-  const progressoTotal = ((ambienteIdx + progressoInterno) / totalAmbientes) * 100
-
-  const { icon: AmbIcon, bgColor: ambBgColor } = ambienteAtual
-    ? AMBIENTE_CONFIG[ambienteAtual]
-    : { icon: FlaskConical, bgColor: '#6b7280' }
+  function resetForm() {
+    setRodadaId(null)
+    setEtapa('inicio')
+    setMedicoes({ purezaO2: '', pressaoO2: '', pressaoAr: '' })
+    setBackupLigado(null)
+    setAbastecimento({ quantidade: '', tamanho: null })
+    setDetalhe({ tipo: null, descricao: '', foto: null, trilogoChamado: null })
+    setResumo(null)
+    setErrors({})
+  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Inspeção de Gases Medicinais" />
+      <Header title="Inspeção de Gases Medicinais" backHref={`/${tenantSlug}`} />
 
       <main className="flex-1 flex items-start justify-center px-4 py-6">
         <div className="w-full max-w-lg space-y-4">
@@ -314,11 +285,7 @@ export default function InspecaoPage() {
           {etapa !== 'inicio' && etapa !== 'resumo' && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs font-sans text-gray-300">
-                <span>
-                  Ambiente {ambienteIdx + 1} de {totalAmbientes}
-                  {' · '}
-                  <span className="font-semibold text-dark">{ambienteAtual}</span>
-                </span>
+                <span className="font-semibold text-dark">{ambiente}</span>
                 <span>{Math.round(progressoTotal)}% concluído</span>
               </div>
               <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -326,24 +293,6 @@ export default function InspecaoPage() {
                   className="h-full bg-red-base rounded-full transition-all duration-500"
                   style={{ width: `${progressoTotal}%` }}
                 />
-              </div>
-              <div className="flex gap-1.5 pt-0.5">
-                {AMBIENTES_LISTA.map((a, i) => {
-                  const concluido = concluidos.find((c) => c.ambiente === a)
-                  const atual = i === ambienteIdx
-                  return (
-                    <div key={a} className="flex items-center gap-1 text-xs font-sans">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          concluido
-                            ? concluido.temAlteracao ? 'bg-orange-400' : 'bg-green-500'
-                            : atual ? 'bg-red-base' : 'bg-gray-200'
-                        }`}
-                      />
-                      <span className={atual ? 'text-dark font-semibold' : 'text-gray-300'}>{a}</span>
-                    </div>
-                  )
-                })}
               </div>
             </div>
           )}
@@ -360,24 +309,9 @@ export default function InspecaoPage() {
                     Inspeção da Usina de Gases
                   </Text>
                   <Text variant="body-sm" className="text-gray-300 block">
-                    Você vai inspecionar {totalAmbientes} ambientes em sequência
+                    Inspeção do ambiente <strong>{ambiente}</strong>
                   </Text>
                 </div>
-              </div>
-
-              <div className="space-y-2 mb-6">
-                {AMBIENTES_LISTA.map((a, i) => {
-                  const { icon: Icon, bgColor } = AMBIENTE_CONFIG[a]
-                  return (
-                    <div key={a} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bgColor }}>
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <span className="flex-1 text-sm font-semibold font-sans text-dark">{a}</span>
-                      <span className="text-xs text-gray-300 font-sans">#{i + 1}</span>
-                    </div>
-                  )
-                })}
               </div>
 
               <Button onClick={handleIniciar} disabled={submitting} className="w-full">
@@ -386,7 +320,7 @@ export default function InspecaoPage() {
               </Button>
 
               <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-                <Link href="/inspecao/historico" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-red-base font-sans transition-colors">
+                <Link href={`/${tenantSlug}/inspecao/historico`} className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-red-base font-sans transition-colors">
                   <History className="w-4 h-4" />
                   Ver histórico de inspeções
                 </Link>
@@ -398,12 +332,12 @@ export default function InspecaoPage() {
           {etapa === 'medicoes' && (
             <Card shadow="md">
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: ambBgColor }}>
-                  <AmbIcon className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#7c3aed' }}>
+                  <FlaskConical className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <Text as="h2" variant="heading-sm" className="text-dark block">
-                    Medições — {ambienteAtual}
+                    Medições — {ambiente}
                   </Text>
                   <Text variant="body-sm" className="text-gray-300 block">
                     Registre os valores aferidos na usina
@@ -456,7 +390,7 @@ export default function InspecaoPage() {
                     Sistema de Backup
                   </Text>
                   <Text variant="body-sm" className="text-gray-300 block">
-                    O backup da usina {ambienteAtual} está ligado?
+                    O backup da usina {ambiente} está ligado?
                   </Text>
                 </div>
               </div>
@@ -511,7 +445,7 @@ export default function InspecaoPage() {
                     Abastecimento de Cilindros
                   </Text>
                   <Text variant="body-sm" className="text-gray-300 block">
-                    Houve abastecimento de cilindros em {ambienteAtual}?
+                    Houve abastecimento de cilindros em {ambiente}?
                   </Text>
                 </div>
               </div>
@@ -563,7 +497,7 @@ export default function InspecaoPage() {
                     Dados do Abastecimento
                   </Text>
                   <Text variant="body-sm" className="text-gray-300 block">
-                    Informe os cilindros abastecidos em {ambienteAtual}
+                    Informe os cilindros abastecidos em {ambiente}
                   </Text>
                 </div>
               </div>
@@ -614,7 +548,7 @@ export default function InspecaoPage() {
                 Teve alguma alteração?
               </Text>
               <Text variant="body-sm" className="text-gray-300 mb-4 block">
-                Alguma ocorrência identificada na usina {ambienteAtual}?
+                Alguma ocorrência identificada na usina {ambiente}?
               </Text>
 
               {/* Resumo medições + backup */}
@@ -677,7 +611,7 @@ export default function InspecaoPage() {
                 Detalhar alteração
               </Text>
               <Text variant="body-sm" className="text-gray-300 mb-5 block">
-                Informe o tipo e descreva a ocorrência em {ambienteAtual}
+                Informe o tipo e descreva a ocorrência em {ambiente}
               </Text>
 
               <div className="space-y-5">
@@ -763,7 +697,7 @@ export default function InspecaoPage() {
                 Chamado no Trilogo
               </Text>
               <Text variant="body-sm" className="text-gray-300 mb-6 block">
-                Foi aberto chamado no sistema Trilogo para esta ocorrência em {ambienteAtual}?
+                Foi aberto chamado no sistema Trilogo para esta ocorrência em {ambiente}?
               </Text>
 
               <div className="grid grid-cols-2 gap-4 mb-4">
@@ -790,7 +724,7 @@ export default function InspecaoPage() {
           )}
 
           {/* ── RESUMO FINAL ─────────────────────────────────────────── */}
-          {etapa === 'resumo' && (
+          {etapa === 'resumo' && resumo && (
             <Card shadow="md">
               <div className="flex flex-col items-center gap-3 py-2 mb-5">
                 <div className="w-14 h-14 rounded-full bg-green-light flex items-center justify-center">
@@ -801,67 +735,42 @@ export default function InspecaoPage() {
                     Inspeção concluída!
                   </Text>
                   <Text variant="body-sm" className="text-gray-300 block">
-                    Todos os {totalAmbientes} ambientes foram inspecionados
+                    Ambiente {ambiente} inspecionado com sucesso
                   </Text>
                 </div>
               </div>
 
-              <div className="space-y-2 mb-6">
-                {concluidos.map(({ ambiente, backupLigado: bl, temAbastecimento, qtdCilindros, tamCilindros, temAlteracao, tipo }) => {
-                  const { icon: Icon, bgColor } = AMBIENTE_CONFIG[ambiente]
-                  return (
-                    <div
-                      key={ambiente}
-                      className={`flex items-center gap-3 p-3 rounded-xl border ${temAlteracao ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'}`}
-                    >
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bgColor }}>
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-semibold font-sans text-dark">{ambiente}</span>
-                        <span className={`text-xs font-sans ml-2 ${bl ? 'text-green-600' : 'text-red-600'}`}>
-                          · backup {bl ? 'on' : 'off'}
-                        </span>
-                        {temAbastecimento && (
-                          <span className="text-xs text-sky-600 font-sans ml-2">
-                            · {qtdCilindros} cil. {tamCilindros}
-                          </span>
-                        )}
-                        {temAlteracao && tipo && (
-                          <span className="text-xs text-orange-600 font-sans ml-2">
-                            · {TIPOS_ALTERACAO.find((t) => t.value === tipo)?.label}
-                          </span>
-                        )}
-                      </div>
-                      <span className={`text-xs font-semibold font-sans px-2 py-0.5 rounded-full ${temAlteracao ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                        {temAlteracao ? 'Ocorrência' : 'Normal'}
-                      </span>
-                    </div>
-                  )
-                })}
+              <div className={`flex items-center gap-3 p-3 rounded-xl border mb-6 ${resumo.temAlteracao ? 'border-orange-200 bg-orange-50' : 'border-green-200 bg-green-50'}`}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#7c3aed' }}>
+                  <FlaskConical className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold font-sans text-dark">{ambiente}</span>
+                  {resumo.temAbastecimento && (
+                    <span className="text-xs text-sky-600 font-sans ml-2">
+                      · {resumo.qtdCilindros} cil. {resumo.tamCilindros}
+                    </span>
+                  )}
+                  {resumo.temAlteracao && resumo.tipo && (
+                    <span className="text-xs text-orange-600 font-sans ml-2">
+                      · {TIPOS_ALTERACAO.find((t) => t.value === resumo.tipo)?.label}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-xs font-semibold font-sans px-2 py-0.5 rounded-full ${resumo.temAlteracao ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                  {resumo.temAlteracao ? 'Ocorrência' : 'Normal'}
+                </span>
               </div>
 
               <div className="space-y-3">
-                <Button
-                  onClick={() => {
-                    setRodadaId(null)
-                    setAmbienteIdx(0)
-                    setConcluidos([])
-                    setMedicoes({ purezaO2: '', pressaoO2: '', pressaoAr: '' })
-                    setBackupLigado(null)
-                    setAbastecimento({ quantidade: '', tamanho: null })
-                    setDetalhe({ tipo: null, descricao: '', foto: null, trilogoChamado: null })
-                    setEtapa('inicio')
-                  }}
-                  className="w-full"
-                >
+                <Button onClick={resetForm} className="w-full">
                   Nova inspeção
                 </Button>
-                <Button variant="outline" onClick={() => router.push('/inspecao/historico')} className="w-full">
+                <Button variant="outline" onClick={() => router.push(`/${tenantSlug}/inspecao/historico`)} className="w-full">
                   <History className="w-4 h-4" />
                   Ver histórico
                 </Button>
-                <Button variant="ghost" onClick={() => router.push('/')} className="w-full">
+                <Button variant="ghost" onClick={() => router.push(`/${tenantSlug}`)} className="w-full">
                   Voltar ao início
                 </Button>
               </div>

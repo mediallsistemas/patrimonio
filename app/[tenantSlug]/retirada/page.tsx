@@ -66,7 +66,7 @@ export default function RetiradaPage() {
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Retirada de Roupa" />
+      <Header title="Retirada de Roupa" backHref={`/${tenantSlug}`} />
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-lg space-y-4">

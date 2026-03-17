@@ -15,8 +15,8 @@ async function main() {
   // ── Criar tenants ────────────────────────────────────────────────────────
   const hrpg = await prisma.tenant.upsert({
     where: { slug: 'hrpg' },
-    update: {},
-    create: { slug: 'hrpg', nome: 'Hospital Regional de Porto Geral' },
+    update: { nome: 'Hospital Regional de Porto Grande' },
+    create: { slug: 'hrpg', nome: 'Hospital Regional de Porto Grande' },
   })
 
   const uei = await prisma.tenant.upsert({
@@ -68,7 +68,7 @@ async function main() {
 
   console.log('✅ Usuários criados:')
   console.log('   super_admin  → admin@mediall.com.br  / Admin@2026')
-  console.log('   tenant_admin → admin@hrpg.com.br     / Hrpg@2026  (acessa /hrpg)')
+  console.log('   tenant_admin → admin@hrpg.com.br     / Hrpg@2026  (acessa /hrpg)  → Hospital Regional de Porto Grande')
   console.log('   tenant_admin → admin@uei.com.br      / Uei@2026   (acessa /uei)')
   console.log('🎉 Seed concluído!')
 }
