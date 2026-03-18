@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { CheckCircle, Camera } from 'lucide-react'
 import { TbFaceId } from 'react-icons/tb'
 import toast from 'react-hot-toast'
@@ -16,6 +16,7 @@ import { validarCPF, formatarCPF } from '@/utils/format'
 
 export default function CadastroPage() {
   const router = useRouter()
+  const { tenantSlug } = useParams<{ tenantSlug: string }>()
   const [nome, setNome] = useState('')
   const [cpf, setCpf] = useState('')
   const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null)
@@ -51,9 +52,9 @@ export default function CadastroPage() {
 
     setSubmitting(true)
     try {
-      await api.post('pessoas', { nome: nome.trim(), cpf, faceDescriptor })
+      await api.post(`hotelaria/${tenantSlug}/pessoas`, { nome: nome.trim(), cpf, faceDescriptor })
       toast.success('Cadastro realizado com sucesso!')
-      router.push('/')
+      router.push(`/${tenantSlug}`)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar cadastro')
     } finally {

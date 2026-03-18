@@ -3,6 +3,7 @@ import { GiClothes } from 'react-icons/gi'
 import { TbFaceId } from 'react-icons/tb'
 import { ArrowDownToLine, RotateCcw } from 'lucide-react'
 import Text from '@/components/text'
+import FaceApiPreloader from '@/components/face-api-preloader'
 
 export default async function HotelariaHomePage({
   params,
@@ -37,6 +38,7 @@ export default async function HotelariaHomePage({
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center justify-center p-6">
+      <FaceApiPreloader />
       <div className="w-full max-w-2xl">
 
         <div className="text-center mb-10">

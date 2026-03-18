@@ -148,20 +148,17 @@ export default function OcorrenciasPage() {
   }
 
   async function handleIniciar() {
-    setSubmitting(true)
+    setBlocoIdx(0)
+    setAmbienteIdx(0)
+    setEtapa('bloco_intro')
+    // Pré-cria a ronda em background para que o primeiro submit não precise esperar
     try {
       const res = await fetch('/api/rondas', { method: 'POST' })
-      if (!res.ok) throw new Error('Falha ao iniciar ronda')
-      const ronda = await res.json()
-      setRondaId(ronda.id)
-      setBlocoIdx(0)
-      setAmbienteIdx(0)
-      setEtapa('bloco_intro')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao iniciar')
-    } finally {
-      setSubmitting(false)
-    }
+      if (res.ok) {
+        const ronda = await res.json()
+        setRondaId(ronda.id)
+      }
+    } catch { /* silencioso — salvarAmbiente cria se ainda não existir */ }
   }
 
   async function handleSemOcorrencia() {
@@ -208,7 +205,16 @@ export default function OcorrenciasPage() {
   }
 
   async function salvarAmbiente(temOcorrencia: boolean, det?: DetalheOcorrencia) {
-    const res = await fetch(`/api/rondas/${rondaId}/ambientes`, {
+    let id = rondaId
+    if (!id) {
+      // Fallback: cria a ronda se o pré-carregamento falhou
+      const criada = await fetch('/api/rondas', { method: 'POST' })
+      if (!criada.ok) throw new Error('Falha ao criar ronda')
+      const ronda = await criada.json()
+      id = ronda.id
+      setRondaId(id)
+    }
+    const res = await fetch(`/api/rondas/${id}/ambientes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -329,8 +335,8 @@ export default function OcorrenciasPage() {
                 ))}
               </div>
 
-              <Button onClick={handleIniciar} disabled={submitting} className="w-full">
-                {submitting ? 'Iniciando...' : 'Iniciar Ronda'} <ChevronRight className="w-4 h-4" />
+              <Button onClick={handleIniciar} className="w-full">
+                Iniciar Ronda <ChevronRight className="w-4 h-4" />
               </Button>
 
               <div className="mt-4 pt-4 border-t border-gray-100 text-center">

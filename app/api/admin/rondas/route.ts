@@ -8,15 +8,15 @@ export async function GET() {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
-  const [rodadas, tenants] = await Promise.all([
-    prisma.rodada.findMany({
+  const [rondas, tenants] = await Promise.all([
+    prisma.rondaOcorrencia.findMany({
       orderBy: { iniciadoEm: 'desc' },
       take: 100,
       include: {
         ambientes: {
           orderBy: { concluidoEm: 'asc' },
           include: {
-            alteracao: {
+            ocorrencia: {
               select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
             },
           },
@@ -28,7 +28,7 @@ export async function GET() {
 
   const tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t]))
 
-  const result = rodadas.map((r) => ({
+  const result = rondas.map((r) => ({
     ...r,
     tenant: tenantMap[r.tenantId] ?? { id: r.tenantId, nome: 'Desconhecido', slug: '' },
   }))

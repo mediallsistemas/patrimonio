@@ -4,14 +4,16 @@ import { comparePassword, setSessionCookie, SessionPayload } from '@/lib/auth'
 
 export async function POST(req: Request) {
   try {
-    const { email, senha } = await req.json()
+    const body = await req.json()
+    const email = (body.email ?? '').trim()
+    const senha = (body.senha ?? '').trim()
 
     if (!email || !senha) {
       return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
     }
 
     const usuario = await prisma.usuario.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: email.toLowerCase() },
       include: { tenant: true },
     })
 

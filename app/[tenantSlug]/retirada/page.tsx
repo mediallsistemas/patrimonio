@@ -154,7 +154,7 @@ export default function RetiradaPage() {
                   >
                     Tentar novamente
                   </Button>
-                  <Link href="/cadastro" className="flex-1">
+                  <Link href={`/${tenantSlug}/cadastro`} className="flex-1">
                     <Button variant="success" className="w-full">
                       <UserPlus className="w-4 h-4" />
                       Cadastrar-se
@@ -177,7 +177,7 @@ export default function RetiradaPage() {
                 <Text variant="body-md" className="text-gray-300 block">
                   Boa, {pessoa?.nome}! Sua retirada foi confirmada com sucesso.
                 </Text>
-                <Button onClick={() => router.push('/')} className="w-full" size="lg">
+                <Button onClick={() => router.push(`/${tenantSlug}`)} className="w-full" size="lg">
                   Voltar ao Menu
                 </Button>
               </div>

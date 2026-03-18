@@ -142,7 +142,7 @@ export default function DevolucaoPage() {
                     Você não possui retiradas pendentes de devolução.
                   </Text>
                 </div>
-                <Button onClick={() => router.push('/')} className="w-full">
+                <Button onClick={() => router.push(`/${tenantSlug}`)} className="w-full">
                   Voltar ao Menu
                 </Button>
               </div>
@@ -169,7 +169,7 @@ export default function DevolucaoPage() {
                   >
                     Tentar novamente
                   </Button>
-                  <Button variant="secondary" onClick={() => router.push('/')} className="flex-1">
+                  <Button variant="secondary" onClick={() => router.push(`/${tenantSlug}`)} className="flex-1">
                     Voltar
                   </Button>
                 </div>
@@ -189,7 +189,7 @@ export default function DevolucaoPage() {
                 <Text variant="body-md" className="text-gray-300 block">
                   Obrigado, {pessoa?.nome}! A devolução foi confirmada com sucesso.
                 </Text>
-                <Button onClick={() => router.push('/')} className="w-full" size="lg">
+                <Button onClick={() => router.push(`/${tenantSlug}`)} className="w-full" size="lg">
                   Voltar ao Menu
                 </Button>
               </div>

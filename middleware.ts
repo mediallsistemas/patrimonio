@@ -13,6 +13,17 @@ const PUBLIC_PATHS = [
   '/api/auth/logout',
 ]
 
+// Rotas de primeiro nível que NÃO são tenantSlug
+const APP_ROUTES = [
+  '/ocorrencias',
+  '/dashboard',
+  '/cadastro',
+  '/retirada',
+  '/devolucao',
+  '/inspecao',
+  '/admin',
+]
+
 // Roles com acesso ao módulo de manutenção
 const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user'])
 
@@ -30,10 +41,12 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── Módulo Hotelaria — público (:tenantSlug/hotelaria/*)
-  // Qualquer pessoa pode acessar sem autenticação
-  const hotelariaMath = pathname.match(/^\/[a-z0-9-]+\/hotelaria(\/|$)/)
-  if (hotelariaMath) {
+  // ── Módulos públicos — sem autenticação necessária
+  // hotelaria, retirada, cadastro e devolução são abertos antes do login
+  const publicTenantModules = pathname.match(
+    /^\/[a-z0-9-]+\/(hotelaria|retirada|cadastro|devolucao)(\/|$)/
+  )
+  if (publicTenantModules) {
     return NextResponse.next()
   }
 
@@ -44,6 +57,13 @@ export async function middleware(req: NextRequest) {
     // raiz "/" sem token → /login
     if (pathname === '/') {
       return NextResponse.redirect(new URL('/login', req.url))
+    }
+    // rotas de app fixas sem token → login (não tratar como tenantSlug)
+    const isAppRoute = APP_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))
+    if (isAppRoute) {
+      const loginUrl = new URL('/login', req.url)
+      loginUrl.searchParams.set('from', pathname)
+      return NextResponse.redirect(loginUrl)
     }
     // /:tenantSlug ou /:tenantSlug/ sem token → hotelaria pública
     const tenantRootPublic = pathname.match(/^\/([a-z0-9-]+)\/?$/)
@@ -60,7 +80,8 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload: p } = await jwtVerify(token, JWT_SECRET)
     payload = p as typeof payload
-  } catch {
+  } catch (err) {
+    console.error('[middleware] JWT inválido para', pathname, err)
     const loginUrl = new URL('/login', req.url)
     return NextResponse.redirect(loginUrl)
   }
@@ -121,8 +142,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  console.log('[middleware] passou auth, role:', payload.role, 'path:', pathname)
+
   // ── /:tenantSlug (home do tenant) — redireciona para módulo correto ───────
-  const tenantRootMatch = pathname.match(/^\/([a-z0-9-]+)\/?$/)
+  const isAppRoute = APP_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))
+  const tenantRootMatch = !isAppRoute && pathname.match(/^\/([a-z0-9-]+)\/?$/)
   if (tenantRootMatch) {
     const slugFromPath = tenantRootMatch[1]
     if (role === 'super_admin') {

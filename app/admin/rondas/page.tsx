@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
-  ChevronDown, ChevronUp, ArrowLeft, Building2, Factory,
+  ChevronDown, ChevronUp, ArrowLeft,
   AlertTriangle, CheckCircle2, Activity,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -13,24 +13,19 @@ import Card from '@/components/card'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-interface Alteracao {
+interface OcorrenciaDetalhe {
   id: string
   tipo: string
   descricao: string
   trilogoChamado: boolean
 }
 
-interface AmbienteInspecionado {
+interface RegistroAmbiente {
   id: string
   ambiente: string
-  purezaO2: number
-  pressaoO2: number
-  pressaoAr: number
-  backupLigado: boolean
-  temAbastecimento: boolean
-  temAlteracao: boolean
+  temOcorrencia: boolean
   concluidoEm: string
-  alteracao: Alteracao | null
+  ocorrencia: OcorrenciaDetalhe | null
 }
 
 interface Tenant {
@@ -39,12 +34,12 @@ interface Tenant {
   slug: string
 }
 
-interface Rodada {
+interface Ronda {
   id: string
   tenantId: string
   iniciadoEm: string
   finalizadoEm: string | null
-  ambientes: AmbienteInspecionado[]
+  ambientes: RegistroAmbiente[]
   tenant: Tenant
 }
 
@@ -56,11 +51,6 @@ const TIPO_LABEL: Record<string, { label: string; color: string }> = {
   patrimonio: { label: 'Patrimônio', color: 'bg-purple-100 text-purple-700' },
 }
 
-const AMBIENTE_ICON: Record<string, { icon: React.ElementType; bgColor: string }> = {
-  HRPG: { icon: Building2, bgColor: '#2563eb' },
-  UEI:  { icon: Factory,   bgColor: '#7c3aed' },
-}
-
 // ── Grupo de ambientes ────────────────────────────────────────────────────────
 
 function GrupoAmbientes({
@@ -69,7 +59,7 @@ function GrupoAmbientes({
   variante,
 }: {
   titulo: string
-  ambientes: AmbienteInspecionado[]
+  ambientes: RegistroAmbiente[]
   variante: 'normal' | 'ocorrencia'
 }) {
   const [aberto, setAberto] = useState(false)
@@ -110,55 +100,42 @@ function GrupoAmbientes({
 
       {aberto && (
         <div className="px-3 pb-3 pt-2 space-y-2">
-          {ambientes.map((amb) => {
-            const cfg = AMBIENTE_ICON[amb.ambiente]
-            const Icon = cfg?.icon ?? Building2
-            const bgColor = cfg?.bgColor ?? '#6b7280'
-            return (
-              <div
-                key={amb.id}
-                className={`rounded-xl border px-3 py-2.5 flex items-start gap-3 ${amb.temAlteracao ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-white'}`}
-              >
-                <div
-                  className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5"
-                  style={{ backgroundColor: bgColor }}
-                >
-                  <Icon className="w-3 h-3 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold font-sans text-dark">{amb.ambiente}</span>
-                    {amb.temAlteracao && amb.alteracao ? (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[amb.alteracao.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
-                        {TIPO_LABEL[amb.alteracao.tipo]?.label ?? amb.alteracao.tipo}
-                      </span>
-                    ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">Normal</span>
-                    )}
-                  </div>
-                  {amb.temAlteracao && amb.alteracao && (
-                    <p className="text-xs text-gray-500 font-sans mt-0.5 line-clamp-2">{amb.alteracao.descricao}</p>
-                  )}
-                  <span className="text-xs text-gray-300 font-sans">
-                    {format(new Date(amb.concluidoEm), 'HH:mm', { locale: ptBR })}
+          {ambientes.map((amb) => (
+            <div
+              key={amb.id}
+              className={`rounded-xl border px-3 py-2.5 ${amb.temOcorrencia ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-white'}`}
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold font-sans text-dark">{amb.ambiente}</span>
+                {amb.temOcorrencia && amb.ocorrencia ? (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[amb.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
+                    {TIPO_LABEL[amb.ocorrencia.tipo]?.label ?? amb.ocorrencia.tipo}
                   </span>
-                </div>
+                ) : (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">Normal</span>
+                )}
               </div>
-            )
-          })}
+              {amb.temOcorrencia && amb.ocorrencia && (
+                <p className="text-xs text-gray-500 font-sans mt-0.5 line-clamp-2">{amb.ocorrencia.descricao}</p>
+              )}
+              <span className="text-xs text-gray-300 font-sans">
+                {format(new Date(amb.concluidoEm), 'HH:mm', { locale: ptBR })}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-// ── Card de rodada ────────────────────────────────────────────────────────────
+// ── Card de ronda ─────────────────────────────────────────────────────────────
 
-function RodadaCard({ rodada }: { rodada: Rodada }) {
+function RondaCard({ ronda }: { ronda: Ronda }) {
   const [aberto, setAberto] = useState(false)
-  const normais = rodada.ambientes.filter((a) => !a.temAlteracao)
-  const ocorrencias = rodada.ambientes.filter((a) => a.temAlteracao)
-  const total = rodada.ambientes.length
+  const normais = ronda.ambientes.filter((a) => !a.temOcorrencia)
+  const ocorrencias = ronda.ambientes.filter((a) => a.temOcorrencia)
+  const total = ronda.ambientes.length
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -169,10 +146,10 @@ function RodadaCard({ rodada }: { rodada: Rodada }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold font-sans text-dark text-sm">
-              {format(new Date(rodada.iniciadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              {format(new Date(ronda.iniciadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </span>
             <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-indigo-100 text-indigo-700">
-              {rodada.tenant.nome}
+              {ronda.tenant.nome}
             </span>
             {ocorrencias.length > 0 ? (
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-orange-100 text-orange-700">
@@ -186,8 +163,8 @@ function RodadaCard({ rodada }: { rodada: Rodada }) {
           </div>
           <span className="text-xs text-gray-300 font-sans">
             {total} ambiente{total !== 1 ? 's' : ''} inspecionado{total !== 1 ? 's' : ''}
-            {rodada.finalizadoEm && (
-              <> · {Math.round((new Date(rodada.finalizadoEm).getTime() - new Date(rodada.iniciadoEm).getTime()) / 60000)} min</>
+            {ronda.finalizadoEm && (
+              <> · {Math.round((new Date(ronda.finalizadoEm).getTime() - new Date(ronda.iniciadoEm).getTime()) / 60000)} min</>
             )}
           </span>
         </div>
@@ -198,6 +175,9 @@ function RodadaCard({ rodada }: { rodada: Rodada }) {
         <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
           <GrupoAmbientes titulo="Conformidade" ambientes={normais} variante="normal" />
           <GrupoAmbientes titulo="Ocorrências" ambientes={ocorrencias} variante="ocorrencia" />
+          {total === 0 && (
+            <p className="text-xs text-gray-300 font-sans text-center py-2">Nenhum ambiente registrado.</p>
+          )}
         </div>
       )}
     </div>
@@ -210,24 +190,24 @@ export default function AdminRondasPage() {
   const [filtroPendente, setFiltroPendente] = useState(false)
   const [filtroTenant, setFiltroTenant] = useState<string>('todos')
 
-  const { data: rodadas = [], isLoading } = useQuery<Rodada[]>({
-    queryKey: ['admin-rodadas'],
+  const { data: rondas = [], isLoading } = useQuery<Ronda[]>({
+    queryKey: ['admin-rondas'],
     queryFn: () => fetch('/api/admin/rondas').then((r) => r.json()),
     refetchInterval: 30_000,
   })
 
   const tenants = Array.from(
-    new Map(rodadas.map((r) => [r.tenant.id, r.tenant])).values()
+    new Map(rondas.map((r) => [r.tenant.id, r.tenant])).values()
   )
 
-  const totalRodadas = rodadas.length
-  const totalOcorrencias = rodadas.reduce((acc, r) => acc + r.ambientes.filter((a) => a.temAlteracao).length, 0)
-  const totalNormais = rodadas.reduce((acc, r) => acc + r.ambientes.filter((a) => !a.temAlteracao).length, 0)
-  const rondasComOcorrencia = rodadas.filter((r) => r.ambientes.some((a) => a.temAlteracao)).length
+  const totalRondas = rondas.length
+  const totalOcorrencias = rondas.reduce((acc, r) => acc + r.ambientes.filter((a) => a.temOcorrencia).length, 0)
+  const totalNormais = rondas.reduce((acc, r) => acc + r.ambientes.filter((a) => !a.temOcorrencia).length, 0)
+  const rondasComOcorrencia = rondas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
 
-  const rodadasFiltradas = rodadas.filter((r) => {
+  const rondasFiltradas = rondas.filter((r) => {
     if (filtroTenant !== 'todos' && r.tenantId !== filtroTenant) return false
-    if (filtroPendente && !r.ambientes.some((a) => a.temAlteracao)) return false
+    if (filtroPendente && !r.ambientes.some((a) => a.temOcorrencia)) return false
     return true
   })
 
@@ -255,10 +235,10 @@ export default function AdminRondasPage() {
         {/* Resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total de Rondas',     value: totalRodadas,       color: 'text-dark',        icon: Activity },
-            { label: 'Com Ocorrências',      value: rondasComOcorrencia, color: 'text-orange-600',  icon: AlertTriangle },
-            { label: 'Áreas c/ Ocorrência', value: totalOcorrencias,   color: 'text-orange-600',  icon: AlertTriangle },
-            { label: 'Áreas Normais',        value: totalNormais,       color: 'text-green-600',   icon: CheckCircle2 },
+            { label: 'Total de Rondas',     value: totalRondas,        color: 'text-dark',       icon: Activity },
+            { label: 'Com Ocorrências',      value: rondasComOcorrencia, color: 'text-orange-600', icon: AlertTriangle },
+            { label: 'Áreas c/ Ocorrência', value: totalOcorrencias,   color: 'text-orange-600', icon: AlertTriangle },
+            { label: 'Áreas Normais',        value: totalNormais,       color: 'text-green-600',  icon: CheckCircle2 },
           ].map(({ label, value, color, icon: Icon }) => (
             <Card key={label} shadow="sm" padding="sm" className="text-center">
               <Icon className={`w-4 h-4 mx-auto mb-1 ${color}`} />
@@ -296,12 +276,12 @@ export default function AdminRondasPage() {
         {/* Lista */}
         {isLoading ? (
           <p className="text-center py-10 text-gray-300 font-sans text-sm">Carregando...</p>
-        ) : rodadasFiltradas.length === 0 ? (
+        ) : rondasFiltradas.length === 0 ? (
           <p className="text-center py-10 text-gray-300 font-sans text-sm">Nenhuma ronda encontrada.</p>
         ) : (
           <div className="space-y-3">
-            {rodadasFiltradas.map((rodada) => (
-              <RodadaCard key={rodada.id} rodada={rodada} />
+            {rondasFiltradas.map((ronda) => (
+              <RondaCard key={ronda.id} ronda={ronda} />
             ))}
           </div>
         )}

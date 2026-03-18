@@ -108,19 +108,8 @@ export default function InspecaoPage() {
   const progressoTotal = (ETAPA_NUM[etapa] / TOTAL_ETAPAS) * 100
 
   // ── Iniciar rodada ────────────────────────────────────────────────────────
-  async function handleIniciar() {
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/rodadas', { method: 'POST' })
-      if (!res.ok) throw new Error('Falha ao iniciar rodada')
-      const rodada = await res.json()
-      setRodadaId(rodada.id)
-      setEtapa('medicoes')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao iniciar inspeção')
-    } finally {
-      setSubmitting(false)
-    }
+  function handleIniciar() {
+    setEtapa('medicoes')
   }
 
   // ── Medições ──────────────────────────────────────────────────────────────
@@ -214,8 +203,16 @@ export default function InspecaoPage() {
 
   // ── Salvar ambiente na API ────────────────────────────────────────────────
   async function salvarAmbiente(temAlteracao: boolean, det?: DetalheAlteracao) {
+    let id = rodadaId
+    if (!id) {
+      const criada = await fetch('/api/rodadas', { method: 'POST' })
+      if (!criada.ok) throw new Error('Falha ao criar rodada')
+      const rodada = await criada.json()
+      id = rodada.id
+      setRodadaId(id)
+    }
     const temAbast = Boolean(abastecimento.quantidade && abastecimento.tamanho)
-    const res = await fetch(`/api/rodadas/${rodadaId}/ambientes`, {
+    const res = await fetch(`/api/rodadas/${id}/ambientes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -314,8 +311,8 @@ export default function InspecaoPage() {
                 </div>
               </div>
 
-              <Button onClick={handleIniciar} disabled={submitting} className="w-full">
-                {submitting ? 'Iniciando...' : 'Iniciar Inspeção'}
+              <Button onClick={handleIniciar} className="w-full">
+                Iniciar Inspeção
                 <ChevronRight className="w-4 h-4" />
               </Button>
 
