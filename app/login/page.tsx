@@ -44,8 +44,7 @@ function LoginForm() {
           ? '/admin'
           : `/${usuario.tenantSlug}`
 
-      router.push(dest)
-      router.refresh()
+      window.location.href = dest
     } catch {
       setErro('Erro de conexão')
     } finally {

@@ -25,7 +25,7 @@ const APP_ROUTES = [
 ]
 
 // Roles com acesso ao módulo de manutenção
-const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user'])
+const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin'])
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
@@ -81,9 +81,10 @@ export async function middleware(req: NextRequest) {
     const { payload: p } = await jwtVerify(token, JWT_SECRET)
     payload = p as typeof payload
   } catch (err) {
-    console.error('[middleware] JWT inválido para', pathname, err)
     const loginUrl = new URL('/login', req.url)
-    return NextResponse.redirect(loginUrl)
+    const res = NextResponse.redirect(loginUrl)
+    res.headers.set('x-debug', `jwt-failed:${String(err)}`)
+    return res
   }
 
   const role = payload.role ?? ''
@@ -125,24 +126,24 @@ export async function middleware(req: NextRequest) {
     const slugFromPath = manutencaoMatch[1]
 
     if (!MANUTENCAO_ROLES.has(role)) {
-      return NextResponse.redirect(new URL('/login', req.url))
+      const res = NextResponse.redirect(new URL('/login', req.url))
+      res.headers.set('x-debug', `blocked-role:${role}`)
+      return res
     }
 
-    // super_admin pode acessar qualquer tenant
     if (role === 'super_admin') return NextResponse.next()
 
-    // demais roles só acessam o próprio tenant
     if (tenantSlug !== slugFromPath) {
       const dest = tenantSlug
         ? new URL(`/${tenantSlug}/manutencao`, req.url)
         : new URL('/login', req.url)
-      return NextResponse.redirect(dest)
+      const res = NextResponse.redirect(dest)
+      res.headers.set('x-debug', `slug-mismatch:token=${tenantSlug}:path=${slugFromPath}`)
+      return res
     }
 
     return NextResponse.next()
   }
-
-  console.log('[middleware] passou auth, role:', payload.role, 'path:', pathname)
 
   // ── /:tenantSlug (home do tenant) — redireciona para módulo correto ───────
   const isAppRoute = APP_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))
