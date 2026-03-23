@@ -118,7 +118,7 @@ export default function AdminDashboardPage() {
 
   const { data: tenants = [], isLoading: loadingTenants } = useQuery<Tenant[]>({
     queryKey: ['admin-tenants'],
-    queryFn: () => fetch('/api/admin/tenants').then((r) => r.json()),
+    queryFn: () => fetch('/api/admin/tenants').then((r) => r.json()).then((j) => j.data ?? j),
   })
 
   const { data, isLoading } = useQuery<TenantDashboardStats>({

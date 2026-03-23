@@ -1,71 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSession } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 
-export async function GET(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+import { ok, created, badRequest, forbidden, notFound, serverError } from '@/lib/api-response'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { resolverTenantPorSlug } from '@/modules/pessoas/pessoas.service'
+import {
+  listarMovimentacoes,
+  criarMovimentacao,
+} from '@/modules/movimentacoes/movimentacoes.service'
+import { CriarMovimentacaoSchema, NenhumaPendenteError } from '@/modules/movimentacoes/movimentacoes.types'
 
-  const { searchParams } = new URL(req.url)
-  const limit = parseInt(searchParams.get('limit') || '50')
-  const where = session.role === 'super_admin' ? {} : { tenantId: session.tenantId! }
+export async function GET(req: NextRequest): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  if (!session) return forbidden()
 
-  const movimentacoes = await prisma.movimentacao.findMany({
-    where,
-    include: { pessoa: { select: { nome: true, cpf: true } } },
-    orderBy: { dataHora: 'desc' },
-    take: limit,
-  })
+  const limit = parseInt(new URL(req.url).searchParams.get('limit') ?? '50')
+  const tenantId = session.role === 'super_admin' ? null : session.tenantId!
 
-  const data = movimentacoes.map((m) => ({
-    id:          m.id,
-    pessoa_id:   m.pessoaId,
-    tipo:        m.tipo,
-    data_hora:   m.dataHora,
-    pessoa_nome: m.pessoa.nome,
-    pessoa_cpf:  m.pessoa.cpf,
-  }))
-
-  return NextResponse.json(data)
+  try {
+    const data = await listarMovimentacoes(tenantId, limit)
+    return ok(data)
+  } catch {
+    return serverError('listarMovimentacoes failed')
+  }
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getSession()
+export async function POST(req: NextRequest): Promise<Response> {
+  const parsed = CriarMovimentacaoSchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
+  }
 
-  const { pessoaId, tipo, tenantSlug } = await req.json()
-
+  // Aceita requests autenticados e não autenticados (terminal público)
+  const session = await verifyAuth(req)
   let tenantId = session?.tenantId ?? null
 
-  if (!tenantId && tenantSlug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
-    if (!tenant) return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 404 })
+  if (!tenantId && parsed.data.tenantSlug) {
+    const tenant = await resolverTenantPorSlug(parsed.data.tenantSlug)
+    if (!tenant) return notFound('Tenant')
     tenantId = tenant.id
   }
 
-  if (!tenantId) return NextResponse.json({ error: 'Sem tenant' }, { status: 403 })
+  if (!tenantId) return forbidden()
 
-  if (!pessoaId || !tipo) {
-    return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 })
+  try {
+    const mov = await criarMovimentacao(tenantId, parsed.data.pessoaId, parsed.data.tipo)
+    return created(mov)
+  } catch (error) {
+    if (error instanceof NenhumaPendenteError) return badRequest(error.message)
+    return serverError('criarMovimentacao failed')
   }
-
-  if (!['retirada', 'devolucao'].includes(tipo)) {
-    return NextResponse.json({ message: 'Tipo inválido' }, { status: 400 })
-  }
-
-  if (tipo === 'devolucao') {
-    const retiradas  = await prisma.movimentacao.count({ where: { pessoaId, tenantId, tipo: 'retirada' } })
-    const devolucoes = await prisma.movimentacao.count({ where: { pessoaId, tenantId, tipo: 'devolucao' } })
-    if (retiradas - devolucoes <= 0) {
-      return NextResponse.json({ message: 'Nenhuma retirada pendente para devolver' }, { status: 400 })
-    }
-  }
-
-  const mov = await prisma.movimentacao.create({
-    data: {
-      tenantId,
-      pessoaId,
-      tipo,
-    },
-  })
-  return NextResponse.json({ id: mov.id, pessoaId, tipo }, { status: 201 })
 }

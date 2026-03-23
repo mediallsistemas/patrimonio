@@ -1,39 +1,35 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSession } from '@/lib/auth'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { ok, created, forbidden, serverError } from '@/lib/api-response'
+import { listarRondas, criarRonda } from '@/modules/rondas/rondas.service'
 
-export async function GET() {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+export async function GET(req: Request): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  if (!session) return forbidden()
 
-  const where = session.role === 'super_admin' ? {} : { tenantId: session.tenantId! }
+  const tenantId = session.role === 'super_admin' ? null : session.tenantId!
 
-  const rondas = await prisma.rondaOcorrencia.findMany({
-    where,
-    orderBy: { iniciadoEm: 'desc' },
-    take: 50,
-    include: {
-      ambientes: {
-        orderBy: { concluidoEm: 'asc' },
-        include: {
-          ocorrencia: {
-            select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
-          },
-        },
-      },
-    },
-  })
-  return NextResponse.json(rondas)
+  try {
+    const rondas = await listarRondas(tenantId)
+    return ok(rondas)
+  } catch {
+    return serverError('listarRondas failed')
+  }
 }
 
-export async function POST() {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+export async function POST(req: Request): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  if (!session) return forbidden()
 
-  const tenantId = session.role === 'super_admin'
-    ? '00000000-0000-0000-0000-000000000001'
-    : session.tenantId!
+  // super_admin usa tenant de demo; em produção deve receber tenantId no contexto
+  const tenantId =
+    session.role === 'super_admin'
+      ? '00000000-0000-0000-0000-000000000001'
+      : session.tenantId!
 
-  const ronda = await prisma.rondaOcorrencia.create({ data: { tenantId } })
-  return NextResponse.json(ronda, { status: 201 })
+  try {
+    const ronda = await criarRonda(tenantId, session.sub)
+    return created(ronda)
+  } catch {
+    return serverError('criarRonda failed')
+  }
 }

@@ -27,6 +27,50 @@ const APP_ROUTES = [
 // Roles com acesso ao módulo de manutenção
 const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin'])
 
+// ── Rate limiting simples em memória ──────────────────────────────────────────
+// Nota: em produção com múltiplas instâncias, usar Redis (upstash/redis ou similar).
+// Este rate limiter funciona por instância de processo — suficiente para single-process PM2.
+const rateLimitMap = new Map<string, { count: number; reset: number }>()
+
+const RATE_LIMIT_RULES: Array<{ path: string; maxReqs: number; windowMs: number }> = [
+  { path: '/api/auth/login', maxReqs: 10, windowMs: 60_000 },
+  { path: '/api/feedback/form-responses', maxReqs: 5, windowMs: 60_000 },
+]
+
+// Evita memory leak: remove entradas expiradas a cada N chamadas
+let _rlCleanupCounter = 0
+const RL_CLEANUP_INTERVAL = 500
+
+function maybeCleanupRateLimitMap(): void {
+  if (++_rlCleanupCounter < RL_CLEANUP_INTERVAL) return
+  _rlCleanupCounter = 0
+  const now = Date.now()
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.reset) rateLimitMap.delete(key)
+  }
+}
+
+function checkRateLimit(ip: string, path: string): boolean {
+  maybeCleanupRateLimitMap()
+
+  const rule = RATE_LIMIT_RULES.find((r) => path === r.path || path.startsWith(r.path + '/'))
+  if (!rule) return true
+
+  const key = `${ip}:${rule.path}`
+  const now = Date.now()
+  const entry = rateLimitMap.get(key)
+
+  if (!entry || now > entry.reset) {
+    rateLimitMap.set(key, { count: 1, reset: now + rule.windowMs })
+    return true
+  }
+
+  if (entry.count >= rule.maxReqs) return false
+
+  entry.count++
+  return true
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
@@ -38,7 +82,28 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/icons') ||
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
   ) {
+    // Rate limiting em rotas públicas de escrita
+    if (req.method === 'POST') {
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+      if (!checkRateLimit(ip, pathname)) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Muitas tentativas. Aguarde um momento.' }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+    }
     return NextResponse.next()
+  }
+
+  // Rate limiting para POST em rotas de feedback (pré-auth)
+  if (req.method === 'POST' && pathname.startsWith('/api/feedback/form-responses')) {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    if (!checkRateLimit(ip, pathname)) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Muitas tentativas. Aguarde um momento.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
   }
 
   // ── Módulos públicos — sem autenticação necessária
@@ -80,10 +145,10 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload: p } = await jwtVerify(token, JWT_SECRET)
     payload = p as typeof payload
-  } catch (err) {
+  } catch {
     const loginUrl = new URL('/login', req.url)
     const res = NextResponse.redirect(loginUrl)
-    res.headers.set('x-debug', `jwt-failed:${String(err)}`)
+    res.cookies.delete(SESSION_COOKIE)
     return res
   }
 
@@ -101,7 +166,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-
   // ── /admin/* — apenas super_admin ─────────────────────────────────────────
   if (pathname.startsWith('/admin')) {
     if (role !== 'super_admin') {
@@ -115,7 +179,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── /api/* — deixa passar (APIs protegem internamente via getSession) ─────
+  // ── /api/* — deixa passar (APIs protegem internamente via verifyAuth) ──────
   if (pathname.startsWith('/api/')) {
     return NextResponse.next()
   }
@@ -126,9 +190,7 @@ export async function middleware(req: NextRequest) {
     const slugFromPath = manutencaoMatch[1]
 
     if (!MANUTENCAO_ROLES.has(role)) {
-      const res = NextResponse.redirect(new URL('/login', req.url))
-      res.headers.set('x-debug', `blocked-role:${role}`)
-      return res
+      return NextResponse.redirect(new URL('/login', req.url))
     }
 
     if (role === 'super_admin') return NextResponse.next()
@@ -137,9 +199,7 @@ export async function middleware(req: NextRequest) {
       const dest = tenantSlug
         ? new URL(`/${tenantSlug}/manutencao`, req.url)
         : new URL('/login', req.url)
-      const res = NextResponse.redirect(dest)
-      res.headers.set('x-debug', `slug-mismatch:token=${tenantSlug}:path=${slugFromPath}`)
-      return res
+      return NextResponse.redirect(dest)
     }
 
     return NextResponse.next()
@@ -149,12 +209,8 @@ export async function middleware(req: NextRequest) {
   const isAppRoute = APP_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'))
   const tenantRootMatch = !isAppRoute && pathname.match(/^\/([a-z0-9-]+)\/?$/)
   if (tenantRootMatch) {
-    const slugFromPath = tenantRootMatch[1]
     if (role === 'super_admin') {
       return NextResponse.redirect(new URL('/admin', req.url))
-    }
-    if (MANUTENCAO_ROLES.has(role)) {
-      return NextResponse.redirect(new URL(`/${slugFromPath}/manutencao`, req.url))
     }
   }
 

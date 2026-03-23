@@ -1,35 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { ok, noContent, badRequest, forbidden, notFound, serverError } from '@/lib/api-response'
+import { UpdateTenantSchema } from '@/modules/tenants/tenants.types'
+import * as tenantsService from '@/modules/tenants/tenants.service'
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
 
   const { id } = await params
-  const { nome, ativo } = await req.json()
 
-  const tenant = await prisma.tenant.update({
-    where: { id },
-    data: {
-      ...(nome !== undefined && { nome: nome.trim() }),
-      ...(ativo !== undefined && { ativo }),
-    },
-  })
+  const parsed = UpdateTenantSchema.safeParse(await req.json())
+  if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
 
-  return NextResponse.json(tenant)
+  try {
+    const tenant = await tenantsService.atualizarTenant(id, parsed.data)
+    return ok(tenant)
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : ''
+    if (msg.includes('Record to update not found')) return notFound('Tenant')
+    return serverError('atualizarTenant failed')
+  }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
 
   const { id } = await params
 
-  await prisma.tenant.delete({ where: { id } })
-  return NextResponse.json({ ok: true })
+  try {
+    await tenantsService.deletarTenant(id)
+    return noContent()
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : ''
+    if (msg.includes('Record to delete does not exist')) return notFound('Tenant')
+    return serverError('deletarTenant failed')
+  }
 }

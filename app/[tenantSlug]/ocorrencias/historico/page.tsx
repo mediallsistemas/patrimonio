@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -169,9 +170,10 @@ function RondaCard({ ronda }: { ronda: Ronda }) {
 // ── Página ────────────────────────────────────────────────────────────────────
 
 export default function HistoricoOcorrenciasPage() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>()
   const { data: rondas = [], isLoading } = useQuery<Ronda[]>({
     queryKey: ['rondas'],
-    queryFn: () => fetch('/api/rondas').then((r) => r.json()),
+    queryFn: () => fetch('/api/rondas').then((r) => r.json()).then((j) => j.data ?? j),
     refetchInterval: 30_000,
   })
 
@@ -181,7 +183,7 @@ export default function HistoricoOcorrenciasPage() {
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Histórico de Ocorrências" />
+      <Header title="Histórico de Ocorrências" backHref={`/${tenantSlug}/ocorrencias`} />
 
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
 

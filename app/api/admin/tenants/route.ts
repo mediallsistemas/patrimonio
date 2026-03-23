@@ -1,40 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { ok, created, badRequest, conflict, forbidden, serverError } from '@/lib/api-response'
+import { CreateTenantSchema } from '@/modules/tenants/tenants.types'
+import * as tenantsService from '@/modules/tenants/tenants.service'
 
-export async function GET() {
-  const session = await getSession()
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
-
-  const tenants = await prisma.tenant.findMany({
-    orderBy: { criadoEm: 'asc' },
-    include: { _count: { select: { usuarios: true, pessoas: true } } },
-  })
-
-  return NextResponse.json(tenants)
-}
-
-export async function POST(req: NextRequest) {
-  const session = await getSession()
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
-
-  const { slug, nome } = await req.json()
-  if (!slug || !nome) {
-    return NextResponse.json({ error: 'slug e nome são obrigatórios' }, { status: 400 })
-  }
-
-  const slugNorm = slug.toLowerCase().trim().replace(/\s+/g, '-')
+export async function GET(req: Request): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
 
   try {
-    const tenant = await prisma.tenant.create({
-      data: { slug: slugNorm, nome: nome.trim() },
-    })
-    return NextResponse.json(tenant, { status: 201 })
+    const tenants = await tenantsService.listarTenants()
+    return ok(tenants)
   } catch {
-    return NextResponse.json({ error: 'Slug já em uso' }, { status: 409 })
+    return serverError('listarTenants failed')
+  }
+}
+
+export async function POST(req: Request): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
+
+  const parsed = CreateTenantSchema.safeParse(await req.json())
+  if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
+
+  try {
+    const tenant = await tenantsService.criarTenant(parsed.data)
+    return created(tenant)
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : ''
+    if (msg.includes('Unique constraint')) return conflict('Slug já em uso')
+    return serverError('criarTenant failed')
   }
 }

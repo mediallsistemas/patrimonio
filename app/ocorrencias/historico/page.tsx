@@ -171,7 +171,7 @@ function RondaCard({ ronda }: { ronda: Ronda }) {
 export default function HistoricoOcorrenciasPage() {
   const { data: rondas = [], isLoading } = useQuery<Ronda[]>({
     queryKey: ['rondas'],
-    queryFn: () => fetch('/api/rondas').then((r) => r.json()),
+    queryFn: () => fetch('/api/rondas').then((r) => r.json()).then((j) => j.data ?? j),
     refetchInterval: 30_000,
   })
 

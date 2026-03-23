@@ -1,37 +1,15 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSession } from '@/lib/auth'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { ok, forbidden, serverError } from '@/lib/api-response'
+import { listarRondasAdmin } from '@/modules/rondas/rondas.service'
 
-export async function GET() {
-  const session = await getSession()
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+export async function GET(req: Request): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
+
+  try {
+    const rondas = await listarRondasAdmin()
+    return ok(rondas)
+  } catch {
+    return serverError('listarRondasAdmin failed')
   }
-
-  const [rondas, tenants] = await Promise.all([
-    prisma.rondaOcorrencia.findMany({
-      orderBy: { iniciadoEm: 'desc' },
-      take: 100,
-      include: {
-        ambientes: {
-          orderBy: { concluidoEm: 'asc' },
-          include: {
-            ocorrencia: {
-              select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
-            },
-          },
-        },
-      },
-    }),
-    prisma.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
-  ])
-
-  const tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t]))
-
-  const result = rondas.map((r) => ({
-    ...r,
-    tenant: tenantMap[r.tenantId] ?? { id: r.tenantId, nome: 'Desconhecido', slug: '' },
-  }))
-
-  return NextResponse.json(result)
 }

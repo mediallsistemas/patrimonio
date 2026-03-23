@@ -59,7 +59,7 @@ export default function CadastroPage() {
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Criar Cadastro" />
+      <Header title="Criar Cadastro" backHref={`/${tenantSlug}/hotelaria`} />
       <main className="flex-1 flex items-start justify-center px-6 py-6">
         <div className="w-full max-w-lg">
           <Card shadow="md">

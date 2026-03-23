@@ -1,15 +1,22 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { ok, forbidden, notFound, serverError } from '@/lib/api-response'
+import { finalizarRonda } from '@/modules/rondas/rondas.service'
 
-// PATCH /api/rondas/[id] — finaliza a ronda (seta finalizadoEm)
 export async function PATCH(
-  _: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  if (!session) return forbidden()
+
   const { id } = await params
-  const ronda = await prisma.rondaOcorrencia.update({
-    where: { id },
-    data: { finalizadoEm: new Date() },
-  })
-  return NextResponse.json(ronda)
+  const tenantId = session.role === 'super_admin' ? null : session.tenantId!
+
+  try {
+    const ronda = await finalizarRonda(id, tenantId)
+    if (!ronda) return notFound('Ronda')
+    return ok(ronda)
+  } catch {
+    return serverError('finalizarRonda failed')
+  }
 }

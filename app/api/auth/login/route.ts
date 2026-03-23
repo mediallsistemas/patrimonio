@@ -6,7 +6,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const email = (body.email ?? '').trim()
-    const senha = (body.senha ?? '').trim()
+    // Aceita "senha" (LinenSistem SSR) e "password" (SPA FeedbackForms)
+    const senha = (body.senha ?? body.password ?? '').trim()
 
     if (!email || !senha) {
       return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
     }
 
     const payload: SessionPayload = {
+      sub:        usuario.id,
       userId:     usuario.id,
       email:      usuario.email,
       nome:       usuario.nome,
@@ -35,9 +37,20 @@ export async function POST(req: Request) {
       tenantSlug: usuario.tenant?.slug ?? null,
     }
 
-    await setSessionCookie(payload)
+    const accessToken = await setSessionCookie(payload)
 
     return NextResponse.json({
+      // Formato esperado pela SPA FeedbackForms
+      accessToken,
+      user: {
+        id:         usuario.id,
+        name:       usuario.nome,
+        email:      usuario.email,
+        role:       usuario.role,
+        tenantId:   usuario.tenantId,
+        tenantSlug: usuario.tenant?.slug ?? null,
+      },
+      // Mantido para compatibilidade com o Next.js SSR do LinenSistem
       usuario: {
         id:         usuario.id,
         nome:       usuario.nome,

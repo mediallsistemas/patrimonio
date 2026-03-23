@@ -7,89 +7,110 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── Multi-tenant Auth ─────────────────────────────────────────────────────────
-
 model Tenant {
-  id           String         @id @default(uuid())
-  slug         String         @unique  // ex: "hrpg", "upa-norte"
-  nome         String
-  ativo        Boolean        @default(true)
-  criadoEm     DateTime       @default(now())
-  usuarios     Usuario[]
-  pessoas      Pessoa[]
-  movimentacoes Movimentacao[]
+  id                  String               @id @default(uuid())
+  slug                String               @unique
+  nome                String
+  ativo               Boolean              @default(true)
+  criadoEm            DateTime             @default(now())
+  atualizadoEm        DateTime             @updatedAt
+  logoUrl             String?
+  ambientes           AmbienteTenant[]
+  movimentacoes       Movimentacao[]
+  pessoas             Pessoa[]
+  respostasFormulario RespostaFormulario[]
+  rodadas             Rodada[]
+  rondasDraft         RondaDraft[]
+  rondasOcorrencias   RondaOcorrencia[]
+  templatesFormulario TemplateFormulario[]
+  usuarios            Usuario[]
 
   @@map("tenants")
 }
 
 model Usuario {
-  id           String   @id @default(uuid())
-  tenantId     String?  // null = super_admin (acesso a todos os tenants)
-  email        String   @unique
-  senhaHash    String
-  nome         String
-  role         String   @default("tenant_admin")  // "super_admin" | "tenant_admin" | "viewer"
-  ativo        Boolean  @default(true)
-  criadoEm     DateTime @default(now())
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+  id                         String                  @id @default(uuid())
+  tenantId                   String?
+  email                      String                  @unique
+  senhaHash                  String
+  nome                       String
+  role                       String                  @default("tenant_admin")
+  ativo                      Boolean                 @default(true)
+  criadoEm                   DateTime                @default(now())
+  atualizadoEm               DateTime                @updatedAt
+  agendamentosAtualizados    AgendamentoManutencao[] @relation("AgendamentoAtualizadoPor")
+  agendamentosCriados        AgendamentoManutencao[] @relation("AgendamentoCriadoPor")
+  respostasFormularioCriadas RespostaFormulario[]    @relation("RespostaCriadaPor")
+  rodadasCriadas             Rodada[]                @relation("RodadaCriadaPor")
+  draftsOcorrencias          RondaDraft[]            @relation("DraftCriadoPor")
+  rondasCriadas              RondaOcorrencia[]       @relation("RondaCriadaPor")
+  tenant                     Tenant?                 @relation(fields: [tenantId], references: [id])
 
   @@map("usuarios")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 model Pessoa {
   id             String         @id @default(uuid())
-  tenantId       String
   nome           String
   cpf            String
   faceDescriptor String
-  createdAt      DateTime       @default(now())
+  tenantId       String
+  atualizadoEm   DateTime       @updatedAt
+  criadoEm       DateTime       @default(now())
   movimentacoes  Movimentacao[]
   tenant         Tenant         @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, cpf])
+  @@index([tenantId])
   @@map("pessoas")
 }
 
 model Movimentacao {
   id       String   @id @default(uuid())
-  tenantId String
   pessoaId String
   tipo     String
   dataHora DateTime @default(now())
+  tenantId String
   pessoa   Pessoa   @relation(fields: [pessoaId], references: [id])
   tenant   Tenant   @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([pessoaId])
+  @@index([tenantId, tipo])
+  @@index([tenantId, dataHora])
+  @@index([pessoaId, tipo])
   @@map("movimentacoes")
 }
 
-// ── Inspeção de Gases Medicinais ──────────────────────────────────────────────
-
 model Rodada {
-  id            String                  @id @default(uuid())
-  tenantId      String
-  iniciadoEm    DateTime                @default(now())
-  finalizadoEm  DateTime?
-  ambientes     AmbienteInspecionado[]
+  id           String                 @id @default(uuid())
+  iniciadoEm   DateTime               @default(now())
+  finalizadoEm DateTime?
+  tenantId     String
+  criadoPorId  String
+  ambientes    AmbienteInspecionado[]
+  criadoPor    Usuario                @relation("RodadaCriadaPor", fields: [criadoPorId], references: [id])
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([tenantId, iniciadoEm])
   @@map("rodadas")
 }
 
 model AmbienteInspecionado {
-  id              String         @id @default(uuid())
-  rodadaId        String
-  ambiente        String         // "HRPG" | "UEI"
-  purezaO2        Float
-  pressaoO2       Float
-  pressaoAr       Float
-  backupLigado    Boolean
-  temAbastecimento Boolean       @default(false)
-  temAlteracao    Boolean
-  concluidoEm     DateTime       @default(now())
-  rodada          Rodada         @relation(fields: [rodadaId], references: [id])
-  abastecimento   Abastecimento?
-  alteracao       Alteracao?
+  id               String         @id @default(uuid())
+  rodadaId         String
+  ambiente         String
+  purezaO2         Float
+  pressaoO2        Float
+  pressaoAr        Float
+  backupLigado     Boolean
+  temAlteracao     Boolean
+  concluidoEm      DateTime       @default(now())
+  temAbastecimento Boolean        @default(false)
+  abastecimento    Abastecimento?
+  alteracao        Alteracao?
+  rodada           Rodada         @relation(fields: [rodadaId], references: [id])
 
   @@map("ambientes_inspecionados")
 }
@@ -98,7 +119,7 @@ model Abastecimento {
   id                     String               @id @default(uuid())
   ambienteInspecionadoId String               @unique
   quantidade             Int
-  tamanho                String               // "P7" | "P45" | etc.
+  tamanho                String
   ambienteInspecionado   AmbienteInspecionado @relation(fields: [ambienteInspecionadoId], references: [id])
 
   @@map("abastecimentos")
@@ -107,47 +128,153 @@ model Abastecimento {
 model Alteracao {
   id                     String               @id @default(uuid())
   ambienteInspecionadoId String               @unique
-  tipo                   String               // "eletrica" | "hidraulica" | "patrimonio"
+  tipo                   String
   descricao              String
-  foto                   String?              // base64 — lazy loaded
+  foto                   String?
   trilogoChamado         Boolean
   ambienteInspecionado   AmbienteInspecionado @relation(fields: [ambienteInspecionadoId], references: [id])
 
   @@map("alteracoes")
 }
 
-// ── Registro de Ocorrências Hospitalares ──────────────────────────────────────
-
 model RondaOcorrencia {
-  id           String              @id @default(uuid())
-  tenantId     String
-  iniciadoEm   DateTime            @default(now())
+  id           String             @id @default(uuid())
+  iniciadoEm   DateTime           @default(now())
   finalizadoEm DateTime?
+  tenantId     String
+  criadoPorId  String
   ambientes    RegistroAmbiente[]
+  criadoPor    Usuario            @relation("RondaCriadaPor", fields: [criadoPorId], references: [id])
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([tenantId, iniciadoEm])
   @@map("rondas_ocorrencias")
 }
 
 model RegistroAmbiente {
-  id             String           @id @default(uuid())
-  rondaId        String
-  ambiente       String
-  temOcorrencia  Boolean
-  concluidoEm    DateTime         @default(now())
-  ronda          RondaOcorrencia  @relation(fields: [rondaId], references: [id])
-  ocorrencia     OcorrenciaDetalhe?
+  id            String             @id @default(uuid())
+  rondaId       String
+  ambiente      String
+  // 'ocorrencia' = ronda normal | 'gases' = inspeção de gases
+  tipoRegistro  String             @default("ocorrencia")
+  temOcorrencia Boolean
+  concluidoEm   DateTime           @default(now())
+  // Campos exclusivos de inspeção de gases (nullable)
+  purezaO2      Float?
+  pressaoO2     Float?
+  pressaoAr     Float?
+  backupLigado  Boolean?
+  // Abastecimento de cilindros (gases)
+  temAbastecimento Boolean?
+  qtdCilindros  Int?
+  tamCilindro   String?
+  ocorrencia    OcorrenciaDetalhe?
+  ronda         RondaOcorrencia    @relation(fields: [rondaId], references: [id])
 
+  @@index([rondaId])
   @@map("registros_ambientes")
 }
 
 model OcorrenciaDetalhe {
-  id               String           @id @default(uuid())
-  registroId       String           @unique
-  tipo             String           // "eletrica" | "hidraulica" | "patrimonio"
-  descricao        String
-  foto             String?          // base64 — lazy loaded
-  trilogoChamado   Boolean
-  registro         RegistroAmbiente @relation(fields: [registroId], references: [id])
+  id             String           @id @default(uuid())
+  registroId     String           @unique
+  tipo           String
+  descricao      String
+  foto           String?
+  trilogoChamado Boolean
+  registro       RegistroAmbiente @relation(fields: [registroId], references: [id])
 
   @@map("ocorrencias_detalhe")
+}
+
+// Ambientes configuráveis por tenant (usados na ronda de ocorrências)
+model AmbienteTenant {
+  id       String  @id @default(uuid())
+  tenantId String
+  nome     String
+  ordem    Int     @default(0)
+  ativo    Boolean @default(true)
+  // 'ocorrencia' = ronda normal | 'gases' = inspeção de gases medicinais
+  tipo     String  @default("ocorrencia")
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("ambientes_tenant")
+}
+
+model RondaDraft {
+  id           String   @id @default(uuid())
+  tenantId     String
+  criadoPorId  String
+  estado       Json
+  atualizadoEm DateTime @updatedAt
+  criadoPor    Usuario  @relation("DraftCriadoPor", fields: [criadoPorId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, criadoPorId])
+  @@map("rondas_draft")
+}
+
+model AgendamentoManutencao {
+  id              String   @id @default(uuid())
+  trilogoAssetId  Int
+  patrimony       String
+  descricaoBem    String
+  companyId       Int
+  companyName     String
+  ambiente        String
+  dataAgendada    DateTime
+  observacao      String?
+  criadoEm        DateTime @default(now())
+  status          String   @default("pendente")
+  titulo          String   @default("Manutenção")
+  criadoPorId     String
+  atualizadoEm    DateTime @updatedAt
+  atualizadoPorId String?
+  atualizadoPor   Usuario? @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
+  criadoPor       Usuario  @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
+
+  @@map("agendamentos_manutencao")
+}
+
+model TemplateFormulario {
+  id           String               @id @default(uuid())
+  tenantId     String
+  nome         String
+  campos       Json
+  ativo        Boolean              @default(true)
+  criadoEm     DateTime             @default(now())
+  atualizadoEm DateTime             @updatedAt
+  respostas    RespostaFormulario[]
+  tenant       Tenant               @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("templates_formulario")
+}
+
+model RespostaFormulario {
+  id             String              @id @default(uuid())
+  tenantId       String
+  templateId     String?
+  nomePaciente   String?
+  cpf            String?
+  idade          Int?
+  genero         String?
+  dataInternacao DateTime?
+  dataAlta       DateTime?
+  setor          String?
+  respostas      Json
+  comentarios    String?
+  criadoEm       DateTime            @default(now())
+  deletadoEm     DateTime?
+  criadoPorId    String?
+  criadoPor      Usuario?            @relation("RespostaCriadaPor", fields: [criadoPorId], references: [id])
+  template       TemplateFormulario? @relation(fields: [templateId], references: [id])
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, deletadoEm])
+  @@index([tenantId, setor])
+  @@index([tenantId, criadoEm])
+  @@map("respostas_formulario")
 }

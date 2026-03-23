@@ -35,6 +35,6 @@ export async function POST() {
     ? '00000000-0000-0000-0000-000000000001'
     : session.tenantId!
 
-  const rodada = await prisma.rodada.create({ data: { tenantId } })
+  const rodada = await prisma.rodada.create({ data: { tenantId, criadoPorId: session.userId } })
   return NextResponse.json(rodada, { status: 201 })
 }
