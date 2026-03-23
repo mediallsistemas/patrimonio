@@ -61,6 +61,7 @@ model Pessoa {
   tenant         Tenant         @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, cpf])
+  @@index([tenantId])
   @@map("pessoas")
 }
 
@@ -73,6 +74,11 @@ model Movimentacao {
   pessoa   Pessoa   @relation(fields: [pessoaId], references: [id])
   tenant   Tenant   @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([pessoaId])
+  @@index([tenantId, tipo])
+  @@index([tenantId, dataHora])
+  @@index([pessoaId, tipo])
   @@map("movimentacoes")
 }
 
@@ -86,6 +92,8 @@ model Rodada {
   criadoPor    Usuario                @relation("RodadaCriadaPor", fields: [criadoPorId], references: [id])
   tenant       Tenant                 @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([tenantId, iniciadoEm])
   @@map("rodadas")
 }
 
@@ -139,6 +147,8 @@ model RondaOcorrencia {
   criadoPor    Usuario            @relation("RondaCriadaPor", fields: [criadoPorId], references: [id])
   tenant       Tenant             @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([tenantId, iniciadoEm])
   @@map("rondas_ocorrencias")
 }
 

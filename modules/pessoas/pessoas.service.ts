@@ -27,6 +27,25 @@ export async function resolverTenantPorSlug(tenantSlug: string) {
   }
 }
 
+/**
+ * Retorna apenas os campos necessários para o algoritmo de face matching.
+ * Usa select explícito para evitar carregar campos desnecessários (ex: tenantId, atualizadoEm).
+ */
+export async function buscarPessoasParaFaceMatch(tenantId: string | null): Promise<
+  Array<{ id: string; faceDescriptor: string; nome: string; cpf: string; criadoEm: Date }>
+> {
+  try {
+    const where = tenantId ? { tenantId } : {}
+    return await prisma.pessoa.findMany({
+      where,
+      select: { id: true, faceDescriptor: true, nome: true, cpf: true, criadoEm: true },
+    })
+  } catch (error) {
+    console.error('[pessoas.service] buscarPessoasParaFaceMatch:', error)
+    throw error
+  }
+}
+
 export async function criarPessoa(input: CreatePessoaInput, tenantId: string) {
   try {
     const cpfLimpo = input.cpf.replace(/\D/g, '')

@@ -7,6 +7,6 @@ declare global {
 
 export const prisma = global.__prisma ?? new PrismaClient()
 
-if (process.env.NODE_ENV !== 'production') {
-  global.__prisma = prisma
-}
+// Cache singleton em todos os ambientes: evita múltiplas instâncias
+// em hot-reload (dev) e recargas de módulo (prod/PM2)
+global.__prisma = prisma

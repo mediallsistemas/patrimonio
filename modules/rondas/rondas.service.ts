@@ -1,15 +1,26 @@
 import { prisma } from '@/lib/db'
 
+// Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
 const INCLUDE_AMBIENTES = {
   ambientes: {
     orderBy: { concluidoEm: 'asc' as const },
     include: {
       ocorrencia: {
-        select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
+        select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true },
       },
     },
   },
 }
+
+// Usado em listagens — evita carregar todos os ambientes e ocorrências aninhadas
+const SELECT_RONDA_LIGHT = {
+  id: true,
+  iniciadoEm: true,
+  finalizadoEm: true,
+  tenantId: true,
+  criadoPorId: true,
+  _count: { select: { ambientes: true } },
+} as const
 
 export async function listarRondas(tenantId: string | null, limit = 50) {
   try {
@@ -18,7 +29,7 @@ export async function listarRondas(tenantId: string | null, limit = 50) {
       where,
       orderBy: { iniciadoEm: 'desc' },
       take: limit,
-      include: INCLUDE_AMBIENTES,
+      select: SELECT_RONDA_LIGHT,
     })
   } catch (error) {
     console.error('[rondas.service] listarRondas:', error)
@@ -74,7 +85,7 @@ export async function listarRondasAdmin(limit = 100) {
       prisma.rondaOcorrencia.findMany({
         orderBy: { iniciadoEm: 'desc' },
         take: limit,
-        include: INCLUDE_AMBIENTES,
+        select: SELECT_RONDA_LIGHT,
       }),
       prisma.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
     ])
