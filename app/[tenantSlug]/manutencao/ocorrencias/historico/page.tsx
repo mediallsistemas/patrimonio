@@ -111,7 +111,7 @@ export default function HistoricoOcorrenciasPage() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>()
   const { data: rondas = [], isLoading } = useQuery<Ronda[]>({
     queryKey: ['rondas'],
-    queryFn: () => fetch('/api/rondas').then((r) => r.json()),
+    queryFn: () => fetch('/api/rondas').then((r) => r.json()).then((j) => j.data ?? j),
     refetchInterval: 30_000,
   })
   const totalRondas      = rondas.length
@@ -120,7 +120,7 @@ export default function HistoricoOcorrenciasPage() {
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Histórico de Ocorrências" />
+      <Header title="Histórico de Ocorrências" backHref={`/${tenantSlug}/manutencao/ocorrencias`} />
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
         <div className="flex items-center justify-between mb-5">
           <Link href={`/${tenantSlug}/manutencao/ocorrencias`} className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-red-base font-sans transition-colors">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import {
   BarChart,
   Bar,
@@ -97,6 +98,7 @@ const statCards = [
 ]
 
 export default function DashboardPage() {
+  const { tenantSlug } = useParams<{ tenantSlug: string }>()
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api.get<DashboardStats>('dashboard'),
@@ -105,7 +107,7 @@ export default function DashboardPage() {
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Dashboard" />
+      <Header title="Dashboard" backHref={`/${tenantSlug}`} />
 
       <main className="flex-1 px-6 py-6 max-w-6xl mx-auto w-full">
 

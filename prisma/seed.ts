@@ -2,6 +2,11 @@
  * Seed inicial — cria tenants e usuários de acesso
  * Executar: npx ts-node prisma/seed.ts
  * Ou adicionar ao package.json: "prisma": { "seed": "ts-node prisma/seed.ts" }
+ *
+ * Hierarquia de roles:
+ *   super_admin  → acesso global a todos os tenants, filtrando por tenantSlug
+ *   tenant_admin → acesso completo ao próprio tenant (dashboard, analytics, forms)
+ *   operator     → apenas submeter formulários (POST /api/feedback/form-responses)
  */
 
 import { PrismaClient } from '@prisma/client'
@@ -66,10 +71,24 @@ async function main() {
     },
   })
 
+  // ── Criar operator de exemplo para HRPG ─────────────────────────────────
+  await prisma.usuario.upsert({
+    where: { email: 'operador@hrpg.com.br' },
+    update: {},
+    create: {
+      email:     'operador@hrpg.com.br',
+      senhaHash: await bcrypt.hash('Hrpg@op2026', 10),
+      nome:      'Operador HRPG',
+      role:      'operator',
+      tenantId:  hrpg.id,
+    },
+  })
+
   console.log('✅ Usuários criados:')
-  console.log('   super_admin  → admin@mediall.com.br  / Admin@2026')
-  console.log('   tenant_admin → admin@hrpg.com.br     / Hrpg@2026  (acessa /hrpg)  → Hospital Regional de Porto Grande')
-  console.log('   tenant_admin → admin@uei.com.br      / Uei@2026   (acessa /uei)')
+  console.log('   super_admin  → admin@mediall.com.br   / Admin@2026')
+  console.log('   tenant_admin → admin@hrpg.com.br      / Hrpg@2026   (acessa /hrpg)')
+  console.log('   tenant_admin → admin@uei.com.br       / Uei@2026    (acessa /uei)')
+  console.log('   operator     → operador@hrpg.com.br   / Hrpg@op2026 (apenas submit de forms)')
   console.log('🎉 Seed concluído!')
 }
 

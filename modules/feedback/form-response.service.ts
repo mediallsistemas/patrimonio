@@ -45,16 +45,16 @@ export async function listarRespostas(tenantId: string, filtros: FiltrosResposta
   })
 }
 
-export async function buscarResposta(id: string, tenantId: string) {
+export async function buscarResposta(id: string, tenantId: string | null) {
   return prisma.respostaFormulario.findFirst({
-    where: { id, tenantId, deletadoEm: null },
+    where: { id, ...(tenantId ? { tenantId } : {}), deletadoEm: null },
     include: { template: true },
   })
 }
 
-export async function softDeletarResposta(id: string, tenantId: string) {
+export async function softDeletarResposta(id: string, tenantId: string | null) {
   return prisma.respostaFormulario.updateMany({
-    where: { id, tenantId, deletadoEm: null },
+    where: { id, ...(tenantId ? { tenantId } : {}), deletadoEm: null },
     data: { deletadoEm: new Date() },
   })
 }

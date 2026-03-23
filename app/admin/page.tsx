@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, ShieldCheck, Activity, LayoutDashboard } from 'lucide-react'
+import { Building2, Users, ShieldCheck, Activity, LayoutDashboard, Package } from 'lucide-react'
 import Text from '@/components/text'
 import { getSession } from '@/lib/auth'
 import LogoutButton from '@/components/logout-button'
@@ -32,6 +32,20 @@ const actions = [
     title: 'Dashboard de Rouparia',
     description: 'Acompanhe retiradas, devoluções e pendências de rouparia em todas as unidades',
     color: '#f97316',
+  },
+  {
+    href: '/admin/patrimonio',
+    icon: Package,
+    title: 'Tickets de Patrimônio',
+    description: 'Visualize tickets de manutenção com bens patrimoniais vinculados via Trílogo',
+    color: '#7c3aed',
+  },
+  {
+    href: '/admin/bens',
+    icon: Package,
+    title: 'Bens por Ambiente',
+    description: 'Consulte todos os bens patrimoniais cadastrados por setor e ambiente',
+    color: '#0891b2',
   },
 ]
 

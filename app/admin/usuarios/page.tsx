@@ -41,7 +41,7 @@ export default function UsuariosPage() {
   useEffect(() => {
     fetch('/api/admin/usuarios')
       .then((r) => r.json())
-      .then((d) => { setUsuarios(d); setLoading(false) })
+      .then((j) => { setUsuarios(j.data ?? j); setLoading(false) })
   }, [])
 
   return (

@@ -3,7 +3,7 @@ import { ok, created, forbidden, serverError } from '@/lib/api-response'
 import { listarRondas, criarRonda } from '@/modules/rondas/rondas.service'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'viewer'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
 
   const tenantId = session.role === 'super_admin' ? null : session.tenantId!

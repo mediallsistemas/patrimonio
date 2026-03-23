@@ -1,38 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getSession, hashPassword } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { ok, noContent, badRequest, forbidden, notFound, serverError } from '@/lib/api-response'
+import { UpdateUsuarioSchema } from '@/modules/usuarios/usuarios.types'
+import * as usuariosService from '@/modules/usuarios/usuarios.service'
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
 
   const { id } = await params
-  const { nome, senha, role, tenantId, ativo } = await req.json()
-
-  const usuario = await prisma.usuario.update({
-    where: { id },
-    data: {
-      ...(nome !== undefined && { nome: nome.trim() }),
-      ...(senha ? { senhaHash: await hashPassword(senha) } : {}),
-      ...(role !== undefined && { role }),
-      ...(tenantId !== undefined && { tenantId: tenantId || null }),
-      ...(ativo !== undefined && { ativo }),
-    },
-    select: { id: true, email: true, nome: true, role: true, ativo: true, criadoEm: true, tenantId: true },
-  })
-
-  return NextResponse.json(usuario)
+  try {
+    const usuario = await usuariosService.buscarUsuario(id)
+    if (!usuario) return notFound('Usuário')
+    return ok(usuario)
+  } catch {
+    return serverError('buscarUsuario failed')
+  }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session || session.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
-  }
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
 
   const { id } = await params
-  await prisma.usuario.delete({ where: { id } })
-  return NextResponse.json({ ok: true })
+
+  const parsed = UpdateUsuarioSchema.safeParse(await req.json())
+  if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
+
+  try {
+    const usuario = await usuariosService.atualizarUsuario(id, parsed.data)
+    return ok(usuario)
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : ''
+    if (msg.includes('Record to update not found')) return notFound('Usuário')
+    return serverError('atualizarUsuario failed')
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin'])
+  if (!session) return forbidden()
+
+  const { id } = await params
+  try {
+    await usuariosService.deletarUsuario(id)
+    return noContent()
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : ''
+    if (msg.includes('Record to delete does not exist')) return notFound('Usuário')
+    return serverError('deletarUsuario failed')
+  }
 }

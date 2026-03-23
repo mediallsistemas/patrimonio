@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   ChevronDown, ChevronUp, ArrowLeft,
-  AlertTriangle, CheckCircle2, Activity,
+  AlertTriangle, Activity,
 } from 'lucide-react'
 import Link from 'next/link'
 import Card from '@/components/card'
@@ -17,6 +17,7 @@ interface OcorrenciaDetalhe {
   id: string
   tipo: string
   descricao: string
+  foto: string | null
   trilogoChamado: boolean
 }
 
@@ -116,7 +117,16 @@ function GrupoAmbientes({
                 )}
               </div>
               {amb.temOcorrencia && amb.ocorrencia && (
-                <p className="text-xs text-gray-500 font-sans mt-0.5 line-clamp-2">{amb.ocorrencia.descricao}</p>
+                <>
+                  <p className="text-xs text-gray-500 font-sans mt-0.5 line-clamp-2">{amb.ocorrencia.descricao}</p>
+                  {amb.ocorrencia.foto && (
+                    <img
+                      src={amb.ocorrencia.foto}
+                      alt="Foto da ocorrência"
+                      className="mt-1.5 rounded-lg w-full max-h-48 object-cover border border-orange-100"
+                    />
+                  )}
+                </>
               )}
               <span className="text-xs text-gray-300 font-sans">
                 {format(new Date(amb.concluidoEm), 'HH:mm', { locale: ptBR })}
@@ -173,8 +183,8 @@ function RondaCard({ ronda }: { ronda: Ronda }) {
 
       {aberto && (
         <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
-          <GrupoAmbientes titulo="Conformidade" ambientes={normais} variante="normal" />
           <GrupoAmbientes titulo="Ocorrências" ambientes={ocorrencias} variante="ocorrencia" />
+          <GrupoAmbientes titulo="Conformidade" ambientes={normais} variante="normal" />
           {total === 0 && (
             <p className="text-xs text-gray-300 font-sans text-center py-2">Nenhum ambiente registrado.</p>
           )}
@@ -192,7 +202,7 @@ export default function AdminRondasPage() {
 
   const { data: rondas = [], isLoading } = useQuery<Ronda[]>({
     queryKey: ['admin-rondas'],
-    queryFn: () => fetch('/api/admin/rondas').then((r) => r.json()),
+    queryFn: () => fetch('/api/admin/rondas').then((r) => r.json()).then((j) => j.data ?? j),
     refetchInterval: 30_000,
   })
 
@@ -202,7 +212,6 @@ export default function AdminRondasPage() {
 
   const totalRondas = rondas.length
   const totalOcorrencias = rondas.reduce((acc, r) => acc + r.ambientes.filter((a) => a.temOcorrencia).length, 0)
-  const totalNormais = rondas.reduce((acc, r) => acc + r.ambientes.filter((a) => !a.temOcorrencia).length, 0)
   const rondasComOcorrencia = rondas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
 
   const rondasFiltradas = rondas.filter((r) => {
@@ -238,7 +247,6 @@ export default function AdminRondasPage() {
             { label: 'Total de Rondas',     value: totalRondas,        color: 'text-dark',       icon: Activity },
             { label: 'Com Ocorrências',      value: rondasComOcorrencia, color: 'text-orange-600', icon: AlertTriangle },
             { label: 'Áreas c/ Ocorrência', value: totalOcorrencias,   color: 'text-orange-600', icon: AlertTriangle },
-            { label: 'Áreas Normais',        value: totalNormais,       color: 'text-green-600',  icon: CheckCircle2 },
           ].map(({ label, value, color, icon: Icon }) => (
             <Card key={label} shadow="sm" padding="sm" className="text-center">
               <Icon className={`w-4 h-4 mx-auto mb-1 ${color}`} />

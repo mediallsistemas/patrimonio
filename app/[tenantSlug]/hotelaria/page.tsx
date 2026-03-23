@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { GiClothes } from 'react-icons/gi'
 import { TbFaceId } from 'react-icons/tb'
-import { ArrowDownToLine, RotateCcw } from 'lucide-react'
+import { ArrowDownToLine, RotateCcw, ClipboardList } from 'lucide-react'
 import Text from '@/components/text'
 import FaceApiPreloader from '@/components/face-api-preloader'
 
@@ -81,6 +81,17 @@ export default async function HotelariaHomePage({
         </div>
 
       </div>
+
+      <div className="mt-8 text-center">
+        <Link
+          href={`/${tenantSlug}/manutencao`}
+          className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors"
+        >
+          <ClipboardList className="w-4 h-4" />
+          Ir para Rondas e Manutenção
+        </Link>
+      </div>
+
     </div>
   )
 }

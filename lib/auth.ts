@@ -11,11 +11,12 @@ const EXPIRES_IN  = 60 * 60 * 24 // 24h em segundos
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface SessionPayload {
-  userId:    string
-  email:     string
-  nome:      string
-  role:      string          // "super_admin" | "manutencao_admin" | "manutencao_user"
-  tenantId:  string | null
+  sub:        string         // userId — campo padrão JWT, usado pela SPA FeedbackForms
+  userId:     string         // mantido por compatibilidade com código existente
+  email:      string
+  nome:       string
+  role:       string         // "super_admin" | "tenant_admin" | "operator"
+  tenantId:   string | null
   tenantSlug: string | null
 }
 

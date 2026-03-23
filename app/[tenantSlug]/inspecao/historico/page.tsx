@@ -271,7 +271,7 @@ export default function HistoricoPage() {
   const { tenantSlug } = useParams<{ tenantSlug: string }>()
   const { data: rodadas = [], isLoading } = useQuery<Rodada[]>({
     queryKey: ['rodadas'],
-    queryFn: () => fetch('/api/rodadas').then((r) => r.json()),
+    queryFn: () => fetch('/api/rodadas').then((r) => r.json()).then((j) => j.data ?? j),
     refetchInterval: 30_000,
   })
 

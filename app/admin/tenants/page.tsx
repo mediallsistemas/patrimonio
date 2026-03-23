@@ -22,7 +22,7 @@ export default function TenantsPage() {
   useEffect(() => {
     fetch('/api/admin/tenants')
       .then((r) => r.json())
-      .then((d) => { setTenants(d); setLoading(false) })
+      .then((j) => { setTenants(j.data ?? j); setLoading(false) })
   }, [])
 
   return (

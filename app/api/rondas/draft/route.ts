@@ -4,7 +4,7 @@ import { noContent, ok, serverError, forbidden } from '@/lib/api-response'
 
 export async function GET(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'viewer'])
+    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return forbidden()
 
     const tenantId =
@@ -24,7 +24,7 @@ export async function GET(req: Request): Promise<Response> {
 
 export async function PUT(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'viewer'])
+    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return forbidden()
 
     const tenantId =
@@ -48,7 +48,7 @@ export async function PUT(req: Request): Promise<Response> {
 
 export async function DELETE(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'viewer'])
+    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return forbidden()
 
     const tenantId =

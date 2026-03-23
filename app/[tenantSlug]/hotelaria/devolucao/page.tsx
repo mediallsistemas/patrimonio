@@ -57,7 +57,7 @@ export default function DevolucaoPage() {
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
-      <Header title="Devolução de Roupa" />
+      <Header title="Devolução de Roupa" backHref={`/${tenantSlug}/hotelaria`} />
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-lg space-y-4">
 

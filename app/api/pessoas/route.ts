@@ -1,60 +1,43 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSession } from '@/lib/auth'
+import { verifyAuth } from '@/modules/auth/auth.guards'
+import { ok, created, badRequest, conflict, forbidden, notFound, serverError } from '@/lib/api-response'
+import { CreatePessoaSchema } from '@/modules/pessoas/pessoas.types'
+import * as pessoasService from '@/modules/pessoas/pessoas.service'
 
-export async function GET() {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+export async function GET(req: Request): Promise<Response> {
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  if (!session) return forbidden()
 
-  const where = session.role === 'super_admin' ? {} : { tenantId: session.tenantId! }
+  const tenantId = session.role === 'super_admin' ? null : session.tenantId!
 
-  const pessoas = await prisma.pessoa.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, nome: true, cpf: true, createdAt: true },
-  })
-  return NextResponse.json(pessoas)
+  try {
+    const pessoas = await pessoasService.listarPessoas(tenantId)
+    return ok(pessoas)
+  } catch {
+    return serverError('listarPessoas failed')
+  }
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getSession()
+export async function POST(req: Request): Promise<Response> {
+  const parsed = CreatePessoaSchema.safeParse(await req.json())
+  if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
 
-  const { nome, cpf, faceDescriptor, tenantSlug } = await req.json()
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  let tenantId: string | null = session?.tenantId ?? null
 
-  let tenantId = session?.tenantId ?? null
-
-  if (!tenantId && tenantSlug) {
-    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
-    if (!tenant) return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 404 })
+  // Permite cadastro público via tenantSlug (ex: terminais de hotelaria sem login)
+  if (!tenantId && parsed.data.tenantSlug) {
+    const tenant = await pessoasService.resolverTenantPorSlug(parsed.data.tenantSlug)
+    if (!tenant) return notFound('Tenant')
     tenantId = tenant.id
   }
 
-  if (!tenantId) return NextResponse.json({ error: 'Sem tenant' }, { status: 403 })
+  if (!tenantId) return forbidden()
 
-  if (!nome || !cpf || !faceDescriptor) {
-    return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 })
+  try {
+    const result = await pessoasService.criarPessoa(parsed.data, tenantId)
+    if (result.conflict) return conflict('CPF já cadastrado')
+    return created({ id: result.pessoa.id, nome: result.pessoa.nome, cpf: result.pessoa.cpf })
+  } catch {
+    return serverError('criarPessoa failed')
   }
-
-  const cpfLimpo = String(cpf).replace(/\D/g, '')
-  if (cpfLimpo.length !== 11) {
-    return NextResponse.json({ message: 'CPF inválido' }, { status: 400 })
-  }
-
-  const existing = await prisma.pessoa.findUnique({
-    where: { tenantId_cpf: { tenantId, cpf: cpfLimpo } },
-  })
-  if (existing) {
-    return NextResponse.json({ message: 'CPF já cadastrado' }, { status: 409 })
-  }
-
-  const pessoa = await prisma.pessoa.create({
-    data: {
-      tenantId,
-      nome: String(nome).trim(),
-      cpf: cpfLimpo,
-      faceDescriptor: JSON.stringify(faceDescriptor),
-    },
-  })
-
-  return NextResponse.json({ id: pessoa.id, nome: pessoa.nome, cpf: pessoa.cpf }, { status: 201 })
 }
