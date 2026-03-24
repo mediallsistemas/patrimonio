@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import Card from '@/components/card'
+import { TIPO_OCORRENCIA } from '@/lib/ronda-tipos'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -45,12 +46,6 @@ interface Ronda {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-
-const TIPO_LABEL: Record<string, { label: string; color: string }> = {
-  eletrica:   { label: 'Elétrica',   color: 'bg-yellow-100 text-yellow-700' },
-  hidraulica: { label: 'Hidráulica', color: 'bg-blue-100 text-blue-700' },
-  patrimonio: { label: 'Patrimônio', color: 'bg-purple-100 text-purple-700' },
-}
 
 // ── Grupo de ambientes ────────────────────────────────────────────────────────
 
@@ -109,8 +104,8 @@ function GrupoAmbientes({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-semibold font-sans text-dark">{amb.ambiente}</span>
                 {amb.temOcorrencia && amb.ocorrencia ? (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[amb.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
-                    {TIPO_LABEL[amb.ocorrencia.tipo]?.label ?? amb.ocorrencia.tipo}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_OCORRENCIA[amb.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
+                    {TIPO_OCORRENCIA[amb.ocorrencia.tipo]?.label ?? amb.ocorrencia.tipo}
                   </span>
                 ) : (
                   <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">Normal</span>
@@ -128,9 +123,11 @@ function GrupoAmbientes({
                   )}
                 </>
               )}
-              <span className="text-xs text-gray-300 font-sans">
-                {format(new Date(amb.concluidoEm), 'HH:mm', { locale: ptBR })}
-              </span>
+              {amb.concluidoEm && (
+                <span className="text-xs text-gray-300 font-sans">
+                  {format(new Date(amb.concluidoEm), 'HH:mm', { locale: ptBR })}
+                </span>
+              )}
             </div>
           ))}
         </div>

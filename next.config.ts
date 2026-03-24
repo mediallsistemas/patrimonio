@@ -14,19 +14,9 @@ const nextConfig: NextConfig = {
     return config
   },
   async headers() {
-    if (corsOrigins.length === 0) return []
-    return [
-      {
-        // Aplica CORS nas rotas de API usadas pela SPA FeedbackForms
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: corsOrigins.join(',') },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type,Authorization' },
-          { key: 'Access-Control-Allow-Credentials', value: 'true' },
-        ],
-      },
-    ]
+    // CORS dinâmico por origem é tratado no middleware.ts
+    // next.config.ts não suporta header dinâmico por request
+    return []
   },
 }
 

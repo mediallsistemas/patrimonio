@@ -87,7 +87,18 @@ export async function listarRondasAdmin(limit = 100) {
         take: limit,
         select: {
           ...SELECT_RONDA_LIGHT,
-          ambientes: { select: { temOcorrencia: true } },
+          ambientes: {
+            orderBy: { concluidoEm: 'asc' as const },
+            select: {
+              id: true,
+              ambiente: true,
+              temOcorrencia: true,
+              concluidoEm: true,
+              ocorrencia: {
+                select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true },
+              },
+            },
+          },
         },
       }),
       prisma.tenant.findMany({ select: { id: true, nome: true, slug: true } }),

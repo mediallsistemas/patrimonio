@@ -6,6 +6,21 @@ const JWT_SECRET = new TextEncoder().encode(
 )
 const SESSION_COOKIE = 'ls_session'
 
+const ALLOWED_ORIGINS = new Set(
+  (process.env.CORS_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean)
+)
+
+function applyCors(req: NextRequest, res: NextResponse): NextResponse {
+  const origin = req.headers.get('origin') ?? ''
+  if (ALLOWED_ORIGINS.has(origin)) {
+    res.headers.set('Access-Control-Allow-Origin', origin)
+    res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    res.headers.set('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    res.headers.set('Access-Control-Allow-Credentials', 'true')
+  }
+  return res
+}
+
 // Rotas totalmente públicas
 const PUBLIC_PATHS = [
   '/login',
@@ -74,6 +89,11 @@ function checkRateLimit(ip: string, path: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
+  // Preflight CORS — responde imediatamente
+  if (req.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    return applyCors(req, new NextResponse(null, { status: 204 }))
+  }
+
   // Recursos estáticos e rotas públicas globais
   if (
     pathname.startsWith('/_next') ||
@@ -86,13 +106,13 @@ export async function middleware(req: NextRequest) {
     if (req.method === 'POST') {
       const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
       if (!checkRateLimit(ip, pathname)) {
-        return new NextResponse(
+        return applyCors(req, new NextResponse(
           JSON.stringify({ error: 'Muitas tentativas. Aguarde um momento.' }),
           { status: 429, headers: { 'Content-Type': 'application/json' } },
-        )
+        ))
       }
     }
-    return NextResponse.next()
+    return applyCors(req, NextResponse.next())
   }
 
   // Rate limiting para POST em rotas de feedback (pré-auth)
@@ -176,12 +196,12 @@ export async function middleware(req: NextRequest) {
 
   // ── /api/hotelaria/* — público, sem autenticação necessária ───────────────
   if (pathname.startsWith('/api/hotelaria/')) {
-    return NextResponse.next()
+    return applyCors(req, NextResponse.next())
   }
 
   // ── /api/* — deixa passar (APIs protegem internamente via verifyAuth) ──────
   if (pathname.startsWith('/api/')) {
-    return NextResponse.next()
+    return applyCors(req, NextResponse.next())
   }
 
   // ── /:tenantSlug/manutencao/* — requer role de manutenção ─────────────────

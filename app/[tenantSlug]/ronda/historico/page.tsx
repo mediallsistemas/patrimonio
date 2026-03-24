@@ -10,6 +10,7 @@ import Link from 'next/link'
 import Card from '@/components/card'
 import Text from '@/components/text'
 import Header from '@/components/header'
+import { TIPO_OCORRENCIA } from '@/lib/ronda-tipos'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -45,12 +46,6 @@ interface Ronda {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-
-const TIPO_LABEL: Record<string, { label: string; color: string }> = {
-  eletrica:   { label: 'Elétrica',   color: 'bg-yellow-100 text-yellow-700' },
-  hidraulica: { label: 'Hidráulica', color: 'bg-blue-100 text-blue-700' },
-  patrimonio: { label: 'Patrimônio', color: 'bg-purple-100 text-purple-700' },
-}
 
 // ── Foto lazy ──────────────────────────────────────────────────────────────────
 
@@ -88,8 +83,8 @@ function AmbienteCard({ reg }: { reg: RegistroAmbiente }) {
             <span className="font-semibold font-sans text-dark text-sm">{reg.ambiente}</span>
             {isGases && <FlaskConical className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
             {reg.temOcorrencia && reg.ocorrencia ? (
-              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[reg.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
-                {TIPO_LABEL[reg.ocorrencia.tipo]?.label ?? reg.ocorrencia.tipo}
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_OCORRENCIA[reg.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
+                {TIPO_OCORRENCIA[reg.ocorrencia.tipo]?.label ?? reg.ocorrencia.tipo}
               </span>
             ) : (
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">Normal</span>
