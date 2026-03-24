@@ -85,7 +85,10 @@ export async function listarRondasAdmin(limit = 100) {
       prisma.rondaOcorrencia.findMany({
         orderBy: { iniciadoEm: 'desc' },
         take: limit,
-        select: SELECT_RONDA_LIGHT,
+        select: {
+          ...SELECT_RONDA_LIGHT,
+          ambientes: { select: { temOcorrencia: true } },
+        },
       }),
       prisma.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
     ])

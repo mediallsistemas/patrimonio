@@ -4,21 +4,6 @@ import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
 const TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
 
-// Cache em memória — evita re-fetch enquanto o servidor está rodando
-let cache: { data: Record<string, unknown>[]; at: number } | null = null
-const TTL = 10 * 60 * 1000 // 10 min
-
-async function fetchAll(): Promise<Record<string, unknown>[]> {
-  if (cache && Date.now() - cache.at < TTL) return cache.data
-  const res = await fetch(`${TRILOGO_BASE}/asset`, {
-    headers: { accept: 'application/json', token: TOKEN },
-  })
-  if (!res.ok) throw new Error('Trílogo assets error')
-  const data = (await res.json()) as Record<string, unknown>[]
-  cache = { data, at: Date.now() }
-  return data
-}
-
 const ORDEM: string[] = [
   'MINAS GERAIS', 'BRASÍLIA', 'BRASILIA', 'GOIÁS', 'GOIAS', 'ACRE',
   'MATO GROSSO', 'PARÁ', 'PARA', 'KERNHOLZ', 'AMAZONAS',
@@ -31,6 +16,52 @@ function ordemEmpresa(nome: string): number {
   return idx === -1 ? ORDEM.length : idx
 }
 
+// Cache em memória — evita re-fetch enquanto o servidor está rodando
+let cache: { data: Record<string, unknown>[]; at: number } | null = null
+let empresasCache: { data: { id: number; nome: string }[]; at: number } | null = null
+const TTL = 10 * 60 * 1000 // 10 min
+const EMPRESAS_TTL = 30 * 60 * 1000 // 30 min (empresas mudam raramente)
+
+function buildEmpresas(all: Record<string, unknown>[]): { id: number; nome: string }[] {
+  const map = new Map<number, string>()
+  all.forEach((a) => map.set(a['companyId'] as number, String(a['companyName']).trim()))
+  return [...map.entries()]
+    .map(([id, nome]) => ({ id, nome }))
+    .sort((a, b) => {
+      const diff = ordemEmpresa(a.nome) - ordemEmpresa(b.nome)
+      return diff !== 0 ? diff : a.nome.localeCompare(b.nome, 'pt-BR')
+    })
+}
+
+async function fetchAll(): Promise<Record<string, unknown>[]> {
+  if (cache && Date.now() - cache.at < TTL) return cache.data
+  const res = await fetch(`${TRILOGO_BASE}/asset`, {
+    headers: { accept: 'application/json', token: TOKEN },
+  })
+  if (!res.ok) throw new Error('Trílogo assets error')
+  const data = (await res.json()) as Record<string, unknown>[]
+  cache = { data, at: Date.now() }
+  // Atualiza o cache de empresas junto, aproveitando o fetch já feito
+  empresasCache = { data: buildEmpresas(data), at: Date.now() }
+  return data
+}
+
+async function fetchEmpresas(): Promise<{ id: number; nome: string }[]> {
+  if (empresasCache && Date.now() - empresasCache.at < EMPRESAS_TTL) return empresasCache.data
+  // Cache de empresas expirou mas o de assets ainda é válido — reaproveita
+  if (cache && Date.now() - cache.at < TTL) {
+    const data = buildEmpresas(cache.data)
+    empresasCache = { data, at: Date.now() }
+    return data
+  }
+  // Precisa buscar tudo do zero
+  await fetchAll()
+  return empresasCache!.data
+}
+
+// Pre-warm: inicia o cache assim que o módulo é carregado (no startup do servidor)
+if (TOKEN) fetchAll().catch(() => { /* silencioso — próximo request tentará novamente */ })
+
 export async function GET(req: Request): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
@@ -41,24 +72,13 @@ export async function GET(req: Request): Promise<Response> {
   const companyId = searchParams.get('companyId')
 
   try {
-    const all = await fetchAll()
-
     if (searchParams.get('only') === 'empresas') {
-      const map = new Map<number, string>()
-      all.forEach((a) => map.set(a['companyId'] as number, String(a['companyName']).trim()))
-
-      const empresas = [...map.entries()]
-        .map(([id, nome]) => ({ id, nome }))
-        .sort((a, b) => {
-          const diff = ordemEmpresa(a.nome) - ordemEmpresa(b.nome)
-          return diff !== 0 ? diff : a.nome.localeCompare(b.nome, 'pt-BR')
-        })
-
-      return ok(empresas)
+      return ok(await fetchEmpresas())
     }
 
     if (!companyId) return badRequest('companyId obrigatório')
 
+    const all = await fetchAll()
     const filtrado = all.filter((a) => String(a['companyId']) === companyId)
     return ok(filtrado)
   } catch {

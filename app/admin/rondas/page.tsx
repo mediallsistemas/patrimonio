@@ -211,12 +211,12 @@ export default function AdminRondasPage() {
   )
 
   const totalRondas = rondas.length
-  const totalOcorrencias = rondas.reduce((acc, r) => acc + r.ambientes.filter((a) => a.temOcorrencia).length, 0)
-  const rondasComOcorrencia = rondas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
+  const totalOcorrencias = rondas.reduce((acc, r) => acc + (r.ambientes ?? []).filter((a) => a.temOcorrencia).length, 0)
+  const rondasComOcorrencia = rondas.filter((r) => (r.ambientes ?? []).some((a) => a.temOcorrencia)).length
 
   const rondasFiltradas = rondas.filter((r) => {
     if (filtroTenant !== 'todos' && r.tenantId !== filtroTenant) return false
-    if (filtroPendente && !r.ambientes.some((a) => a.temOcorrencia)) return false
+    if (filtroPendente && !(r.ambientes ?? []).some((a) => a.temOcorrencia)) return false
     return true
   })
 
