@@ -8,6 +8,8 @@ const OcorrenciaSchema = z.object({
   descricao: z.string().min(1).max(1000),
   foto: z.string().optional().nullable(),
   trilogoChamado: z.boolean(),
+  bemPatrimony: z.string().max(120).optional().nullable(),
+  bemDescricao: z.string().max(255).optional().nullable(),
 })
 
 const RegistroAmbienteSchema = z.discriminatedUnion('tipoRegistro', [
@@ -76,6 +78,8 @@ export async function POST(
                   descricao: body.ocorrencia.descricao,
                   foto: body.ocorrencia.foto ?? null,
                   trilogoChamado: body.ocorrencia.trilogoChamado,
+                  bemPatrimony: body.ocorrencia.bemPatrimony ?? null,
+                  bemDescricao: body.ocorrencia.bemDescricao ?? null,
                 },
               },
             }

@@ -10,11 +10,12 @@ import {
 } from '@/lib/hooks/useRondaDraft'
 import {
   BLOCOS_AMBIENTES,
-  TIPOS_OCORRENCIA,
   type Etapa,
   type DetalheOcorrencia,
   type AmbienteConcluido,
   type TipoOcorrencia,
+  type OcorrenciaItem,
+  type TrilogoAsset,
 } from '@/app/[tenantSlug]/manutencao/ocorrencias/types'
 
 export interface OcorrenciaRondaTenantState {
@@ -25,11 +26,17 @@ export interface OcorrenciaRondaTenantState {
   concluidos: AmbienteConcluido[]
   etapa: Etapa
   detalhe: DetalheOcorrencia
+  ocorrenciasStaged: OcorrenciaItem[]
   submitting: boolean
   errors: Record<string, string>
   showOverlay: boolean
   draft: RondaDraftEstado | null
   draftCarregado: boolean
+
+  // Patrimônio / Trílogo
+  companyId: number | null
+  loadingAssets: boolean
+  bensDoAmbiente: TrilogoAsset[]
 
   // Refs
   fileInputRef: React.RefObject<HTMLInputElement | null>
@@ -51,10 +58,11 @@ export interface OcorrenciaRondaTenantState {
   setBlocoIdx: React.Dispatch<React.SetStateAction<number>>
 
   // Handlers
-  handleIniciar: () => Promise<void>
+  handleIniciar: (blocoInicio?: number, selectedCompanyId?: number) => Promise<void>
   handleSemOcorrencia: () => Promise<void>
   handleFoto: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleDetalheNext: () => void
+  handleAdicionarOutro: () => void
   handleTrilogo: (trilogoChamado: boolean) => Promise<void>
   handleProximoBloco: () => void
   handleVoltarBloco: () => void
@@ -73,11 +81,17 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
   const [detalhe, setDetalhe]         = useState<DetalheOcorrencia>({
     tipo: null, descricao: '', foto: null, trilogoChamado: null,
   })
+  const [ocorrenciasStaged, setOcorrenciasStaged] = useState<OcorrenciaItem[]>([])
   const [submitting, setSubmitting]   = useState(false)
   const [errors, setErrors]           = useState<Record<string, string>>({})
   const [showOverlay, setShowOverlay] = useState(false)
   const [draft, setDraft]             = useState<RondaDraftEstado | null>(null)
   const [draftCarregado, setDraftCarregado] = useState(false)
+
+  // ── Patrimônio / Trílogo assets ────────────────────────────────────────────
+  const [companyId, setCompanyId]     = useState<number | null>(null)
+  const [allAssets, setAllAssets]     = useState<TrilogoAsset[]>([])
+  const [loadingAssets, setLoadingAssets] = useState(false)
 
   // ── Draft persistence ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -125,16 +139,47 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
   const progressoPct      = Math.round((blocosFeitos / totalBlocos) * 100)
   const concluidosBloco   = concluidos.filter((c) => c.blocoIdx === blocoIdx)
 
+  // ── Ambiente atual → bens do Trílogo filtrados ────────────────────────────
+  // Strip leading "NNN - " from ronda ambiente name for fuzzy match
+  function normalizar(s: string) {
+    return s.replace(/^\d+[\s.-]+/, '').toLowerCase().trim()
+  }
+
+  const bensDoAmbiente: TrilogoAsset[] = companyId
+    ? allAssets.filter((a) => {
+        const parts = a.departmentFullAddress.split('>').map((p) => p.trim())
+        const trilogoAmbiente = parts[parts.length - 1] ?? ''
+        const rondaNorm = normalizar(ambienteAtual)
+        const trilogoNorm = trilogoAmbiente.toLowerCase().trim()
+        return trilogoNorm.includes(rondaNorm) || rondaNorm.includes(trilogoNorm)
+      })
+    : []
+
   // ── Iniciar ronda ──────────────────────────────────────────────────────────
-  async function handleIniciar() {
+  async function handleIniciar(blocoInicio: number = 0, selectedCompanyId?: number) {
     setSubmitting(true)
     try {
       const res = await fetch('/api/rondas', { method: 'POST' })
       if (!res.ok) throw new Error('Falha ao iniciar ronda')
-      const ronda = await res.json()
+      const { data: ronda } = await res.json()
       setRondaId(ronda.id)
-      setBlocoIdx(0)
+      setBlocoIdx(blocoInicio)
       setAmbienteIdx(0)
+
+      // Pre-load assets for patrimônio selection (non-blocking)
+      if (selectedCompanyId) {
+        setCompanyId(selectedCompanyId)
+        setLoadingAssets(true)
+        fetch(`/api/trilogo/assets?companyId=${selectedCompanyId}`)
+          .then((r) => r.json())
+          .then((j: { data?: TrilogoAsset[] } | TrilogoAsset[]) => {
+            const list = Array.isArray(j) ? j : (j.data ?? [])
+            setAllAssets(list)
+          })
+          .catch(() => { /* assets são opcionais, não bloqueia a ronda */ })
+          .finally(() => setLoadingAssets(false))
+      }
+
       setEtapa('bloco_intro')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao iniciar')
@@ -151,7 +196,7 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
     setSubmitting(true)
     try {
       await salvarAmbiente(false)
-      avancarAmbiente(false)
+      avancarAmbiente(false, undefined)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
@@ -168,27 +213,61 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
     reader.readAsDataURL(file)
   }
 
-  // ── Detalhe: validar e avançar ─────────────────────────────────────────────
-  function handleDetalheNext() {
+  // ── Detalhe: validar ──────────────────────────────────────────────────────
+  function validarDetalhe(): boolean {
     const e: Record<string, string> = {}
     if (!detalhe.tipo) e.tipo = 'Selecione o tipo'
     if (!detalhe.descricao.trim()) e.descricao = 'Descreva o problema'
-    if (Object.keys(e).length > 0) { setErrors(e); return }
+    if (!detalhe.foto) e.foto = 'A foto é obrigatória'
+    if (Object.keys(e).length > 0) { setErrors(e); return false }
     setErrors({})
+    return true
+  }
+
+  function handleDetalheNext() {
+    if (!validarDetalhe()) return
     setEtapa('trilogo')
+  }
+
+  // ── Adicionar outro problema no mesmo ambiente ─────────────────────────────
+  function handleAdicionarOutro() {
+    if (!validarDetalhe()) return
+    setOcorrenciasStaged((prev) => [
+      ...prev,
+      {
+        tipo: detalhe.tipo!,
+        descricao: detalhe.descricao,
+        foto: detalhe.foto,
+        bemPatrimony: detalhe.bemSelecionado?.patrimony ?? null,
+        bemDescricao: detalhe.bemSelecionado?.description ?? null,
+      },
+    ])
+    setDetalhe({ tipo: null, descricao: '', foto: null, trilogoChamado: null, bemSelecionado: null })
+    setErrors({})
   }
 
   // ── Trilogo ────────────────────────────────────────────────────────────────
   async function handleTrilogo(trilogoChamado: boolean) {
-    const det = { ...detalhe, trilogoChamado }
-    setDetalhe(det)
+    const allItems: OcorrenciaItem[] = [
+      ...ocorrenciasStaged,
+      {
+        tipo: detalhe.tipo!,
+        descricao: detalhe.descricao,
+        foto: detalhe.foto,
+        bemPatrimony: detalhe.bemSelecionado?.patrimony ?? null,
+        bemDescricao: detalhe.bemSelecionado?.description ?? null,
+      },
+    ]
     setShowOverlay(true)
     await new Promise((r) => setTimeout(r, 700))
     setShowOverlay(false)
     setSubmitting(true)
     try {
-      await salvarAmbiente(true, det)
-      avancarAmbiente(true, det.tipo ?? undefined)
+      // Save each problem as a separate RegistroAmbiente row
+      for (const item of allItems) {
+        await salvarAmbienteComOcorrencia(item, trilogoChamado)
+      }
+      avancarAmbiente(true, allItems[0].tipo)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
@@ -197,22 +276,32 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
   }
 
   // ── Salvar ambiente na API ─────────────────────────────────────────────────
-  async function salvarAmbiente(temOcorrencia: boolean, det?: DetalheOcorrencia) {
+  async function salvarAmbiente(temOcorrencia: boolean) {
+    const res = await fetch(`/api/rondas/${rondaId}/ambientes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipoRegistro: 'ocorrencia', ambiente: ambienteAtual, temOcorrencia }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error ?? `Erro ${res.status}`)
+    }
+  }
+
+  async function salvarAmbienteComOcorrencia(item: OcorrenciaItem, trilogoChamado: boolean) {
     const res = await fetch(`/api/rondas/${rondaId}/ambientes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        tipoRegistro: 'ocorrencia',
         ambiente: ambienteAtual,
-        temOcorrencia,
-        ocorrencia:
-          temOcorrencia && det
-            ? {
-                tipo: det.tipo,
-                descricao: det.descricao,
-                foto: det.foto,
-                trilogoChamado: det.trilogoChamado,
-              }
-            : undefined,
+        temOcorrencia: true,
+        ocorrencia: {
+          tipo: item.tipo,
+          descricao: item.descricao,
+          foto: item.foto,
+          trilogoChamado,
+        },
       }),
     })
     if (!res.ok) {
@@ -238,7 +327,8 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
   }
 
   function resetDetalhe() {
-    setDetalhe({ tipo: null, descricao: '', foto: null, trilogoChamado: null })
+    setDetalhe({ tipo: null, descricao: '', foto: null, trilogoChamado: null, bemSelecionado: null })
+    setOcorrenciasStaged([])
     setErrors({})
   }
 
@@ -277,11 +367,15 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
     concluidos,
     etapa,
     detalhe,
+    ocorrenciasStaged,
     submitting,
     errors,
     showOverlay,
     draft,
     draftCarregado,
+    companyId,
+    loadingAssets,
+    bensDoAmbiente,
     fileInputRef,
     blocoAtual,
     ambienteAtual,
@@ -299,6 +393,7 @@ export function useOcorrenciaRondaTenant(): OcorrenciaRondaTenantState {
     handleSemOcorrencia,
     handleFoto,
     handleDetalheNext,
+    handleAdicionarOutro,
     handleTrilogo,
     handleProximoBloco,
     handleVoltarBloco,

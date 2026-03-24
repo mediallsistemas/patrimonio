@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FlaskConical, ClipboardList, History } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
 import Text from '@/components/text'
 import { getSession } from '@/lib/auth'
@@ -17,32 +17,11 @@ export default async function ManutencaoHomePage({
 
   const actions = [
     {
-      href: `/${tenantSlug}/manutencao/ocorrencias`,
+      href: `/ocorrencias`,
       icon: ClipboardList,
-      title: 'Registro de Ocorrências',
+      title: 'Ronda de Manutenção Predial',
       description: 'Ronda e registro de ocorrências em ambientes hospitalares',
       color: '#0f766e',
-    },
-    {
-      href: `/${tenantSlug}/manutencao/ocorrencias/historico`,
-      icon: History,
-      title: 'Histórico de Rondas',
-      description: 'Consulte o histórico de rondas e ocorrências registradas',
-      color: '#6366f1',
-    },
-    {
-      href: `/${tenantSlug}/manutencao/inspecao`,
-      icon: FlaskConical,
-      title: 'Inspeção de Gases',
-      description: 'Inspeção técnica da usina de gases medicinais',
-      color: '#7c3aed',
-    },
-    {
-      href: `/${tenantSlug}/manutencao/inspecao/historico`,
-      icon: History,
-      title: 'Histórico de Inspeções',
-      description: 'Consulte o histórico de inspeções técnicas realizadas',
-      color: '#0369a1',
     },
   ]
 
@@ -81,12 +60,12 @@ export default async function ManutencaoHomePage({
             Manutenção e Infraestrutura
           </Text>
           <Text variant="body-md" className="text-gray-300">
-            Gestão de ocorrências e inspeção técnica hospitalar
+            Gestão de ocorrências e manutenção predial
           </Text>
         </div>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-5">
           {actions.map(({ href, icon: Icon, title, description, color }) => (
             <Link key={href} href={href} className="group">
               <div
