@@ -232,6 +232,9 @@ export async function middleware(req: NextRequest) {
     if (role === 'super_admin') {
       return NextResponse.redirect(new URL('/admin', req.url))
     }
+    if (MANUTENCAO_ROLES.has(role) && tenantSlug) {
+      return NextResponse.redirect(new URL(`/${tenantSlug}/manutencao`, req.url))
+    }
   }
 
   return NextResponse.next()

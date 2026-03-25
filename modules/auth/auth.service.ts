@@ -3,8 +3,13 @@ import { comparePassword } from '@/lib/auth'
 
 export async function autenticarUsuario(email: string, senha: string) {
   try {
+    // Suporta login por username (sem @) ou email completo
+    const lookup = email.toLowerCase().includes('@')
+      ? email.toLowerCase()
+      : `${email.toLowerCase()}@sistema.local`
+
     const usuario = await prisma.usuario.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email: lookup },
       include: { tenant: true },
     })
     if (!usuario || !usuario.ativo) return null

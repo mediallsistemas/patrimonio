@@ -71,24 +71,14 @@ export default function UsuariosPage() {
               <Text variant="body-sm" className="text-gray-300 block">Contas de acesso ao sistema</Text>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setModal({ open: true, defaultRole: 'operator' })}
-            >
-              <Plus className="w-4 h-4" />
-              Operador
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setModal({ open: true, defaultRole: 'tenant_admin' })}
-            >
-              <Plus className="w-4 h-4" />
-              Novo Usuário
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setModal({ open: true, defaultRole: 'tenant_admin' })}
+          >
+            <Plus className="w-4 h-4" />
+            Novo Usuário
+          </Button>
         </div>
 
         <ModalCriarUsuario

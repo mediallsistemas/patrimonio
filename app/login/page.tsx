@@ -1,13 +1,12 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
 import Text from '@/components/ui/Text'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') ?? '/'
 
@@ -29,20 +28,20 @@ function LoginForm() {
         body: JSON.stringify({ email, senha }),
       })
 
-      const data = await res.json()
+      const json = await res.json()
 
       if (!res.ok) {
-        setErro(data.error ?? 'Erro ao fazer login')
+        setErro(json.error ?? 'Erro ao fazer login')
         return
       }
 
-      const { usuario } = data
+      const { usuario } = json.data ?? json
       // Redireciona para o tenant do usuário ou para o destino original
       const dest = from !== '/'
         ? from
         : usuario.role === 'super_admin'
           ? '/admin'
-          : `/${usuario.tenantSlug}`
+          : `/${usuario.tenantSlug}/manutencao`
 
       window.location.href = dest
     } catch {
@@ -76,12 +75,12 @@ function LoginForm() {
             {/* Email */}
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-gray-400 font-sans">
-                E-mail
+                Usuário
               </label>
               <input
-                type="email"
-                autoComplete="email"
-                placeholder="seu@email.com"
+                type="text"
+                autoComplete="username"
+                placeholder="nome.usuario ou email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

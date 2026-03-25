@@ -30,7 +30,7 @@ export default function ModalCriarUsuario({ open, defaultRole, onClose, onCreate
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [form, setForm] = useState({
     nome: '',
-    email: '',
+    username: '',
     senha: '',
     role: defaultRole ?? 'operator',
     tenantId: '',
@@ -41,7 +41,7 @@ export default function ModalCriarUsuario({ open, defaultRole, onClose, onCreate
 
   useEffect(() => {
     if (open) {
-      setForm({ nome: '', email: '', senha: '', role: defaultRole ?? 'operator', tenantId: '' })
+      setForm({ nome: '', username: '', senha: '', role: defaultRole ?? 'operator', tenantId: '' })
       setErrors({})
       setServerError('')
       fetch('/api/admin/tenants')
@@ -55,7 +55,8 @@ export default function ModalCriarUsuario({ open, defaultRole, onClose, onCreate
   function validate(): boolean {
     const e: typeof errors = {}
     if (!form.nome.trim() || form.nome.trim().length < 2) e.nome = 'Nome deve ter ao menos 2 caracteres'
-    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'E-mail inválido'
+    if (!form.username.trim() || form.username.trim().length < 3) e.username = 'Usuário deve ter ao menos 3 caracteres'
+    if (!/^[a-z0-9._-]+$/.test(form.username)) e.username = 'Apenas letras minúsculas, números, ponto, hífen e underscore'
     if (!form.senha || form.senha.length < 8) e.senha = 'Senha deve ter ao menos 8 caracteres'
     if (needsTenant && !form.tenantId) e.tenantId = 'Selecione uma unidade'
     setErrors(e)
@@ -70,7 +71,7 @@ export default function ModalCriarUsuario({ open, defaultRole, onClose, onCreate
     try {
       const body: Record<string, unknown> = {
         nome: form.nome.trim(),
-        email: form.email.trim().toLowerCase(),
+        username: form.username.trim().toLowerCase(),
         senha: form.senha,
         role: form.role,
       }
@@ -127,12 +128,12 @@ export default function ModalCriarUsuario({ open, defaultRole, onClose, onCreate
           />
 
           <Input
-            label="E-mail"
-            type="email"
-            placeholder="email@exemplo.com"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            error={errors.email}
+            label="Nome de usuário"
+            type="text"
+            placeholder="ex: equipe.hrgm"
+            value={form.username}
+            onChange={(e) => setForm((f) => ({ ...f, username: e.target.value.toLowerCase() }))}
+            error={errors.username}
           />
 
           <Input

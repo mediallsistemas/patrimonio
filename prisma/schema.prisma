@@ -183,6 +183,8 @@ model OcorrenciaDetalhe {
   descricao      String
   foto           String?
   trilogoChamado Boolean
+  bemPatrimony   String?
+  bemDescricao   String?
   registro       RegistroAmbiente @relation(fields: [registroId], references: [id])
 
   @@map("ocorrencias_detalhe")

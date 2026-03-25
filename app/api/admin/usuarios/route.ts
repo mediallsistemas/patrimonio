@@ -27,7 +27,7 @@ export async function POST(req: Request): Promise<Response> {
     return created(usuario)
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : ''
-    if (msg.includes('Unique constraint')) return conflict('E-mail já cadastrado')
+    if (msg.includes('Unique constraint')) return conflict('Nome de usuário já cadastrado')
     return serverError('criarUsuario failed')
   }
 }

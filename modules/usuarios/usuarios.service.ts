@@ -39,9 +39,10 @@ export async function buscarUsuario(id: string) {
 
 export async function criarUsuario(input: CreateUsuarioInput) {
   try {
+    const email = `${input.username.trim().toLowerCase()}@sistema.local`
     return await prisma.usuario.create({
       data: {
-        email: input.email.trim().toLowerCase(),
+        email,
         nome: input.nome.trim(),
         senhaHash: await hashPassword(input.senha),
         role: input.role,
