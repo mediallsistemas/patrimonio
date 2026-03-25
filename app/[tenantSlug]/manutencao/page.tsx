@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { ClipboardList } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
-import Text from '@/components/text'
+import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import LogoutButton from '@/components/logout-button'
+import LogoutButton from '@/components/ui/LogoutButton'
 
 export default async function ManutencaoHomePage({
   params,

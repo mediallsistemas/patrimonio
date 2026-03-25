@@ -1,3 +1,5 @@
+import type React from 'react'
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export type TipoOcorrencia = 'eletrica' | 'hidraulica' | 'patrimonio'
@@ -217,6 +219,46 @@ export const TIPOS_OCORRENCIA: { value: TipoOcorrencia; label: string; active: s
 
 export const TAMANHOS_CILINDRO: TamanhoCilindro[] = ['P7', 'P10', 'P45', 'P50']
 export const DRAFT_DEBOUNCE_MS = 1500
+
+// ── Hook state interface ───────────────────────────────────────────────────────
+
+export interface OcorrenciaRondaState {
+  rondaIniciada: boolean
+  estado: DraftEstado
+  searchBlocos: string
+  searchLocais: string
+  submitting: boolean
+  errors: Record<string, string>
+  showCheck: boolean
+  draftServidor: DraftEstado | null
+  mostrarBanner: boolean
+  fileInputRef: React.RefObject<HTMLInputElement | null>
+  totalLocais: number
+  totalFeitos: number
+  progresso: number
+  blocoAtual: Bloco | undefined
+  blocosFiltrados: Bloco[]
+  locaisFiltrados: Local[]
+  setSearchBlocos: (v: string) => void
+  setSearchLocais: (v: string) => void
+  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  atualizar: (parcial: Partial<DraftEstado>) => void
+  iniciar: () => void
+  retomar: () => void
+  descartarDraft: () => void
+  feitosNoBloco: (nomeBloco: string) => number
+  localFeito: (nomeBloco: string, nomeLocal: string) => boolean
+  blocoCompleto: (bloco: Bloco) => boolean
+  selecionarBloco: (bloco: Bloco) => void
+  selecionarLocal: (local: Local) => void
+  salvarLocal: (temOcorrencia: boolean, trilogoChamado?: boolean) => Promise<void>
+  finalizarRonda: () => Promise<void>
+  abandonar: () => void
+  handleFoto: (e: React.ChangeEvent<HTMLInputElement>) => void
+  validarMedicoes: () => Record<string, string>
+  validarAbastecimento: () => Record<string, string>
+  validarDetalhe: () => Record<string, string>
+}
 
 export function estadoInicial(): DraftEstado {
   return {

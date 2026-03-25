@@ -1,23 +1,17 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
-import { prisma } from '@/lib/db'
 import { ok, unauthorized, notFound, serverError } from '@/lib/api-response'
+import { buscarTenantPorSlug } from '@/modules/tenants/tenants.service'
 
-interface Params {
-  params: Promise<{ slug: string }>
-}
-
-// GET /api/tenants/:slug — busca tenant por slug (autenticado)
-export async function GET(req: Request, { params }: Params) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ slug: string }> },
+): Promise<Response> {
   try {
     const session = await verifyAuth(req)
     if (!session) return unauthorized()
 
     const { slug } = await params
-    const tenant = await prisma.tenant.findUnique({
-      where: { slug },
-      select: { id: true, slug: true, nome: true, logoUrl: true, ativo: true },
-    })
-
+    const tenant = await buscarTenantPorSlug(slug)
     if (!tenant) return notFound('Tenant')
 
     return ok({
@@ -27,7 +21,7 @@ export async function GET(req: Request, { params }: Params) {
       logoUrl: tenant.logoUrl,
       active:  tenant.ativo,
     })
-  } catch (err) {
-    return serverError(err)
+  } catch {
+    return serverError('buscarTenant failed')
   }
 }

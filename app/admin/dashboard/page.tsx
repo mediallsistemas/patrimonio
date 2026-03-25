@@ -11,8 +11,8 @@ import {
   Users, ArrowDownToLine, RotateCcw, Clock, ArrowLeft, LayoutDashboard, Building2, ChevronDown,
 } from 'lucide-react'
 import Link from 'next/link'
-import Card from '@/components/card'
-import Text from '@/components/text'
+import Card from '@/components/ui/Card'
+import Text from '@/components/ui/Text'
 import { formatarCPFDisplay } from '@/utils/format'
 
 interface Tenant {

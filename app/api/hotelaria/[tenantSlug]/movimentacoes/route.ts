@@ -1,27 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { NextRequest } from 'next/server'
+import { created, badRequest, notFound, serverError } from '@/lib/api-response'
+import { buscarTenantPorSlug } from '@/modules/tenants/tenants.service'
+import { criarMovimentacao } from '@/modules/movimentacoes/movimentacoes.service'
+import { NenhumaPendenteError } from '@/modules/movimentacoes/movimentacoes.types'
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ tenantSlug: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+): Promise<Response> {
   const { tenantSlug } = await params
   const { pessoaId, tipo } = await req.json()
 
   if (!pessoaId || !tipo || !['retirada', 'devolucao'].includes(tipo)) {
-    return NextResponse.json({ message: 'Dados inválidos' }, { status: 400 })
+    return badRequest('Dados inválidos')
   }
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
-  if (!tenant) return NextResponse.json({ message: 'Tenant não encontrado' }, { status: 404 })
+  try {
+    const tenant = await buscarTenantPorSlug(tenantSlug)
+    if (!tenant) return notFound('Tenant')
 
-  if (tipo === 'devolucao') {
-    const retiradas = await prisma.movimentacao.count({ where: { pessoaId, tenantId: tenant.id, tipo: 'retirada' } })
-    const devolucoes = await prisma.movimentacao.count({ where: { pessoaId, tenantId: tenant.id, tipo: 'devolucao' } })
-    if (retiradas - devolucoes <= 0) {
-      return NextResponse.json({ message: 'Nenhuma retirada pendente para devolver' }, { status: 400 })
-    }
+    const mov = await criarMovimentacao(tenant.id, pessoaId, tipo as 'retirada' | 'devolucao')
+    return created({ id: mov.id })
+  } catch (err) {
+    if (err instanceof NenhumaPendenteError) return badRequest('Nenhuma retirada pendente para devolver')
+    return serverError('criarMovimentacao failed')
   }
-
-  const mov = await prisma.movimentacao.create({
-    data: { tenantId: tenant.id, pessoaId, tipo },
-  })
-  return NextResponse.json({ id: mov.id }, { status: 201 })
 }

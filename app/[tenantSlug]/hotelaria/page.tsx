@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { GiClothes } from 'react-icons/gi'
 import { TbFaceId } from 'react-icons/tb'
 import { ArrowDownToLine, RotateCcw, ClipboardList } from 'lucide-react'
-import Text from '@/components/text'
+import Text from '@/components/ui/Text'
 import FaceApiPreloader from '@/components/face-api-preloader'
 
 export default async function HotelariaHomePage({

@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { Building2, Users, ShieldCheck, Activity, LayoutDashboard, Package } from 'lucide-react'
-import Text from '@/components/text'
+import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
-import LogoutButton from '@/components/logout-button'
+import LogoutButton from '@/components/ui/LogoutButton'
 
 const actions = [
   {

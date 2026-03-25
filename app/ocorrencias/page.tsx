@@ -1,6 +1,6 @@
 'use client'
 
-import Header from '@/components/header'
+import Header from '@/components/ui/Header'
 import CheckFeedback from '@/components/ui/CheckFeedback'
 import { useOcorrenciaRonda } from '@/hooks/useOcorrenciaRonda'
 import DraftBanner from './components/DraftBanner'

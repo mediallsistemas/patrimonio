@@ -10,56 +10,12 @@ import {
   type Bloco,
   type Local,
   type DraftEstado,
+  type OcorrenciaRondaState,
   type RegistroConcluido,
   type TipoOcorrencia,
 } from '@/app/ocorrencias/types'
 
-export interface OcorrenciaRondaState {
-  // Estado
-  rondaIniciada: boolean
-  estado: DraftEstado
-  searchBlocos: string
-  searchLocais: string
-  submitting: boolean
-  errors: Record<string, string>
-  showCheck: boolean
-  draftServidor: DraftEstado | null
-  mostrarBanner: boolean
-
-  // Refs
-  fileInputRef: React.RefObject<HTMLInputElement | null>
-
-  // Dados derivados
-  totalLocais: number
-  totalFeitos: number
-  progresso: number
-  blocoAtual: Bloco | undefined
-  blocosFiltrados: Bloco[]
-  locaisFiltrados: Local[]
-
-  // Setters simples
-  setSearchBlocos: (v: string) => void
-  setSearchLocais: (v: string) => void
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
-
-  // Handlers
-  atualizar: (parcial: Partial<DraftEstado>) => void
-  iniciar: () => void
-  retomar: () => void
-  descartarDraft: () => void
-  feitosNoBloco: (nomeBloco: string) => number
-  localFeito: (nomeBloco: string, nomeLocal: string) => boolean
-  blocoCompleto: (bloco: Bloco) => boolean
-  selecionarBloco: (bloco: Bloco) => void
-  selecionarLocal: (local: Local) => void
-  salvarLocal: (temOcorrencia: boolean, trilogoChamado?: boolean) => Promise<void>
-  finalizarRonda: () => Promise<void>
-  abandonar: () => void
-  handleFoto: (e: React.ChangeEvent<HTMLInputElement>) => void
-  validarMedicoes: () => Record<string, string>
-  validarAbastecimento: () => Record<string, string>
-  validarDetalhe: () => Record<string, string>
-}
+export type { OcorrenciaRondaState }
 
 export function useOcorrenciaRonda(): OcorrenciaRondaState {
   const router = useRouter()

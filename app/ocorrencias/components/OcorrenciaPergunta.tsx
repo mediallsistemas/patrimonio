@@ -1,8 +1,8 @@
 'use client'
 
 import { AlertTriangle, CheckCircle, ChevronLeft } from 'lucide-react'
-import Card from '@/components/card'
-import Text from '@/components/text'
+import Card from '@/components/ui/Card'
+import Text from '@/components/ui/Text'
 import type { DraftEstado } from '@/app/ocorrencias/types'
 
 interface OcorrenciaPerguntaProps {

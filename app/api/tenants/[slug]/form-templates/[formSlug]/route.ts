@@ -1,28 +1,22 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
-import { prisma } from '@/lib/db'
 import { ok, unauthorized, notFound, serverError } from '@/lib/api-response'
+import { buscarTenantPorSlug } from '@/modules/tenants/tenants.service'
+import { buscarTemplate } from '@/modules/feedback/form-template.service'
 
-interface Params {
-  params: Promise<{ slug: string; formSlug: string }>
-}
-
-// GET /api/tenants/:slug/form-templates/:formSlug
-export async function GET(req: Request, { params }: Params) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ slug: string; formSlug: string }> },
+): Promise<Response> {
   try {
     const session = await verifyAuth(req)
     if (!session) return unauthorized()
 
     const { slug, formSlug } = await params
-    const tenant = await prisma.tenant.findUnique({
-      where: { slug },
-      select: { id: true },
-    })
+    const tenant = await buscarTenantPorSlug(slug)
     if (!tenant) return notFound('Tenant')
 
-    // formSlug pode ser o id UUID do template
-    const template = await prisma.templateFormulario.findFirst({
-      where: { tenantId: tenant.id, id: formSlug },
-    })
+    // formSlug is the UUID id of the template
+    const template = await buscarTemplate(formSlug, tenant.id)
     if (!template) return notFound('Template')
 
     return ok({
@@ -33,7 +27,7 @@ export async function GET(req: Request, { params }: Params) {
       active:   template.ativo,
       blocks:   template.campos,
     })
-  } catch (err) {
-    return serverError(err)
+  } catch {
+    return serverError('buscarTemplate failed')
   }
 }

@@ -1,9 +1,9 @@
 'use client'
 
 import { Package, X } from 'lucide-react'
-import Card from '@/components/card'
-import Button from '@/components/button'
-import Text from '@/components/text'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Text from '@/components/ui/Text'
 import type { DraftEstado } from '@/app/ocorrencias/types'
 
 interface GasesAbastecimentoProps {

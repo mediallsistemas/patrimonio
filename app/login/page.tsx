@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
-import Text from '@/components/text'
+import Text from '@/components/ui/Text'
 
 function LoginForm() {
   const router = useRouter()

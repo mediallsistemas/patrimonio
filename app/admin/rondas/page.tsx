@@ -9,7 +9,7 @@ import {
   AlertTriangle, Activity,
 } from 'lucide-react'
 import Link from 'next/link'
-import Card from '@/components/card'
+import Card from '@/components/ui/Card'
 import { TIPO_OCORRENCIA } from '@/lib/ronda-tipos'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────

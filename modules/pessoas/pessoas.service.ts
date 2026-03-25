@@ -46,6 +46,30 @@ export async function buscarPessoasParaFaceMatch(tenantId: string | null): Promi
   }
 }
 
+export async function buscarPessoa(id: string) {
+  try {
+    return await prisma.pessoa.findUnique({
+      where: { id },
+      select: { id: true, nome: true, cpf: true, criadoEm: true },
+    })
+  } catch (error) {
+    console.error('[pessoas.service] buscarPessoa:', error)
+    throw error
+  }
+}
+
+export async function deletarPessoa(id: string) {
+  try {
+    await prisma.$transaction([
+      prisma.movimentacao.deleteMany({ where: { pessoaId: id } }),
+      prisma.pessoa.delete({ where: { id } }),
+    ])
+  } catch (error) {
+    console.error('[pessoas.service] deletarPessoa:', error)
+    throw error
+  }
+}
+
 export async function criarPessoa(input: CreatePessoaInput, tenantId: string) {
   try {
     const cpfLimpo = input.cpf.replace(/\D/g, '')

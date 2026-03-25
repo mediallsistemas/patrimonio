@@ -1,40 +1,32 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { ok, created, unauthorized, serverError } from '@/lib/api-response'
+import { listarRodadas, criarRodada } from '@/modules/rodadas/rodadas.service'
 
-export async function GET() {
+const SUPER_ADMIN_TENANT = '00000000-0000-0000-0000-000000000001'
+
+export async function GET(): Promise<Response> {
   const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  if (!session) return unauthorized()
 
-  const where = session.role === 'super_admin' ? {} : { tenantId: session.tenantId! }
-
-  const rodadas = await prisma.rodada.findMany({
-    where,
-    orderBy: { iniciadoEm: 'desc' },
-    take: 50,
-    include: {
-      ambientes: {
-        orderBy: { concluidoEm: 'asc' },
-        include: {
-          abastecimento: { select: { quantidade: true, tamanho: true } },
-          alteracao: {
-            select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
-          },
-        },
-      },
-    },
-  })
-  return NextResponse.json(rodadas)
+  try {
+    const tenantId = session.role === 'super_admin' ? null : session.tenantId!
+    const rodadas = await listarRodadas(tenantId)
+    return ok(rodadas)
+  } catch {
+    return serverError('listarRodadas failed')
+  }
 }
 
-export async function POST() {
+export async function POST(): Promise<Response> {
   const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  if (!session) return unauthorized()
 
-  const tenantId = session.role === 'super_admin'
-    ? '00000000-0000-0000-0000-000000000001'
-    : session.tenantId!
-
-  const rodada = await prisma.rodada.create({ data: { tenantId, criadoPorId: session.userId } })
-  return NextResponse.json(rodada, { status: 201 })
+  try {
+    const tenantId =
+      session.role === 'super_admin' ? SUPER_ADMIN_TENANT : session.tenantId!
+    const rodada = await criarRodada(tenantId, session.userId)
+    return created(rodada)
+  } catch {
+    return serverError('criarRodada failed')
+  }
 }

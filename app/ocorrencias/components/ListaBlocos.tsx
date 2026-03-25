@@ -1,9 +1,9 @@
 'use client'
 
 import { CheckCircle, ChevronRight, ClipboardList, FlaskConical, LogOut, Search, X } from 'lucide-react'
-import Card from '@/components/card'
-import Button from '@/components/button'
-import Text from '@/components/text'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Text from '@/components/ui/Text'
 import { TIPOS_OCORRENCIA, type Bloco, type DraftEstado } from '@/app/ocorrencias/types'
 
 interface ListaBlocosProps {

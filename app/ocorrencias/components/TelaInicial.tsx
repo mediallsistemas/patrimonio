@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { ClipboardList, Play, History } from 'lucide-react'
-import Card from '@/components/card'
-import Button from '@/components/button'
-import Text from '@/components/text'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Text from '@/components/ui/Text'
 
 interface TelaInicialProps {
   totalLocais: number

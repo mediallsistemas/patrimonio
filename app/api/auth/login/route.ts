@@ -1,31 +1,19 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { comparePassword, setSessionCookie, SessionPayload } from '@/lib/auth'
+import { setSessionCookie } from '@/lib/auth'
+import type { SessionPayload } from '@/lib/auth'
+import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
+import { autenticarUsuario } from '@/modules/auth/auth.service'
 
-export async function POST(req: Request) {
+export async function POST(req: Request): Promise<Response> {
   try {
     const body = await req.json()
     const email = (body.email ?? '').trim()
-    // Aceita "senha" (LinenSistem SSR) e "password" (SPA FeedbackForms)
+    // Accepts "senha" (LinenSistem SSR) and "password" (FeedbackForms SPA)
     const senha = (body.senha ?? body.password ?? '').trim()
 
-    if (!email || !senha) {
-      return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
-    }
+    if (!email || !senha) return badRequest('Email e senha obrigatórios')
 
-    const usuario = await prisma.usuario.findUnique({
-      where: { email: email.toLowerCase() },
-      include: { tenant: true },
-    })
-
-    if (!usuario || !usuario.ativo) {
-      return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
-    }
-
-    const senhaValida = await comparePassword(senha, usuario.senhaHash)
-    if (!senhaValida) {
-      return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
-    }
+    const usuario = await autenticarUsuario(email, senha)
+    if (!usuario) return unauthorized()
 
     const payload: SessionPayload = {
       sub:        usuario.id,
@@ -39,8 +27,8 @@ export async function POST(req: Request) {
 
     const accessToken = await setSessionCookie(payload)
 
-    return NextResponse.json({
-      // Formato esperado pela SPA FeedbackForms
+    return ok({
+      // Format expected by FeedbackForms SPA
       accessToken,
       user: {
         id:         usuario.id,
@@ -50,7 +38,7 @@ export async function POST(req: Request) {
         tenantId:   usuario.tenantId,
         tenantSlug: usuario.tenant?.slug ?? null,
       },
-      // Mantido para compatibilidade com o Next.js SSR do LinenSistem
+      // Kept for LinenSistem SSR compatibility
       usuario: {
         id:         usuario.id,
         nome:       usuario.nome,
@@ -59,8 +47,7 @@ export async function POST(req: Request) {
         tenantSlug: usuario.tenant?.slug ?? null,
       },
     })
-  } catch (err) {
-    console.error('Erro no login:', err)
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  } catch {
+    return serverError('login failed')
   }
 }

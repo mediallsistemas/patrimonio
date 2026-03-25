@@ -2,9 +2,9 @@
 
 import { CheckCircle, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import Card from '@/components/card'
-import Button from '@/components/button'
-import Text from '@/components/text'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Text from '@/components/ui/Text'
 import { BLOCOS, type DraftEstado } from '@/app/ocorrencias/types'
 
 interface ResumoFinalProps {

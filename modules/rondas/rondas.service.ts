@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import type { RegistroAmbienteInput } from './rondas.types'
 
 // Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
 const INCLUDE_AMBIENTES = {
@@ -75,6 +76,55 @@ export async function finalizarRonda(id: string, tenantId: string | null) {
     })
   } catch (error) {
     console.error('[rondas.service] finalizarRonda:', error)
+    throw error
+  }
+}
+
+export async function registrarAmbiente(rondaId: string, input: RegistroAmbienteInput) {
+  try {
+    const gasesData =
+      input.tipoRegistro === 'gases'
+        ? {
+            purezaO2: input.purezaO2,
+            pressaoO2: input.pressaoO2,
+            pressaoAr: input.pressaoAr,
+            backupLigado: input.backupLigado,
+            temAbastecimento: input.temAbastecimento,
+            qtdCilindros: input.qtdCilindros ?? null,
+            tamCilindro: input.tamCilindro ?? null,
+          }
+        : {}
+
+    return await prisma.registroAmbiente.create({
+      data: {
+        rondaId,
+        ambiente: input.ambiente,
+        tipoRegistro: input.tipoRegistro,
+        temOcorrencia: input.temOcorrencia,
+        ...gasesData,
+        ...(input.temOcorrencia && input.ocorrencia
+          ? {
+              ocorrencia: {
+                create: {
+                  tipo: input.ocorrencia.tipo,
+                  descricao: input.ocorrencia.descricao,
+                  foto: input.ocorrencia.foto ?? null,
+                  trilogoChamado: input.ocorrencia.trilogoChamado,
+                  bemPatrimony: input.ocorrencia.bemPatrimony ?? null,
+                  bemDescricao: input.ocorrencia.bemDescricao ?? null,
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        ocorrencia: {
+          select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
+        },
+      },
+    })
+  } catch (error) {
+    console.error('[rondas.service] registrarAmbiente:', error)
     throw error
   }
 }

@@ -1,6 +1,31 @@
 import { prisma } from '@/lib/db'
 import type { CreateTenantInput, UpdateTenantInput } from './tenants.types'
 
+export async function buscarTenantPorSlug(slug: string) {
+  try {
+    return await prisma.tenant.findUnique({
+      where: { slug },
+      select: { id: true, slug: true, nome: true, logoUrl: true, ativo: true },
+    })
+  } catch (error) {
+    console.error('[tenants.service] buscarTenantPorSlug:', error)
+    throw error
+  }
+}
+
+export async function listarTenantsPublico() {
+  try {
+    return await prisma.tenant.findMany({
+      where: { ativo: true },
+      select: { id: true, slug: true, nome: true, logoUrl: true, ativo: true },
+      orderBy: { nome: 'asc' },
+    })
+  } catch (error) {
+    console.error('[tenants.service] listarTenantsPublico:', error)
+    throw error
+  }
+}
+
 export async function listarTenants() {
   try {
     return await prisma.tenant.findMany({

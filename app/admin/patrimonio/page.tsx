@@ -6,7 +6,7 @@ import { format, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowLeft, Package, Wrench, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
-import Card from '@/components/card'
+import Card from '@/components/ui/Card'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 

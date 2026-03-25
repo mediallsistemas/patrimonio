@@ -1,16 +1,16 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { ok, notFound, serverError } from '@/lib/api-response'
+import { buscarFotoAlteracao } from '@/modules/rodadas/rodadas.service'
 
-// GET /api/ambientes/[id]/foto — retorna apenas a foto de uma alteração (lazy)
 export async function GET(
   _: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
   const { id } = await params
-  const alteracao = await prisma.alteracao.findUnique({
-    where: { ambienteInspecionadoId: id },
-    select: { foto: true },
-  })
-  if (!alteracao) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
-  return NextResponse.json({ foto: alteracao.foto })
+  try {
+    const foto = await buscarFotoAlteracao(id)
+    if (foto === null) return notFound('Alteração')
+    return ok({ foto })
+  } catch {
+    return serverError('buscarFoto failed')
+  }
 }

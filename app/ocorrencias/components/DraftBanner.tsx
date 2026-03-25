@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertTriangle, Play, X } from 'lucide-react'
-import Button from '@/components/button'
+import Button from '@/components/ui/Button'
 import type { DraftEstado } from '@/app/ocorrencias/types'
 
 interface DraftBannerProps {
