@@ -12,7 +12,7 @@ interface Props {
   errors: Record<string, string>
   onChange: (d: DetalheAlteracao) => void
   onClearError: (key: string) => void
-  fileInputRef: RefObject<HTMLInputElement>
+  fileInputRef: RefObject<HTMLInputElement | null>
   onFoto: (e: React.ChangeEvent<HTMLInputElement>) => void
   onVoltar: () => void
   onNext: () => void
