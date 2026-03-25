@@ -14,7 +14,7 @@ export async function POST(
 
   try {
     const parsed = RegistroAmbienteSchema.safeParse(await req.json())
-    if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
+    if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
 
     const registro = await registrarAmbiente(rondaId, parsed.data)
     return created(registro)

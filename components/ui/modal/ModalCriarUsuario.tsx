@@ -50,7 +50,7 @@ export default function ModalCriarUsuario({ open, defaultRole, onClose, onCreate
     }
   }, [open, defaultRole])
 
-  const needsTenant = form.role !== 'super_admin'
+  const needsTenant = (form.role as string) !== 'super_admin'
 
   function validate(): boolean {
     const e: typeof errors = {}

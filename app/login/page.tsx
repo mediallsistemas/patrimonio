@@ -75,12 +75,12 @@ function LoginForm() {
             {/* Email */}
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-gray-400 font-sans">
-                Usuário
+                E-mail ou usuário
               </label>
               <input
                 type="text"
                 autoComplete="username"
-                placeholder="nome.usuario ou email"
+                placeholder=""
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
