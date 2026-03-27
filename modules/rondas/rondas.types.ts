@@ -14,7 +14,7 @@ export const RegistroAmbienteSchema = z.discriminatedUnion('tipoRegistro', [
     tipoRegistro: z.literal('ocorrencia'),
     ambiente: z.string().min(1).max(120),
     temOcorrencia: z.boolean(),
-    ocorrencia: OcorrenciaDetalheSchema.optional(),
+    ocorrencias: z.array(OcorrenciaDetalheSchema).optional(),
   }),
   z.object({
     tipoRegistro: z.literal('gases'),
@@ -27,7 +27,7 @@ export const RegistroAmbienteSchema = z.discriminatedUnion('tipoRegistro', [
     qtdCilindros: z.number().int().min(1).optional().nullable(),
     tamCilindro: z.string().optional().nullable(),
     temOcorrencia: z.boolean(),
-    ocorrencia: OcorrenciaDetalheSchema.optional(),
+    ocorrencias: z.array(OcorrenciaDetalheSchema).optional(),
   }),
 ])
 

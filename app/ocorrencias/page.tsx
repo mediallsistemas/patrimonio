@@ -12,17 +12,15 @@ import BloCoConcluido from './components/BloCoConcluido'
 import ConfirmarAbandono from './components/ConfirmarAbandono'
 import OcorrenciaPergunta from './components/OcorrenciaPergunta'
 import OcorrenciaDetalhe from './components/OcorrenciaDetalhe'
-import TrilogoCard from './components/TrilogoCard'
 import GasesMedicoes from './components/GasesMedicoes'
 import GasesBackup from './components/GasesBackup'
 import GasesAbastecimento from './components/GasesAbastecimento'
 import GasesAbastecimentoDetalhe from './components/GasesAbastecimentoDetalhe'
 import ResumoFinal from './components/ResumoFinal'
-import { BLOCOS } from './types'
 
 export default function OcorrenciasPage() {
   const ronda = useOcorrenciaRonda()
-  const { estado, rondaIniciada } = ronda
+  const { estado, rondaIniciada, loadingDraft } = ronda
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
@@ -40,10 +38,10 @@ export default function OcorrenciasPage() {
             />
           )}
 
-          {!rondaIniciada && !ronda.mostrarBanner && (
+          {!rondaIniciada && !ronda.mostrarBanner && !loadingDraft && (
             <TelaInicial
               totalLocais={ronda.totalLocais}
-              blocoCount={BLOCOS.length}
+              blocoCount={ronda.blocos.length}
               iniciar={ronda.iniciar}
             />
           )}
@@ -92,6 +90,7 @@ export default function OcorrenciasPage() {
               {estado.etapa === 'bloco_concluido' && ronda.blocoAtual && (
                 <BloCoConcluido
                   blocoAtual={ronda.blocoAtual}
+                  blocos={ronda.blocos}
                   concluidos={estado.concluidos}
                   submitting={ronda.submitting}
                   finalizarRonda={ronda.finalizarRonda}
@@ -116,24 +115,19 @@ export default function OcorrenciasPage() {
                 <OcorrenciaDetalhe
                   estado={estado}
                   errors={ronda.errors}
-                  fileInputRef={ronda.fileInputRef}
+                  submitting={ronda.submitting}
                   atualizar={ronda.atualizar}
+                  atualizarDetalhe={ronda.atualizarDetalhe}
+                  adicionarDetalhe={ronda.adicionarDetalhe}
+                  removerDetalhe={ronda.removerDetalhe}
                   validarDetalhe={ronda.validarDetalhe}
                   setErrors={ronda.setErrors}
                   handleFoto={ronda.handleFoto}
-                />
-              )}
-
-              {estado.etapa === 'trilogo' && estado.localSelecionado && (
-                <TrilogoCard
-                  estado={estado}
-                  submitting={ronda.submitting}
                   salvarLocal={ronda.salvarLocal}
-                  atualizar={ronda.atualizar}
                 />
               )}
 
-              {estado.etapa === 'gases_medicoes' && estado.localSelecionado && (
+{estado.etapa === 'gases_medicoes' && estado.localSelecionado && (
                 <GasesMedicoes
                   estado={estado}
                   errors={ronda.errors}
@@ -164,6 +158,7 @@ export default function OcorrenciasPage() {
               {estado.etapa === 'resumo_final' && (
                 <ResumoFinal
                   estado={estado}
+                  blocos={ronda.blocos}
                   totalFeitos={ronda.totalFeitos}
                   feitosNoBloco={ronda.feitosNoBloco}
                   resetar={ronda.iniciar}

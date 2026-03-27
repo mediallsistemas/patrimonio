@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import * as adminTenantsService from '@/services/admin-tenants.service'
+import * as adminDashboardService from '@/services/admin-dashboard.service'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
@@ -14,6 +16,7 @@ import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import Text from '@/components/ui/Text'
 import { formatarCPFDisplay } from '@/utils/format'
+import { useAuth } from '@/hooks/useAuth'
 
 interface Tenant {
   id: string
@@ -114,17 +117,23 @@ function TenantSelector({
 }
 
 export default function AdminDashboardPage() {
+  const { user, isLoading: authLoading } = useAuth()
+  const isSuperAdmin = user?.role === 'super_admin'
+
+  // tenant_admin usa o próprio tenant fixo; super_admin escolhe no seletor
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
+  const effectiveTenantId = isSuperAdmin ? selectedTenantId : (user?.tenantId ?? null)
 
   const { data: tenants = [], isLoading: loadingTenants } = useQuery<Tenant[]>({
     queryKey: ['admin-tenants'],
-    queryFn: () => fetch('/api/admin/tenants').then((r) => r.json()).then((j) => j.data ?? j),
+    queryFn: () => adminTenantsService.listarTenants(),
+    enabled: isSuperAdmin && !authLoading,
   })
 
   const { data, isLoading } = useQuery<TenantDashboardStats>({
-    queryKey: ['admin-dashboard', selectedTenantId],
-    queryFn: () => fetch(`/api/admin/dashboard?tenantId=${selectedTenantId}`).then((r) => r.json()),
-    enabled: !!selectedTenantId,
+    queryKey: ['admin-dashboard', effectiveTenantId],
+    queryFn: () => adminDashboardService.buscarMetricas(effectiveTenantId!),
+    enabled: !!effectiveTenantId,
     refetchInterval: 30_000,
   })
 
@@ -150,32 +159,34 @@ export default function AdminDashboardPage() {
 
       <main className="flex-1 px-4 py-6 max-w-5xl mx-auto w-full space-y-6">
 
-        {/* Seletor de tenant */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <Text as="h1" variant="heading-sm" className="text-dark shrink-0">
-            Unidade:
-          </Text>
-          {loadingTenants ? (
-            <div className="h-10 w-56 bg-gray-100 rounded-xl animate-pulse" />
-          ) : (
-            <TenantSelector
-              tenants={tenants}
-              selectedId={selectedTenantId}
-              onSelect={setSelectedTenantId}
-            />
-          )}
-          {selectedTenantId && data?.tenant && (
-            <Link
-              href={`/${data.tenant.slug}/dashboard`}
-              className="text-xs text-indigo-500 hover:text-indigo-700 font-sans font-semibold underline underline-offset-2"
-            >
-              Ver dashboard da unidade →
-            </Link>
-          )}
-        </div>
+        {/* Seletor de tenant — apenas super_admin */}
+        {isSuperAdmin && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <Text as="h1" variant="heading-sm" className="text-dark shrink-0">
+              Unidade:
+            </Text>
+            {loadingTenants ? (
+              <div className="h-10 w-56 bg-gray-100 rounded-xl animate-pulse" />
+            ) : (
+              <TenantSelector
+                tenants={tenants}
+                selectedId={selectedTenantId}
+                onSelect={setSelectedTenantId}
+              />
+            )}
+            {effectiveTenantId && data?.tenant && (
+              <Link
+                href={`/${data.tenant.slug}/dashboard`}
+                className="text-xs text-indigo-500 hover:text-indigo-700 font-sans font-semibold underline underline-offset-2"
+              >
+                Ver dashboard da unidade →
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* Estado vazio — nenhum tenant selecionado */}
-        {!selectedTenantId && (
+        {!effectiveTenantId && (
           <Card shadow="sm">
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center">
@@ -192,7 +203,7 @@ export default function AdminDashboardPage() {
         )}
 
         {/* Conteúdo do dashboard — só aparece quando tenant selecionado */}
-        {selectedTenantId && (
+        {effectiveTenantId && (
           <>
             {/* Cards KPI */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

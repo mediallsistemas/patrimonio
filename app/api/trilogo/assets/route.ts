@@ -1,5 +1,6 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
+import { prisma } from '@/lib/db'
 
 const TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
@@ -21,6 +22,15 @@ let cache: { data: Record<string, unknown>[]; at: number } | null = null
 let empresasCache: { data: { id: number; nome: string }[]; at: number } | null = null
 const TTL = 10 * 60 * 1000 // 10 min
 const EMPRESAS_TTL = 30 * 60 * 1000 // 30 min (empresas mudam raramente)
+
+function buildProjetos(all: Record<string, unknown>[], companyId: string): string[] {
+  return [...new Set(
+    all
+      .filter((a) => String(a['companyId']) === companyId)
+      .map((a) => String(a['departmentFullAddress'] ?? '').split('>')[2]?.trim())
+      .filter((p): p is string => Boolean(p)),
+  )].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
 
 function buildEmpresas(all: Record<string, unknown>[]): { id: number; nome: string }[] {
   const map = new Map<number, string>()
@@ -72,15 +82,39 @@ export async function GET(req: Request): Promise<Response> {
   const companyId = searchParams.get('companyId')
 
   try {
+    // tenant_admin só pode ver os bens da própria empresa no Trílogo
+    if (session.role === 'tenant_admin') {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: session.tenantId! },
+        select: { trilogoCompanyId: true },
+      })
+      if (!tenant?.trilogoCompanyId) return forbidden()
+
+      const allowedCompanyId = String(tenant.trilogoCompanyId)
+
+      // Bloqueia listagem geral de empresas
+      if (searchParams.get('only') === 'empresas') return forbidden()
+
+      if (!companyId) return badRequest('companyId obrigatório')
+      if (companyId !== allowedCompanyId) return forbidden()
+
+      const all = await fetchAll()
+      return ok(all.filter((a) => String(a['companyId']) === allowedCompanyId))
+    }
+
     if (searchParams.get('only') === 'empresas') {
       return ok(await fetchEmpresas())
     }
 
     if (!companyId) return badRequest('companyId obrigatório')
 
+    if (searchParams.get('only') === 'projetos') {
+      const all = await fetchAll()
+      return ok(buildProjetos(all, companyId))
+    }
+
     const all = await fetchAll()
-    const filtrado = all.filter((a) => String(a['companyId']) === companyId)
-    return ok(filtrado)
+    return ok(all.filter((a) => String(a['companyId']) === companyId))
   } catch {
     return serverError('trilogo assets GET failed')
   }

@@ -1,0 +1,175 @@
+PLANO DE REFATORAÇÃO — Histórico de Rondas
+==========================================
+Objetivo: adicionar dono (criadoPor.nome) na view admin, unificar tipos e
+reutilizar componentes entre /[tenantSlug]/ronda/historico e /admin/rondas.
+
+Data: 2026-03-27
+Arquivos envolvidos:
+  - modules/rondas/rondas.service.ts
+  - services/rondas.service.ts           (cliente — operador)
+  - services/admin-rondas.service.ts     (cliente — admin)
+  - app/[tenantSlug]/ronda/historico/page.tsx
+  - app/admin/rondas/page.tsx
+  - components/ui/ronda/                 (nova pasta — componentes compartilhados)
+
+──────────────────────────────────────────────────────────────────────────────
+PASSO 1 — Adicionar criadoPor no servidor
+──────────────────────────────────────────────────────────────────────────────
+Arquivo: modules/rondas/rondas.service.ts
+
+1.1  SELECT_RONDA_LIGHT — acrescentar:
+       criadoPor: { select: { id: true, nome: true } }
+
+     (remover criadoPorId: true, pois o objeto criadoPor já carrega o id)
+
+1.2  listarRondasAdmin() — o select inline que sobrescreve SELECT_RONDA_LIGHT
+     também precisa incluir:
+       criadoPor: { select: { id: true, nome: true } }
+
+     Isso já aparecerá no payload retornado pela rota GET /api/admin/rondas.
+
+Obs: listarRondas() usa SELECT_RONDA_LIGHT e já vai herdar a mudança.
+     O operador vê só as próprias rondas; o campo criadoPor ficará disponível
+     mas não será exibido na UI do operador (não faz sentido mostrar "você").
+
+──────────────────────────────────────────────────────────────────────────────
+PASSO 2 — Unificar tipos no cliente
+──────────────────────────────────────────────────────────────────────────────
+Criar: services/rondas.types.ts   ← arquivo novo com os tipos compartilhados
+
+Conteúdo:
+  export interface CriadoPor { id: string; nome: string }
+  export interface RondaTenant { id: string; nome: string; slug: string }
+
+  export interface OcorrenciaDetalhe {
+    id: string
+    tipo: string
+    descricao: string
+    foto: string | null          // null na view do operador (carregado lazy)
+    trilogoChamado: boolean
+    bemPatrimony: string | null
+    bemDescricao: string | null
+  }
+
+  export interface RegistroAmbiente {
+    id: string
+    ambiente: string
+    tipoRegistro?: string        // só presente na view do operador (gases)
+    temOcorrencia: boolean
+    concluidoEm: string
+    // gases (operador)
+    purezaO2?: number | null
+    pressaoO2?: number | null
+    pressaoAr?: number | null
+    backupLigado?: boolean | null
+    temAbastecimento?: boolean | null
+    qtdCilindros?: number | null
+    tamCilindro?: string | null
+    ocorrencias: OcorrenciaDetalhe[]
+  }
+
+  export interface Ronda {
+    id: string
+    iniciadoEm: string
+    finalizadoEm: string | null
+    criadoPorId?: string         // legado — manter por compatibilidade
+    criadoPor?: CriadoPor        // novo campo com nome
+    tenantId?: string
+    tenant?: RondaTenant
+    ambientes: RegistroAmbiente[]
+  }
+
+Após criar o arquivo:
+  - services/rondas.service.ts → importar os tipos de rondas.types.ts, remover
+    as interfaces locais duplicadas (OcorrenciaDetalhe, RegistroAmbiente, Ronda,
+    BlocoAPI, etc. que já estão lá).
+  - services/admin-rondas.service.ts → idem, remover interfaces locais e
+    importar de rondas.types.ts. Remover RondaTenant local (já no types).
+
+──────────────────────────────────────────────────────────────────────────────
+PASSO 3 — Extrair componentes compartilhados
+──────────────────────────────────────────────────────────────────────────────
+Criar pasta: components/ui/ronda/
+
+3.1  components/ui/ronda/OcorrenciaCard.tsx
+     Vem do admin/rondas/page.tsx (componente OcorrenciaCard).
+     Props: { oc: OcorrenciaDetalhe }
+     Exibe: tipo badge, trilogo badge, descrição, patrimônio, foto toggle.
+     (é a versão rica — usada em ambas as views)
+
+3.2  components/ui/ronda/GrupoAmbientes.tsx
+     Vem do admin/rondas/page.tsx (componente GrupoAmbientes).
+     Props: { titulo: string; ambientes: RegistroAmbiente[]; variante: 'normal' | 'ocorrencia' }
+     Renderiza a lista de ambientes colapsável com cabeçalho colorido.
+
+3.3  components/ui/ronda/FotoLazy.tsx
+     Vem do historico/page.tsx (componente FotoLazy).
+     Props: { ocorrenciaId: string }
+     Usado quando foto não está no payload (view do operador).
+     Nota: na view admin a foto já vem inline no OcorrenciaDetalhe.foto —
+     o OcorrenciaCard usa diretamente; FotoLazy só é necessário no operador
+     se quisermos manter carregamento lazy. Por ora manter o comportamento atual.
+
+3.4  components/ui/ronda/RondaCard.tsx
+     Componente unificado que substitui os dois RondaCard locais.
+
+     Props:
+       ronda: Ronda
+       mostrarTenant?: boolean   (default false — admin mostra, operador não)
+       mostrarDono?: boolean     (default false — admin mostra criadoPor.nome)
+       agruparAmbientes?: boolean (default false — admin agrupa Ocorrências/Conformidade,
+                                   operador lista flat)
+
+     Comportamento:
+       - Header: data, badge tenant (se mostrarTenant), badge ocorrências/normal
+       - Subtítulo: N ambientes · duração · "por <nome>" (se mostrarDono && criadoPor)
+       - Corpo colapsável:
+           se agruparAmbientes: renderiza <GrupoAmbientes> (como admin hoje)
+           senão: renderiza ambientes individualmente como AmbienteCard
+                  (para o operador — mantém detalhes de gases)
+
+     Obs: AmbienteCard (com gases) fica inline em historico/page.tsx por ora
+     ou pode ser extraído se atingir 3+ usos. Por enquanto apenas no operador.
+
+──────────────────────────────────────────────────────────────────────────────
+PASSO 4 — Atualizar as páginas para usar os componentes compartilhados
+──────────────────────────────────────────────────────────────────────────────
+4.1  app/[tenantSlug]/ronda/historico/page.tsx
+     - Remover interfaces locais (OcorrenciaDetalhe, RegistroAmbiente, Ronda)
+     - Importar tipos de services/rondas.types.ts
+     - Remover componentes locais OcorrenciaCard (se extraído) e RondaCard
+     - Usar <RondaCard ronda={ronda} /> (sem flags extras — comportamento operador)
+     - Manter AmbienteCard e FotoLazy locais (apenas usados aqui)
+
+4.2  app/admin/rondas/page.tsx
+     - Remover interfaces locais (OcorrenciaDetalhe, RegistroAmbiente, Tenant, Ronda)
+     - Importar tipos de services/rondas.types.ts
+     - Remover componentes locais OcorrenciaCard, GrupoAmbientes, RondaCard
+     - Usar <RondaCard ronda={ronda} mostrarTenant mostrarDono agruparAmbientes />
+     - Adicionar na linha de subtítulo do RondaCard:
+         "{ronda.criadoPor?.nome && `· por ${ronda.criadoPor.nome}`}"
+
+──────────────────────────────────────────────────────────────────────────────
+PASSO 5 — Verificar tipagem TypeScript
+──────────────────────────────────────────────────────────────────────────────
+- Rodar: npx tsc --noEmit
+- Garantir que nenhum `any` foi introduzido
+- Garantir que as interfaces novas satisfazem os retornos das funções de serviço
+
+──────────────────────────────────────────────────────────────────────────────
+ORDEM DE EXECUÇÃO
+──────────────────────────────────────────────────────────────────────────────
+1. Passo 1 (server — rondas.service.ts)
+2. Passo 2 (criar rondas.types.ts + atualizar os dois services cliente)
+3. Passo 3 (criar OcorrenciaCard, GrupoAmbientes, RondaCard em components/ui/ronda/)
+4. Passo 4 (atualizar as duas páginas)
+5. Passo 5 (tsc --noEmit)
+
+──────────────────────────────────────────────────────────────────────────────
+RESULTADO ESPERADO
+──────────────────────────────────────────────────────────────────────────────
+- Admin vê "por <nome do operador>" em cada card de ronda
+- Zero duplicação de tipos entre os dois services cliente
+- Zero duplicação de componentes RondaCard/OcorrenciaCard/GrupoAmbientes
+- Comportamento visual das duas páginas idêntico ao atual (exceto o campo novo)
+- Build TypeScript limpo

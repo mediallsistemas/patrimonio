@@ -2,196 +2,12 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import {
-  ChevronDown, ChevronUp, ArrowLeft,
-  AlertTriangle, Activity,
-} from 'lucide-react'
+import * as adminRondasService from '@/services/admin-rondas.service'
+import { AlertTriangle, Activity, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
-import { TIPO_OCORRENCIA } from '@/lib/ronda-tipos'
-
-// ── Tipos ─────────────────────────────────────────────────────────────────────
-
-interface OcorrenciaDetalhe {
-  id: string
-  tipo: string
-  descricao: string
-  foto: string | null
-  trilogoChamado: boolean
-}
-
-interface RegistroAmbiente {
-  id: string
-  ambiente: string
-  temOcorrencia: boolean
-  concluidoEm: string
-  ocorrencia: OcorrenciaDetalhe | null
-}
-
-interface Tenant {
-  id: string
-  nome: string
-  slug: string
-}
-
-interface Ronda {
-  id: string
-  tenantId: string
-  iniciadoEm: string
-  finalizadoEm: string | null
-  ambientes: RegistroAmbiente[]
-  tenant: Tenant
-}
-
-// ── Config ────────────────────────────────────────────────────────────────────
-
-// ── Grupo de ambientes ────────────────────────────────────────────────────────
-
-function GrupoAmbientes({
-  titulo,
-  ambientes,
-  variante,
-}: {
-  titulo: string
-  ambientes: RegistroAmbiente[]
-  variante: 'normal' | 'ocorrencia'
-}) {
-  const [aberto, setAberto] = useState(false)
-
-  const estilos =
-    variante === 'normal'
-      ? {
-          border: 'border-emerald-300',
-          header: 'bg-emerald-600 text-white',
-          badge: 'bg-emerald-500 text-white',
-          chevron: 'text-white',
-        }
-      : {
-          border: 'border-amber-300',
-          header: 'bg-amber-500 text-white',
-          badge: 'bg-amber-400 text-white',
-          chevron: 'text-white',
-        }
-
-  if (ambientes.length === 0) return null
-
-  return (
-    <div className={`rounded-xl border ${estilos.border} overflow-hidden`}>
-      <button
-        className={`w-full flex items-center justify-between px-3 py-2.5 text-left ${estilos.header}`}
-        onClick={() => setAberto((v) => !v)}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold font-sans">{titulo}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${estilos.badge}`}>
-            {ambientes.length}
-          </span>
-        </div>
-        {aberto
-          ? <ChevronUp className={`w-4 h-4 shrink-0 ${estilos.chevron}`} />
-          : <ChevronDown className={`w-4 h-4 shrink-0 ${estilos.chevron}`} />}
-      </button>
-
-      {aberto && (
-        <div className="px-3 pb-3 pt-2 space-y-2">
-          {ambientes.map((amb) => (
-            <div
-              key={amb.id}
-              className={`rounded-xl border px-3 py-2.5 ${amb.temOcorrencia ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-white'}`}
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-semibold font-sans text-dark">{amb.ambiente}</span>
-                {amb.temOcorrencia && amb.ocorrencia ? (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_OCORRENCIA[amb.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
-                    {TIPO_OCORRENCIA[amb.ocorrencia.tipo]?.label ?? amb.ocorrencia.tipo}
-                  </span>
-                ) : (
-                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">Normal</span>
-                )}
-              </div>
-              {amb.temOcorrencia && amb.ocorrencia && (
-                <>
-                  <p className="text-xs text-gray-500 font-sans mt-0.5 line-clamp-2">{amb.ocorrencia.descricao}</p>
-                  {amb.ocorrencia.foto && (
-                    <img
-                      src={amb.ocorrencia.foto}
-                      alt="Foto da ocorrência"
-                      className="mt-1.5 rounded-lg w-full max-h-48 object-cover border border-orange-100"
-                    />
-                  )}
-                </>
-              )}
-              {amb.concluidoEm && (
-                <span className="text-xs text-gray-300 font-sans">
-                  {format(new Date(amb.concluidoEm), 'HH:mm', { locale: ptBR })}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Card de ronda ─────────────────────────────────────────────────────────────
-
-function RondaCard({ ronda }: { ronda: Ronda }) {
-  const [aberto, setAberto] = useState(false)
-  const normais = ronda.ambientes.filter((a) => !a.temOcorrencia)
-  const ocorrencias = ronda.ambientes.filter((a) => a.temOcorrencia)
-  const total = ronda.ambientes.length
-
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <button
-        className="w-full flex items-center gap-3 px-4 py-4 text-left"
-        onClick={() => setAberto((v) => !v)}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold font-sans text-dark text-sm">
-              {format(new Date(ronda.iniciadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </span>
-            <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-indigo-100 text-indigo-700">
-              {ronda.tenant.nome}
-            </span>
-            {ocorrencias.length > 0 ? (
-              <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-orange-100 text-orange-700">
-                {ocorrencias.length} ocorrência{ocorrencias.length > 1 ? 's' : ''}
-              </span>
-            ) : (
-              <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">
-                Tudo normal
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-gray-300 font-sans">
-            {total} ambiente{total !== 1 ? 's' : ''} inspecionado{total !== 1 ? 's' : ''}
-            {ronda.finalizadoEm && (
-              <> · {Math.round((new Date(ronda.finalizadoEm).getTime() - new Date(ronda.iniciadoEm).getTime()) / 60000)} min</>
-            )}
-          </span>
-        </div>
-        {aberto ? <ChevronUp className="w-4 h-4 text-gray-300 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-300 shrink-0" />}
-      </button>
-
-      {aberto && (
-        <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
-          <GrupoAmbientes titulo="Ocorrências" ambientes={ocorrencias} variante="ocorrencia" />
-          <GrupoAmbientes titulo="Conformidade" ambientes={normais} variante="normal" />
-          {total === 0 && (
-            <p className="text-xs text-gray-300 font-sans text-center py-2">Nenhum ambiente registrado.</p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Página ────────────────────────────────────────────────────────────────────
+import { RondaCard } from '@/components/ui/ronda/RondaCard'
+import type { Ronda } from '@/services/rondas.types'
 
 export default function AdminRondasPage() {
   const [filtroPendente, setFiltroPendente] = useState(false)
@@ -199,17 +15,22 @@ export default function AdminRondasPage() {
 
   const { data: rondas = [], isLoading } = useQuery<Ronda[]>({
     queryKey: ['admin-rondas'],
-    queryFn: () => fetch('/api/admin/rondas').then((r) => r.json()).then((j) => j.data ?? j),
+    queryFn: () => adminRondasService.listarRondas(),
     refetchInterval: 30_000,
   })
 
   const tenants = Array.from(
-    new Map(rondas.map((r) => [r.tenant.id, r.tenant])).values()
+    new Map(rondas.filter((r) => r.tenant).map((r) => [r.tenant!.id, r.tenant!])).values()
   )
 
   const totalRondas = rondas.length
-  const totalOcorrencias = rondas.reduce((acc, r) => acc + (r.ambientes ?? []).filter((a) => a.temOcorrencia).length, 0)
-  const rondasComOcorrencia = rondas.filter((r) => (r.ambientes ?? []).some((a) => a.temOcorrencia)).length
+  const totalOcorrencias = rondas.reduce(
+    (acc, r) => acc + (r.ambientes ?? []).reduce((a2, amb) => a2 + (amb.ocorrencias?.length ?? 0), 0),
+    0
+  )
+  const rondasComOcorrencia = rondas.filter((r) =>
+    (r.ambientes ?? []).some((a) => a.temOcorrencia)
+  ).length
 
   const rondasFiltradas = rondas.filter((r) => {
     if (filtroTenant !== 'todos' && r.tenantId !== filtroTenant) return false
@@ -286,7 +107,13 @@ export default function AdminRondasPage() {
         ) : (
           <div className="space-y-3">
             {rondasFiltradas.map((ronda) => (
-              <RondaCard key={ronda.id} ronda={ronda} />
+              <RondaCard
+                key={ronda.id}
+                ronda={ronda}
+                mostrarTenant
+                mostrarDono
+                agruparAmbientes
+              />
             ))}
           </div>
         )}

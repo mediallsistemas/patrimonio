@@ -25,6 +25,19 @@ export async function listarUsuarios() {
   }
 }
 
+export async function listarUsuariosPorTenant(tenantId: string) {
+  try {
+    return await prisma.usuario.findMany({
+      where: { tenantId },
+      orderBy: { criadoEm: 'asc' },
+      select: SELECT_USUARIO,
+    })
+  } catch (error) {
+    console.error('[usuarios.service] listarUsuariosPorTenant:', error)
+    throw error
+  }
+}
+
 export async function buscarUsuario(id: string) {
   try {
     return await prisma.usuario.findUnique({

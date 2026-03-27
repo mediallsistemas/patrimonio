@@ -8,7 +8,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator'])
   if (!session) return forbidden()
 
   const { slug } = await params

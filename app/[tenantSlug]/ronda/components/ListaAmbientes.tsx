@@ -2,10 +2,15 @@ import { Search, ChevronRight, CheckCircle, X, SkipForward, LogOut, FlaskConical
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
-import type { AmbienteTenant, RegistroFeito } from '../ronda.types'
+import type { AmbienteAPI } from '../ronda.types'
+
+interface RegistroFeito {
+  ambienteId: string
+  temOcorrencia: boolean
+}
 
 interface Props {
-  ambientesFiltrados: AmbienteTenant[]
+  ambientesFiltrados: AmbienteAPI[]
   registros: RegistroFeito[]
   search: string
   setSearch: (v: string) => void
@@ -13,7 +18,7 @@ interface Props {
   totalAmbientes: number
   totalFeitos: number
   submitting: boolean
-  onSelecionar: (amb: AmbienteTenant) => void
+  onSelecionar: (amb: AmbienteAPI) => void
   onFinalizar: () => void
   onPausar: () => void
 }

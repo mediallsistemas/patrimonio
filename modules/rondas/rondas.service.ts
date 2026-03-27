@@ -6,7 +6,7 @@ const INCLUDE_AMBIENTES = {
   ambientes: {
     orderBy: { concluidoEm: 'asc' as const },
     include: {
-      ocorrencia: {
+      ocorrencias: {
         select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true },
       },
     },
@@ -19,13 +19,27 @@ const SELECT_RONDA_LIGHT = {
   iniciadoEm: true,
   finalizadoEm: true,
   tenantId: true,
-  criadoPorId: true,
-  _count: { select: { ambientes: true } },
+  criadoPor: { select: { id: true, nome: true } },
+  ambientes: {
+    orderBy: { concluidoEm: 'asc' as const },
+    select: {
+      id: true,
+      ambiente: true,
+      temOcorrencia: true,
+      concluidoEm: true,
+      ocorrencias: {
+        select: { id: true, tipo: true, descricao: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
+      },
+    },
+  },
 } as const
 
-export async function listarRondas(tenantId: string | null, limit = 50) {
+export async function listarRondas(tenantId: string | null, limit = 50, criadoPorId?: string) {
   try {
-    const where = tenantId ? { tenantId } : {}
+    const where = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(criadoPorId ? { criadoPorId } : {}),
+    }
     return await prisma.rondaOcorrencia.findMany({
       where,
       orderBy: { iniciadoEm: 'desc' },
@@ -102,23 +116,25 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
         tipoRegistro: input.tipoRegistro,
         temOcorrencia: input.temOcorrencia,
         ...gasesData,
-        ...(input.temOcorrencia && input.ocorrencia
+        ...(input.temOcorrencia && input.ocorrencias?.length
           ? {
-              ocorrencia: {
-                create: {
-                  tipo: input.ocorrencia.tipo,
-                  descricao: input.ocorrencia.descricao,
-                  foto: input.ocorrencia.foto ?? null,
-                  trilogoChamado: input.ocorrencia.trilogoChamado,
-                  bemPatrimony: input.ocorrencia.bemPatrimony ?? null,
-                  bemDescricao: input.ocorrencia.bemDescricao ?? null,
+              ocorrencias: {
+                createMany: {
+                  data: input.ocorrencias.map((o) => ({
+                    tipo: o.tipo,
+                    descricao: o.descricao,
+                    foto: o.foto ?? null,
+                    trilogoChamado: o.trilogoChamado,
+                    bemPatrimony: o.bemPatrimony ?? null,
+                    bemDescricao: o.bemDescricao ?? null,
+                  })),
                 },
               },
             }
           : {}),
       },
       include: {
-        ocorrencia: {
+        ocorrencias: {
           select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
         },
       },
@@ -129,14 +145,16 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
   }
 }
 
-export async function listarRondasAdmin(limit = 100) {
+export async function listarRondasAdmin(limit = 100, tenantId?: string) {
   try {
     const [rondas, tenants] = await Promise.all([
       prisma.rondaOcorrencia.findMany({
+        where: tenantId ? { tenantId } : undefined,
         orderBy: { iniciadoEm: 'desc' },
         take: limit,
         select: {
           ...SELECT_RONDA_LIGHT,
+          criadoPor: { select: { id: true, nome: true } },
           ambientes: {
             orderBy: { concluidoEm: 'asc' as const },
             select: {
@@ -144,8 +162,8 @@ export async function listarRondasAdmin(limit = 100) {
               ambiente: true,
               temOcorrencia: true,
               concluidoEm: true,
-              ocorrencia: {
-                select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true },
+              ocorrencias: {
+                select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
               },
             },
           },

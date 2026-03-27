@@ -5,7 +5,7 @@ export async function buscarTenantPorSlug(slug: string) {
   try {
     return await prisma.tenant.findUnique({
       where: { slug },
-      select: { id: true, slug: true, nome: true, logoUrl: true, ativo: true },
+      select: { id: true, slug: true, nome: true, logoUrl: true, ativo: true, trilogoCompanyId: true, trilogoProjectName: true },
     })
   } catch (error) {
     console.error('[tenants.service] buscarTenantPorSlug:', error)
@@ -17,7 +17,7 @@ export async function listarTenantsPublico() {
   try {
     return await prisma.tenant.findMany({
       where: { ativo: true },
-      select: { id: true, slug: true, nome: true, logoUrl: true, ativo: true },
+      select: { id: true, slug: true, nome: true, logoUrl: true, ativo: true, trilogoCompanyId: true, trilogoProjectName: true },
       orderBy: { nome: 'asc' },
     })
   } catch (error) {
@@ -38,6 +38,7 @@ export async function listarTenants() {
         criadoEm: true,
         atualizadoEm: true,
         logoUrl: true,
+        trilogoCompanyId: true, trilogoProjectName: true,
         _count: { select: { usuarios: true, pessoas: true } },
       },
     })
@@ -72,8 +73,13 @@ export async function criarTenant(input: CreateTenantInput) {
   try {
     const slugNorm = input.slug.toLowerCase().trim().replace(/\s+/g, '-')
     return await prisma.tenant.create({
-      data: { slug: slugNorm, nome: input.nome.trim() },
-      select: { id: true, slug: true, nome: true, ativo: true, criadoEm: true },
+      data: {
+        slug: slugNorm,
+        nome: input.nome.trim(),
+        ...(input.trilogoCompanyId != null && { trilogoCompanyId: input.trilogoCompanyId }),
+        ...(input.trilogoProjectName != null && { trilogoProjectName: input.trilogoProjectName }),
+      },
+      select: { id: true, slug: true, nome: true, ativo: true, criadoEm: true, trilogoCompanyId: true, trilogoProjectName: true },
     })
   } catch (error) {
     console.error('[tenants.service] criarTenant:', error)
@@ -88,8 +94,10 @@ export async function atualizarTenant(id: string, input: UpdateTenantInput) {
       data: {
         ...(input.nome !== undefined && { nome: input.nome.trim() }),
         ...(input.ativo !== undefined && { ativo: input.ativo }),
+        ...(input.trilogoCompanyId !== undefined && { trilogoCompanyId: input.trilogoCompanyId }),
+        ...(input.trilogoProjectName !== undefined && { trilogoProjectName: input.trilogoProjectName }),
       },
-      select: { id: true, slug: true, nome: true, ativo: true, atualizadoEm: true },
+      select: { id: true, slug: true, nome: true, ativo: true, atualizadoEm: true, trilogoCompanyId: true, trilogoProjectName: true },
     })
   } catch (error) {
     console.error('[tenants.service] atualizarTenant:', error)

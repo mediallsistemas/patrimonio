@@ -5,50 +5,21 @@ import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
 import Text from '@/components/ui/Text'
+import { useLogin } from '@/hooks/useLogin'
 
 function LoginForm() {
   const searchParams = useSearchParams()
   const from = searchParams.get('from') ?? '/'
 
-  const [email, setEmail]   = useState('')
-  const [senha, setSenha]   = useState('')
-  const [show, setShow]     = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [erro, setErro]     = useState('')
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [show, setShow]   = useState(false)
+
+  const { isPending, error, submit } = useLogin()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setErro('')
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, senha }),
-      })
-
-      const json = await res.json()
-
-      if (!res.ok) {
-        setErro(json.error ?? 'Erro ao fazer login')
-        return
-      }
-
-      const { usuario } = json.data ?? json
-      // Redireciona para o tenant do usuário ou para o destino original
-      const dest = from !== '/'
-        ? from
-        : usuario.role === 'super_admin'
-          ? '/admin'
-          : `/${usuario.tenantSlug}/manutencao`
-
-      window.location.href = dest
-    } catch {
-      setErro('Erro de conexão')
-    } finally {
-      setLoading(false)
-    }
+    await submit(email, senha, from)
   }
 
   return (
@@ -114,19 +85,19 @@ function LoginForm() {
             </div>
 
             {/* Erro */}
-            {erro && (
+            {error && (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                <p className="text-sm text-red-600 font-sans">{erro}</p>
+                <p className="text-sm text-red-600 font-sans">{error}</p>
               </div>
             )}
 
             {/* Botão */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={isPending}
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-red-base hover:bg-red-dark text-white font-sans font-semibold text-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
             >
-              {loading ? (
+              {isPending ? (
                 <span>Entrando...</span>
               ) : (
                 <>

@@ -4,13 +4,14 @@ import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import LogoutButton from '@/components/ui/LogoutButton'
 
-const actions = [
+const ALL_ACTIONS = [
   {
     href: '/admin/tenants',
     icon: Building2,
     title: 'Unidades',
     description: 'Gerencie hospitais e unidades cadastradas no sistema',
     color: '#6366f1',
+    superAdminOnly: true,
   },
   {
     href: '/admin/usuarios',
@@ -18,6 +19,7 @@ const actions = [
     title: 'Usuários',
     description: 'Gerencie contas de acesso e permissões dos usuários',
     color: '#0369a1',
+    superAdminOnly: false,
   },
   {
     href: '/admin/rondas',
@@ -25,6 +27,7 @@ const actions = [
     title: 'Monitoramento de Rondas',
     description: 'Visualize histórico de inspeções e ocorrências de todas as unidades',
     color: '#059669',
+    superAdminOnly: false,
   },
   {
     href: '/admin/dashboard',
@@ -32,6 +35,7 @@ const actions = [
     title: 'Dashboard de Rouparia',
     description: 'Acompanhe retiradas, devoluções e pendências de rouparia em todas as unidades',
     color: '#f97316',
+    superAdminOnly: false,
   },
   {
     href: '/admin/patrimonio',
@@ -39,6 +43,7 @@ const actions = [
     title: 'Tickets de Patrimônio',
     description: 'Visualize tickets de manutenção com bens patrimoniais vinculados via Trílogo',
     color: '#7c3aed',
+    superAdminOnly: false,
   },
   {
     href: '/admin/bens',
@@ -46,11 +51,14 @@ const actions = [
     title: 'Bens por Ambiente',
     description: 'Consulte todos os bens patrimoniais cadastrados por setor e ambiente',
     color: '#0891b2',
+    superAdminOnly: false,
   },
 ]
 
 export default async function AdminPage() {
   const session = await getSession()
+  const isSuperAdmin = session?.role === 'super_admin'
+  const actions = ALL_ACTIONS.filter((a) => !a.superAdminOnly || isSuperAdmin)
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center justify-center p-6">
@@ -63,7 +71,7 @@ export default async function AdminPage() {
               <ShieldCheck className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-semibold font-sans text-gray-400 uppercase tracking-wide">
-              Super Admin
+              {isSuperAdmin ? 'Super Admin' : 'Admin'}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -81,7 +89,7 @@ export default async function AdminPage() {
             Painel de Administração
           </Text>
           <Text variant="body-md" className="text-gray-300">
-            Gerencie o sistema, unidades e usuários
+            {isSuperAdmin ? 'Gerencie o sistema, unidades e usuários' : 'Gerencie usuários e monitore sua unidade'}
           </Text>
         </div>
 

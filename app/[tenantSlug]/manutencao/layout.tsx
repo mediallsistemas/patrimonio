@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 
-const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin'])
+const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin', 'operator'])
 
 export default async function ManutencaoLayout({
   children,

@@ -1,7 +1,11 @@
-import { setSessionCookie } from '@/lib/auth'
+import { signToken } from '@/lib/auth'
 import type { SessionPayload } from '@/lib/auth'
-import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
+import { badRequest, unauthorized, serverError } from '@/lib/api-response'
 import { autenticarUsuario } from '@/modules/auth/auth.service'
+import { NextResponse } from 'next/server'
+
+const SESSION_COOKIE = 'ls_session'
+const EXPIRES_IN = 60 * 60 * 24 // 24h
 
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -25,28 +29,40 @@ export async function POST(req: Request): Promise<Response> {
       tenantSlug: usuario.tenant?.slug ?? null,
     }
 
-    const accessToken = await setSessionCookie(payload)
+    const accessToken = await signToken(payload)
 
-    return ok({
-      // Format expected by FeedbackForms SPA
-      accessToken,
-      user: {
-        id:         usuario.id,
-        name:       usuario.nome,
-        email:      usuario.email,
-        role:       usuario.role,
-        tenantId:   usuario.tenantId,
-        tenantSlug: usuario.tenant?.slug ?? null,
+    const res = NextResponse.json({
+      data: {
+        // Format expected by FeedbackForms SPA
+        accessToken,
+        user: {
+          id:         usuario.id,
+          name:       usuario.nome,
+          email:      usuario.email,
+          role:       usuario.role,
+          tenantId:   usuario.tenantId,
+          tenantSlug: usuario.tenant?.slug ?? null,
+        },
+        // Kept for LinenSistem SSR compatibility
+        usuario: {
+          id:         usuario.id,
+          nome:       usuario.nome,
+          email:      usuario.email,
+          role:       usuario.role,
+          tenantSlug: usuario.tenant?.slug ?? null,
+        },
       },
-      // Kept for LinenSistem SSR compatibility
-      usuario: {
-        id:         usuario.id,
-        nome:       usuario.nome,
-        email:      usuario.email,
-        role:       usuario.role,
-        tenantSlug: usuario.tenant?.slug ?? null,
-      },
+    }, { status: 200 })
+
+    res.cookies.set(SESSION_COOKIE, accessToken, {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge:   EXPIRES_IN,
+      path:     '/',
     })
+
+    return res
   } catch {
     return serverError('login failed')
   }

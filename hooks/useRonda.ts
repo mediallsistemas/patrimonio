@@ -1,114 +1,314 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import type { AmbienteTenant, DraftEstado, EtapaAmbiente, RegistroFeito, TamanhoCilindro } from '@/app/[tenantSlug]/ronda/ronda.types'
-import { estadoInicial } from '@/app/[tenantSlug]/ronda/ronda.types'
+import {
+  DRAFT_DEBOUNCE_MS,
+  estadoInicial,
+  detalheVazio,
+  type DraftEstado,
+  type DetalheOcorrencia,
+  type BemSelecionado,
+  type RondaState,
+  type RegistroConcluido,
+  type BlocoAPI,
+  type AmbienteAPI,
+} from '@/app/[tenantSlug]/ronda/ronda.types'
+import * as rondasService from '@/services/rondas.service'
 
-const DRAFT_SAVE_DEBOUNCE_MS = 1500
+export type { RondaState }
 
-export function useRonda() {
+export function useRonda(): RondaState {
   const router = useRouter()
   const { tenantSlug } = useParams<{ tenantSlug: string }>()
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [ambientes, setAmbientes] = useState<AmbienteTenant[]>([])
-  const [loadingAmbientes, setLoadingAmbientes] = useState(true)
-  const [search, setSearch] = useState('')
+  const [rondaIniciada, setRondaIniciada] = useState(false)
   const [estado, setEstado] = useState<DraftEstado>(estadoInicial)
-  const [iniciada, setIniciada] = useState(false)
-  const [draftServidor, setDraftServidor] = useState<DraftEstado | null>(null)
-  const [mostrandoBannerDraft, setMostrandoBannerDraft] = useState(false)
+  const [searchBlocos, setSearchBlocos] = useState('')
+  const [searchLocais, setSearchLocais] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showCheck, setShowCheck] = useState(false)
+  const [draftServidor, setDraftServidor] = useState<DraftEstado | null>(null)
+  const [mostrarBanner, setMostrarBanner] = useState(false)
+  const [loadingDraft, setLoadingDraft] = useState(true)
+  const [blocos, setBlocos] = useState<BlocoAPI[]>([])
+  const [loadingBlocos, setLoadingBlocos] = useState(true)
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  // ── Carregar blocos do tenant ─────────────────────────────────────────────
   useEffect(() => {
-    async function init() {
-      const [ambRes, draftRes] = await Promise.all([
-        fetch(`/api/tenants/${tenantSlug}/ambientes`),
-        fetch('/api/rondas/draft'),
-      ])
+    rondasService.buscarBlocos()
+      .then((data) => setBlocos(data as BlocoAPI[]))
+      .catch(() => {})
+      .finally(() => setLoadingBlocos(false))
+  }, [])
 
-      if (ambRes.ok) {
-        const j = await ambRes.json()
-        setAmbientes(j.data ?? j)
-      }
-      setLoadingAmbientes(false)
-
-      if (draftRes.ok) {
-        const j = await draftRes.json()
-        const draft = j.data ?? j
-        if (draft?.estado?.rondaId) {
-          setDraftServidor(draft.estado as DraftEstado)
-          setMostrandoBannerDraft(true)
+  // ── Carregar draft ────────────────────────────────────────────────────────
+  useEffect(() => {
+    rondasService.buscarDraft()
+      .then((draft) => {
+        const d = draft?.estado as DraftEstado | undefined
+        if (d?.rondaId && d.etapa !== 'resumo_final') {
+          setDraftServidor(d)
+          setMostrarBanner(true)
         }
-      }
-    }
-    init()
-  }, [tenantSlug])
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDraft(false))
+  }, [])
 
+  // ── Salvar draft (debounced) ──────────────────────────────────────────────
   const salvarDraft = useCallback((est: DraftEstado) => {
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
-    draftTimerRef.current = setTimeout(() => {
-      fetch('/api/rondas/draft', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(est),
-      }).catch(() => {/* silencioso */})
-    }, DRAFT_SAVE_DEBOUNCE_MS)
+    if (draftTimer.current) clearTimeout(draftTimer.current)
+    draftTimer.current = setTimeout(() => {
+      rondasService.salvarDraftAPI(est).catch(() => {})
+    }, DRAFT_DEBOUNCE_MS)
   }, [])
 
   function atualizar(parcial: Partial<DraftEstado>) {
     setEstado((prev) => {
       const next = { ...prev, ...parcial }
-      if (iniciada) salvarDraft(next)
+      if (rondaIniciada) salvarDraft(next)
       return next
     })
     setErrors({})
   }
 
-  function retomar() {
-    if (!draftServidor) return
-    setEstado(draftServidor)
-    setIniciada(true)
-    setMostrandoBannerDraft(false)
-    setDraftServidor(null)
-  }
-
-  function descartar() {
-    fetch('/api/rondas/draft', { method: 'DELETE' }).catch(() => {/**/})
-    setMostrandoBannerDraft(false)
-    setDraftServidor(null)
-  }
-
+  // ── Iniciar / retomar ─────────────────────────────────────────────────────
   function iniciar() {
     const novo = estadoInicial()
     setEstado(novo)
-    setIniciada(true)
-    setMostrandoBannerDraft(false)
+    setRondaIniciada(true)
+    setMostrarBanner(false)
     salvarDraft(novo)
   }
 
-  function selecionarAmbiente(amb: AmbienteTenant) {
-    if (jaRegistrado(amb.id)) return
-    const proxEtapa: EtapaAmbiente = amb.tipo === 'gases' ? 'gases_medicoes' : 'ocorrencia_pergunta'
+  function retomar() {
+    if (!draftServidor) return
+    setEstado(draftServidor)
+    setRondaIniciada(true)
+    setMostrarBanner(false)
+  }
+
+  function descartarDraft() {
+    rondasService.descartarDraftAPI().catch(() => {})
+    setMostrarBanner(false)
+    setDraftServidor(null)
+  }
+
+  // ── Helpers de progresso ──────────────────────────────────────────────────
+  function feitosNoBloco(nomeBloco: string) {
+    return estado.concluidos.filter((c) => c.bloco === nomeBloco).length
+  }
+
+  function localFeito(nomeBloco: string, nomeLocal: string) {
+    return estado.concluidos.some((c) => c.bloco === nomeBloco && c.local === nomeLocal)
+  }
+
+  function blocoCompleto(bloco: BlocoAPI) {
+    return bloco.ambientes.every((l) => localFeito(bloco.nome, l.nome))
+  }
+
+  // ── Selecionar bloco / local ──────────────────────────────────────────────
+  function selecionarBloco(bloco: BlocoAPI) {
+    atualizar({ blocoSelecionado: bloco.nome, etapa: 'locais' })
+    setSearchLocais('')
+  }
+
+  function selecionarLocal(local: AmbienteAPI) {
+    if (localFeito(estado.blocoSelecionado!, local.nome)) return
+    const etapa = local.tipo === 'gases' ? 'gases_medicoes' : 'ocorrencia_pergunta'
     atualizar({
-      ambienteSelecionado: amb,
-      etapa: proxEtapa,
+      localSelecionado: { nome: local.nome, tipo: local.tipo },
+      etapa,
+      detalhes: [detalheVazio()],
       medicoes: { purezaO2: '', pressaoO2: '', pressaoAr: '' },
       backupLigado: null,
       abastecimento: { quantidade: '', tamanho: null },
-      ocorrencia: { tipo: null, descricao: '', foto: null, trilogoChamado: null },
     })
   }
 
-  function jaRegistrado(id: string) {
-    return estado.registros.some((r) => r.ambienteId === id)
+  function atualizarDetalhe(index: number, parcial: Partial<DetalheOcorrencia>) {
+    setEstado((prev) => {
+      const next = { ...prev, detalhes: prev.detalhes.map((d, i) => i === index ? { ...d, ...parcial } : d) }
+      if (rondaIniciada) salvarDraft(next)
+      return next
+    })
+    setErrors({})
   }
 
+  function adicionarDetalhe() {
+    setEstado((prev) => {
+      const next = { ...prev, detalhes: [...prev.detalhes, detalheVazio()] }
+      if (rondaIniciada) salvarDraft(next)
+      return next
+    })
+  }
+
+  function removerDetalhe(index: number) {
+    setEstado((prev) => {
+      if (prev.detalhes.length <= 1) return prev
+      const next = { ...prev, detalhes: prev.detalhes.filter((_, i) => i !== index) }
+      if (rondaIniciada) salvarDraft(next)
+      return next
+    })
+  }
+
+  async function salvarLocal(temOcorrencia: boolean) {
+    return salvarLocalComDetalhes(temOcorrencia)
+  }
+
+  // ── Selecionar bem (patrimônio) ───────────────────────────────────────────
+  function selecionarBem(bem: BemSelecionado) {
+    const idx = estado.detalhes.findIndex((d) => d.tipo === 'patrimonio')
+    const target = idx >= 0 ? idx : 0
+    const bemValue = bem.id === 0 ? null : bem
+    const novosDetalhes = estado.detalhes.map((d, i) =>
+      i === target ? { ...d, bem: bemValue } : d,
+    )
+    salvarLocalComDetalhes(true, novosDetalhes)
+  }
+
+  // ── Salvar local na API ───────────────────────────────────────────────────
+  async function salvarLocalComDetalhes(
+    temOcorrencia: boolean,
+    detalhesOverride?: typeof estado.detalhes,
+  ) {
+    const local = estado.localSelecionado!
+    const blocoNome = estado.blocoSelecionado!
+    const detalhes = detalhesOverride ?? estado.detalhes
+    setSubmitting(true)
+    try {
+      let rondaId = estado.rondaId
+      if (!rondaId) {
+        const nova = await rondasService.criar()
+        rondaId = nova.id
+      }
+
+      const isGases = local.tipo === 'gases'
+      const temAbast = isGases && Boolean(estado.abastecimento.quantidade && estado.abastecimento.tamanho)
+
+      const ocorrenciasValidas = detalhes.filter((d) => d.tipo !== null).map((d) => ({
+        tipo: d.tipo!,
+        descricao: d.descricao,
+        foto: d.foto,
+        trilogoChamado: d.trilogoChamado,
+        ...(d.bem ? { bemPatrimony: d.bem.patrimony, bemDescricao: d.bem.descricao } : {}),
+      }))
+
+      const body = isGases
+        ? {
+            tipoRegistro: 'gases' as const,
+            ambiente: local.nome,
+            purezaO2: Number(estado.medicoes.purezaO2),
+            pressaoO2: Number(estado.medicoes.pressaoO2),
+            pressaoAr: Number(estado.medicoes.pressaoAr),
+            backupLigado: estado.backupLigado ?? false,
+            temAbastecimento: temAbast,
+            qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null,
+            tamCilindro: temAbast ? estado.abastecimento.tamanho : null,
+            temOcorrencia,
+            ...(ocorrenciasValidas.length ? { ocorrencias: ocorrenciasValidas } : {}),
+          }
+        : {
+            tipoRegistro: 'ocorrencia' as const,
+            ambiente: local.nome,
+            temOcorrencia,
+            ...(ocorrenciasValidas.length ? { ocorrencias: ocorrenciasValidas } : {}),
+          }
+
+      await rondasService.registrarAmbiente(rondaId, body)
+
+      if (!temOcorrencia) {
+        setShowCheck(true)
+        setTimeout(() => setShowCheck(false), 900)
+      }
+
+      const blocoAtualObj = blocos.find((b) => b.nome === blocoNome)
+      const novoRegistro: RegistroConcluido = {
+        bloco: blocoNome,
+        local: local.nome,
+        tipo: local.tipo,
+        temOcorrencia,
+        tiposOcorrencia: ocorrenciasValidas.map((o) => o.tipo),
+        ...(isGases
+          ? {
+              purezaO2: Number(estado.medicoes.purezaO2),
+              pressaoO2: Number(estado.medicoes.pressaoO2),
+              pressaoAr: Number(estado.medicoes.pressaoAr),
+              backupLigado: estado.backupLigado ?? false,
+              temAbastecimento: temAbast,
+              qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null,
+              tamCilindro: temAbast ? estado.abastecimento.tamanho : null,
+            }
+          : {}),
+      }
+
+      const novosConcluidos = [...estado.concluidos, novoRegistro]
+      const blocoAgora = blocoAtualObj
+        ? blocoAtualObj.ambientes.every((l) =>
+            novosConcluidos.some((c) => c.bloco === blocoNome && c.local === l.nome),
+          )
+        : false
+
+      const novoEstado: DraftEstado = {
+        ...estado,
+        rondaId,
+        concluidos: novosConcluidos,
+        etapa: blocoAgora ? 'bloco_concluido' : 'locais',
+        localSelecionado: null,
+      }
+      setEstado(novoEstado)
+      salvarDraft(novoEstado)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Finalizar ronda ───────────────────────────────────────────────────────
+  async function finalizarRonda() {
+    if (draftTimer.current) {
+      clearTimeout(draftTimer.current)
+      draftTimer.current = null
+    }
+    setSubmitting(true)
+    try {
+      if (estado.rondaId) {
+        await rondasService.finalizar(estado.rondaId)
+      }
+      await rondasService.descartarDraftAPI().catch(() => {})
+      setRondaIniciada(false)
+      setDraftServidor(null)
+      setMostrarBanner(false)
+      setEstado((prev) => ({ ...prev, etapa: 'resumo_final' }))
+    } catch {
+      toast.error('Erro ao finalizar ronda')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Abandonar ─────────────────────────────────────────────────────────────
+  function abandonar() {
+    salvarDraft(estado)
+    toast('Ronda pausada. Você pode continuar depois.', { icon: '⏸️' })
+    router.push(`/${tenantSlug}/manutencao`)
+  }
+
+  // ── Foto ──────────────────────────────────────────────────────────────────
+  function handleFoto(e: React.ChangeEvent<HTMLInputElement>, index = 0) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => atualizarDetalhe(index, { foto: reader.result as string })
+    reader.readAsDataURL(file)
+  }
+
+  // ── Validações ────────────────────────────────────────────────────────────
   function validarMedicoes() {
     const e: Record<string, string> = {}
     if (!estado.medicoes.purezaO2 || isNaN(Number(estado.medicoes.purezaO2))) e.purezaO2 = 'Informe o valor'
@@ -125,157 +325,74 @@ export function useRonda() {
     return e
   }
 
-  function validarDetalheOcorrencia() {
+  function validarDetalhe() {
     const e: Record<string, string> = {}
-    if (!estado.ocorrencia.tipo) e.tipo = 'Selecione o tipo'
-    if (!estado.ocorrencia.descricao.trim()) e.descricao = 'Descreva o problema'
+    estado.detalhes.forEach((d, i) => {
+      if (!d.tipo) e[`tipo_${i}`] = 'Selecione o tipo'
+      if (!d.descricao.trim()) e[`descricao_${i}`] = 'Descreva o problema'
+    })
     return e
   }
 
-  async function salvarAmbiente(temOcorrencia: boolean, trilogoChamado?: boolean) {
-    if (!estado.ambienteSelecionado) return
-    const amb = estado.ambienteSelecionado
+  // ── Dados derivados ───────────────────────────────────────────────────────
+  const totalLocais = blocos.reduce((acc, b) => acc + b.ambientes.length, 0)
+  const totalFeitos = estado.concluidos.length
+  const progresso = totalLocais > 0 ? Math.round((totalFeitos / totalLocais) * 100) : 0
 
-    setSubmitting(true)
-    try {
-      let rondaId = estado.rondaId
-      if (!rondaId) {
-        const res = await fetch('/api/rondas', { method: 'POST' })
-        if (!res.ok) throw new Error('Falha ao criar ronda')
-        const j = await res.json()
-        rondaId = (j.data ?? j).id as string
-      }
+  const blocoAtual = blocos.find((b) => b.nome === estado.blocoSelecionado)
 
-      const isGases = amb.tipo === 'gases'
-      const temAbast = isGases && Boolean(estado.abastecimento.quantidade && estado.abastecimento.tamanho)
-
-      const body = isGases
-        ? {
-            tipoRegistro: 'gases' as const,
-            ambiente: amb.nome,
-            purezaO2: Number(estado.medicoes.purezaO2),
-            pressaoO2: Number(estado.medicoes.pressaoO2),
-            pressaoAr: Number(estado.medicoes.pressaoAr),
-            backupLigado: estado.backupLigado ?? false,
-            temAbastecimento: temAbast,
-            qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null,
-            tamCilindro: temAbast ? estado.abastecimento.tamanho : null,
-            temOcorrencia,
-            ...(temOcorrencia && estado.ocorrencia.tipo
-              ? { ocorrencia: { tipo: estado.ocorrencia.tipo, descricao: estado.ocorrencia.descricao, foto: estado.ocorrencia.foto ?? null, trilogoChamado: trilogoChamado ?? false } }
-              : {}),
-          }
-        : {
-            tipoRegistro: 'ocorrencia' as const,
-            ambiente: amb.nome,
-            temOcorrencia,
-            ...(temOcorrencia && estado.ocorrencia.tipo
-              ? { ocorrencia: { tipo: estado.ocorrencia.tipo, descricao: estado.ocorrencia.descricao, foto: estado.ocorrencia.foto ?? null, trilogoChamado: trilogoChamado ?? false } }
-              : {}),
-          }
-
-      const res = await fetch(`/api/rondas/${rondaId}/ambientes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? `Erro ${res.status}`)
-      }
-
-      const novoRegistro: RegistroFeito = {
-        ambienteId: amb.id,
-        nome: amb.nome,
-        tipo: amb.tipo,
-        temOcorrencia,
-        ...(isGases ? { purezaO2: Number(estado.medicoes.purezaO2), pressaoO2: Number(estado.medicoes.pressaoO2), pressaoAr: Number(estado.medicoes.pressaoAr), backupLigado: estado.backupLigado ?? false, temAbastecimento: temAbast, qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null, tamCilindro: temAbast ? estado.abastecimento.tamanho : null } : {}),
-        ...(temOcorrencia && estado.ocorrencia.tipo ? { ocorrencia: { tipo: estado.ocorrencia.tipo, descricao: estado.ocorrencia.descricao, foto: estado.ocorrencia.foto ?? null, trilogoChamado: trilogoChamado ?? null } } : {}),
-      }
-
-      const novosRegistros = [...estado.registros, novoRegistro]
-      const novoEstado: DraftEstado = { ...estado, rondaId, registros: novosRegistros, etapa: 'selecao', ambienteSelecionado: null }
-      setEstado(novoEstado)
-      salvarDraft(novoEstado)
-      toast.success(`${amb.nome} registrado!`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function finalizar() {
-    if (!estado.rondaId) return
-    setSubmitting(true)
-    try {
-      await fetch(`/api/rondas/${estado.rondaId}`, { method: 'PATCH' })
-      await fetch('/api/rondas/draft', { method: 'DELETE' })
-      toast.success('Ronda finalizada!')
-      router.push(`/${tenantSlug}/ronda/historico`)
-    } catch {
-      toast.error('Erro ao finalizar ronda')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  function abandonar() {
-    salvarDraft(estado)
-    toast('Ronda pausada. Você pode continuar depois.', { icon: '⏸️' })
-    router.push(`/${tenantSlug}/hotelaria`)
-  }
-
-  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => atualizar({ ocorrencia: { ...estado.ocorrencia, foto: reader.result as string } })
-    reader.readAsDataURL(file)
-  }
-
-  const ambientesFiltrados = ambientes.filter((a) =>
-    a.nome.toLowerCase().includes(search.toLowerCase()),
+  const blocosFiltrados = blocos.filter((b) =>
+    b.nome.toLowerCase().includes(searchBlocos.toLowerCase()),
   )
-  const totalAmbientes = ambientes.length
-  const totalFeitos = estado.registros.length
-  const progresso = totalAmbientes > 0 ? Math.round((totalFeitos / totalAmbientes) * 100) : 0
-  const tudoFeito = totalFeitos > 0 && totalFeitos >= totalAmbientes
+
+  const locaisFiltrados = blocoAtual
+    ? blocoAtual.ambientes.filter((l) =>
+        l.nome.toLowerCase().includes(searchLocais.toLowerCase()),
+      )
+    : []
 
   return {
     tenantSlug,
-    ambientes,
-    ambientesFiltrados,
-    loadingAmbientes,
-    search,
-    setSearch,
+    rondaIniciada,
     estado,
-    iniciada,
-    draftServidor,
-    mostrandoBannerDraft,
+    searchBlocos,
+    searchLocais,
     submitting,
     errors,
-    setErrors,
-    fileInputRef,
-    totalAmbientes,
+    showCheck,
+    draftServidor,
+    mostrarBanner,
+    loadingDraft,
+    totalLocais,
     totalFeitos,
     progresso,
-    tudoFeito,
-    // actions
+    blocos,
+    loadingBlocos,
+    blocoAtual,
+    blocosFiltrados,
+    locaisFiltrados,
+    setSearchBlocos,
+    setSearchLocais,
+    setErrors,
     atualizar,
-    retomar,
-    descartar,
     iniciar,
-    selecionarAmbiente,
-    jaRegistrado,
-    validarMedicoes,
-    validarAbastecimento,
-    validarDetalheOcorrencia,
-    salvarAmbiente,
-    finalizar,
+    retomar,
+    descartarDraft,
+    feitosNoBloco,
+    localFeito,
+    blocoCompleto,
+    selecionarBloco,
+    selecionarLocal,
+    salvarLocal,
+    selecionarBem,
+    finalizarRonda,
     abandonar,
     handleFoto,
+    validarMedicoes,
+    validarAbastecimento,
+    atualizarDetalhe,
+    adicionarDetalhe,
+    removerDetalhe,
+    validarDetalhe,
   }
 }
-
-export type UseRondaReturn = ReturnType<typeof useRonda>

@@ -2,13 +2,14 @@ import { LogOut } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
+import type { DraftEstado } from '../ronda.types'
 
 interface Props {
-  onAbandonar: () => void
-  onContinuar: () => void
+  abandonar: () => void
+  atualizar: (parcial: Partial<DraftEstado>) => void
 }
 
-export default function ConfirmarAbandono({ onAbandonar, onContinuar }: Props) {
+export default function ConfirmarAbandono({ abandonar, atualizar }: Props) {
   return (
     <Card shadow="md">
       <div className="flex flex-col items-center gap-3 py-2 mb-4">
@@ -25,10 +26,10 @@ export default function ConfirmarAbandono({ onAbandonar, onContinuar }: Props) {
         </div>
       </div>
       <div className="space-y-2">
-        <Button onClick={onAbandonar} className="w-full">
+        <Button onClick={abandonar} className="w-full">
           <LogOut className="w-4 h-4" /> Pausar e sair
         </Button>
-        <Button variant="outline" onClick={onContinuar} className="w-full">
+        <Button variant="outline" onClick={() => atualizar({ etapa: 'blocos' })} className="w-full">
           Continuar ronda
         </Button>
       </div>

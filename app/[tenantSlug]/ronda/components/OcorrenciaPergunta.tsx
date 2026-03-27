@@ -2,11 +2,11 @@ import { CheckCircle } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
-import type { TipoRegistro } from '../ronda.types'
+import type { TipoAmbiente } from '../ronda.types'
 
 interface Props {
   nomeAmbiente: string
-  tipoAmbiente: TipoRegistro
+  tipoAmbiente: TipoAmbiente
   submitting: boolean
   onNormal: () => void
   onOcorrencia: () => void

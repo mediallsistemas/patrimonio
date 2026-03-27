@@ -1,35 +1,17 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { Building2, ArrowLeft, Plus } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import ModalCriarTenant from '@/components/ui/modal/ModalCriarTenant'
-
-interface Tenant {
-  id: string
-  slug: string
-  nome: string
-  ativo: boolean
-  criadoEm: string
-  _count: { usuarios: number; pessoas: number }
-}
+import { useTenantsList } from '@/hooks/useAdminTenants'
 
 export default function TenantsPage() {
-  const [tenants, setTenants] = useState<Tenant[]>([])
-  const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
-
-  function loadTenants() {
-    setLoading(true)
-    fetch('/api/admin/tenants')
-      .then((r) => r.json())
-      .then((j) => { setTenants(j.data ?? j); setLoading(false) })
-  }
-
-  useEffect(() => { loadTenants() }, [])
+  const { tenants, loading, reload } = useTenantsList()
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center p-6">
@@ -61,7 +43,7 @@ export default function TenantsPage() {
         <ModalCriarTenant
           open={modal}
           onClose={() => setModal(false)}
-          onCreated={loadTenants}
+          onCreated={reload}
         />
 
         {loading ? (
@@ -78,8 +60,12 @@ export default function TenantsPage() {
                     <span className="text-sm font-semibold font-sans text-dark block truncate">{t.nome}</span>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-xs text-gray-300 font-mono">/{t.slug}</span>
-                      <span className="text-xs text-gray-300 font-sans">{t._count.usuarios} usuário(s)</span>
-                      <span className="text-xs text-gray-300 font-sans">{t._count.pessoas} pessoa(s)</span>
+                      {t._count && (
+                        <>
+                          <span className="text-xs text-gray-300 font-sans">{t._count.usuarios} usuário(s)</span>
+                          <span className="text-xs text-gray-300 font-sans">{t._count.pessoas} pessoa(s)</span>
+                        </>
+                      )}
                       <span className={`text-xs font-sans px-1.5 py-0.5 rounded ${t.ativo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
                         {t.ativo ? 'ativo' : 'inativo'}
                       </span>

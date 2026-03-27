@@ -5,84 +5,35 @@
 ================================================================================
 
 --------------------------------------------------------------------------------
-PHASE 1 — Critical: fetch() inside components                          [HIGH]
+PHASE 1 — Critical: fetch() inside components                [DONE ✓]
 --------------------------------------------------------------------------------
 
-Violations: components must never call fetch directly (CLAUDE.md rule).
-Two files break this rule today.
-
-  1.1  components/ui/modal/ModalCriarUsuario.tsx
-       - fetch('/api/admin/tenants')           → useQuery
-       - fetch('/api/admin/usuarios', POST)    → useMutation
-       Fix: create hooks/useAdminUsuarios.ts
-            export function useTenants()       → useQuery wrapper
-            export function useCreateUsuario() → useMutation wrapper
-       Modal calls hook; no fetch in JSX tree.
-
-  1.2  components/ui/LogoutButton.tsx
-       - fetch('/api/auth/logout', DELETE)
-       Fix: create services/auth.service.ts (client-side)
-            export async function logout(): Promise<void>
-       LogoutButton imports logout() from service; no raw fetch.
+  1.1  components/ui/modal/ModalCriarUsuario.tsx  → uses hooks/useAdminUsuarios.ts
+  1.2  components/ui/LogoutButton.tsx             → uses hooks/useAuth.ts
 
 --------------------------------------------------------------------------------
-PHASE 2 — High: pages using useEffect + raw fetch                      [HIGH]
+PHASE 2 — High: pages using useEffect + raw fetch            [DONE ✓]
 --------------------------------------------------------------------------------
 
-Violations: pre-React Query antipattern. Should use useQuery/useMutation.
-
-  2.1  app/admin/usuarios/page.tsx
-       - useEffect → fetch('/api/admin/usuarios')
-       Fix: replace with useQuery({ queryKey: ['admin-usuarios'], queryFn: ... })
-
-  2.2  app/admin/tenants/page.tsx
-       - useEffect → fetch('/api/admin/tenants')
-       Fix: replace with useQuery({ queryKey: ['admin-tenants'], queryFn: ... })
-
-  2.3  app/login/page.tsx
-       - inline submit handler calls fetch('/api/auth/login')
-       Fix: create hooks/useLogin.ts with useMutation + router.push on success
-       Page becomes: const { mutate, isPending, error } = useLogin()
+  2.1  app/admin/usuarios/page.tsx   → uses hooks/useAdminUsuarios.ts
+  2.2  app/admin/tenants/page.tsx    → uses hooks/useAdminTenants.ts
+  2.3  app/login/page.tsx            → uses hooks/useLogin.ts
 
 --------------------------------------------------------------------------------
-PHASE 3 — Medium: client-side service layer                           [MEDIUM]
+PHASE 3 — Medium: client-side service layer                  [DONE ✓]
 --------------------------------------------------------------------------------
 
-All admin pages pass fetch() inline inside queryFn. Per CLAUDE.md, pages and
-hooks should not call fetch directly — a services/ layer wraps the API calls.
+  services/ directory fully created:
+    auth.service.ts, admin-usuarios.service.ts, admin-tenants.service.ts,
+    admin-rondas.service.ts, admin-patrimonio.service.ts,
+    admin-dashboard.service.ts, agendamentos.service.ts, trilogo.service.ts,
+    me.service.ts, rondas.service.ts (criar, finalizar, draft, ambientes,
+    buscarBlocos, buscarAmbientesTenant, buscarFotoOcorrencia)
 
-  Create services/ directory with one file per domain:
-
-  services/
-    auth.service.ts             logout()
-    admin-usuarios.service.ts   listarUsuarios(), criarUsuario()
-    admin-tenants.service.ts    listarTenants()
-    admin-rondas.service.ts     listarRondas()
-    admin-patrimonio.service.ts listarChamados()
-    admin-dashboard.service.ts  buscarMetricas()
-    agendamentos.service.ts     listar(), criar(), atualizarStatus()
-    trilogo.service.ts          buscarEmpresas(), buscarAssets()
-
-  Pattern for each service function:
-    export async function listarUsuarios(): Promise<Usuario[]> {
-      const res = await fetch('/api/admin/usuarios')
-      if (!res.ok) throw new Error()
-      return (await res.json()).data ?? []
-    }
-
-  Then in pages/hooks:
-    queryFn: () => adminUsuariosService.listar()   ← clean, no inline fetch
-
-  Files to update after service layer exists:
-    app/admin/usuarios/page.tsx
-    app/admin/tenants/page.tsx
-    app/admin/rondas/page.tsx
-    app/admin/patrimonio/page.tsx
-    app/admin/dashboard/page.tsx
-    app/admin/bens/page.tsx
-    app/ocorrencias/historico/page.tsx
-    app/[tenantSlug]/ronda/historico/page.tsx
-    app/[tenantSlug]/inspecao/historico/page.tsx
+  All admin pages and hooks now go through service layer. No inline fetch
+  in queryFn or hooks. hooks/useRonda.ts and hooks/useOcorrenciaRonda.ts
+  updated to use rondas.service.ts.
+  app/[tenantSlug]/ronda/historico/page.tsx updated.
 
 --------------------------------------------------------------------------------
 PHASE 4 — Medium: split large pages into components                   [MEDIUM]

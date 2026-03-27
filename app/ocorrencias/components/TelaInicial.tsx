@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-import { ClipboardList, Play, History } from 'lucide-react'
+import { ClipboardList, Play } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
@@ -34,14 +33,6 @@ export default function TelaInicial({ totalLocais, blocoCount, iniciar }: TelaIn
       <Button onClick={iniciar} className="w-full">
         <Play className="w-4 h-4" /> Iniciar Ronda
       </Button>
-      <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-        <Link
-          href="/ocorrencias/historico"
-          className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-red-base font-sans transition-colors"
-        >
-          <History className="w-4 h-4" /> Ver histórico de rondas
-        </Link>
-      </div>
     </Card>
   )
 }

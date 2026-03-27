@@ -1,24 +1,14 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { Users, ArrowLeft, Plus } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import ModalCriarUsuario from '@/components/ui/modal/ModalCriarUsuario'
-
-interface Tenant { id: string; slug: string; nome: string }
-interface Usuario {
-  id: string
-  email: string
-  nome: string
-  role: string
-  ativo: boolean
-  criadoEm: string
-  tenantId: string | null
-  tenant: Tenant | null
-}
+import { useAuth } from '@/hooks/useAuth'
+import { useUsuarios } from '@/hooks/useAdminUsuarios'
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -37,18 +27,11 @@ const ROLE_COLOR: Record<string, string> = {
 }
 
 export default function UsuariosPage() {
-  const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ open: boolean; defaultRole?: 'operator' | 'tenant_admin' }>({ open: false })
-
-  function loadUsuarios() {
-    setLoading(true)
-    fetch('/api/admin/usuarios')
-      .then((r) => r.json())
-      .then((j) => { setUsuarios(j.data ?? j); setLoading(false) })
-  }
-
-  useEffect(() => { loadUsuarios() }, [])
+  const { user, isLoading: authLoading } = useAuth()
+  const { usuarios, loading, reload } = useUsuarios()
+  const isTenantAdmin = user?.role === 'tenant_admin'
+  const fixedTenantId = isTenantAdmin && user?.tenantId ? user.tenantId : undefined
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center p-6">
@@ -74,7 +57,8 @@ export default function UsuariosPage() {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setModal({ open: true, defaultRole: 'tenant_admin' })}
+            onClick={() => setModal({ open: true, defaultRole: isTenantAdmin ? 'operator' : 'tenant_admin' })}
+            disabled={authLoading}
           >
             <Plus className="w-4 h-4" />
             Novo Usuário
@@ -84,8 +68,10 @@ export default function UsuariosPage() {
         <ModalCriarUsuario
           open={modal.open}
           defaultRole={modal.defaultRole}
+          fixedTenantId={fixedTenantId}
+          showUnitSelector={!isTenantAdmin}
           onClose={() => setModal({ open: false })}
-          onCreated={loadUsuarios}
+          onCreated={reload}
         />
 
         {loading ? (

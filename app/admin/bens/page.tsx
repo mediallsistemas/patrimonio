@@ -2,6 +2,9 @@
 
 import { useState, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import * as agendamentosService from '@/services/agendamentos.service'
+import * as trilogoService from '@/services/trilogo.service'
+import * as meService from '@/services/me.service'
 import { ArrowLeft, Package, Layers, Search, X, CalendarPlus } from 'lucide-react'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
@@ -9,10 +12,14 @@ import type { Empresa, Asset, Agendamento } from './bens.types'
 import { parseEndereco } from './bens.types'
 import BemRow from './components/BemRow'
 import ModalAgendamento from './components/ModalAgendamento'
+import { useAuth } from '@/hooks/useAuth'
 
 const PAGE_SIZE = 50
 
 export default function BensPage() {
+  const { user, isLoading: authLoading } = useAuth()
+  const isSuperAdmin = user?.role === 'super_admin'
+
   const [empresaSel, setEmpresaSel] = useState<Empresa | null>(null)
   const [search,     setSearch]     = useState('')
   const [tipo,       setTipo]       = useState('')
@@ -23,11 +30,7 @@ export default function BensPage() {
 
   const { data: agendamentos = [] } = useQuery<Agendamento[]>({
     queryKey: ['agendamentos'],
-    queryFn: async () => {
-      const res = await fetch('/api/agendamentos')
-      if (!res.ok) throw new Error()
-      return (await res.json()).data ?? []
-    },
+    queryFn: () => agendamentosService.listar(),
     staleTime: 60 * 1000,
   })
 
@@ -40,26 +43,42 @@ export default function BensPage() {
     return map
   }, [agendamentos])
 
+  // super_admin carrega lista de empresas para o seletor
   const { data: empresas = [], isLoading: loadEmpresas } = useQuery<Empresa[]>({
     queryKey: ['trilogo-empresas'],
-    queryFn: async () => {
-      const res = await fetch('/api/trilogo/assets?only=empresas')
-      if (!res.ok) throw new Error()
-      return (await res.json()).data ?? []
-    },
+    queryFn: () => trilogoService.buscarEmpresas(),
+    enabled: isSuperAdmin && !authLoading,
     staleTime: 30 * 60 * 1000,
   })
 
-  const { data: bens = [], isLoading: loadBens } = useQuery<Asset[]>({
-    queryKey: ['trilogo-assets', empresaSel?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/trilogo/assets?companyId=${empresaSel!.id}`)
-      if (!res.ok) throw new Error()
-      return (await res.json()).data ?? []
-    },
-    enabled: !!empresaSel,
+  // tenant_admin carrega o trilogoCompanyId do próprio tenant
+  const { data: myTenant } = useQuery<{ trilogoCompanyId: number | null; trilogoProjectName: string | null; nome: string }>({
+    queryKey: ['me-tenant'],
+    queryFn: () => meService.buscarMeuTenant(),
+    enabled: !isSuperAdmin && !authLoading,
+    staleTime: 60 * 60 * 1000,
+  })
+
+  // companyId efetivo: seletor para super_admin, fixo para tenant_admin
+  const effectiveCompanyId = isSuperAdmin
+    ? (empresaSel?.id ?? null)
+    : (myTenant?.trilogoCompanyId ?? null)
+
+  // projectName: só aplicado para tenant_admin — filtra bens do projeto específico
+  const effectiveProjectName = isSuperAdmin ? null : (myTenant?.trilogoProjectName ?? null)
+
+  const { data: bensRaw = [], isLoading: loadBens } = useQuery({
+    queryKey: ['trilogo-assets', effectiveCompanyId],
+    queryFn: () => trilogoService.buscarAssets(effectiveCompanyId!) as unknown as Promise<Asset[]>,
+    enabled: !!effectiveCompanyId,
     staleTime: 10 * 60 * 1000,
   })
+
+  const bens = useMemo(() => {
+    if (!effectiveProjectName) return bensRaw
+    const proj = effectiveProjectName.toUpperCase()
+    return bensRaw.filter(a => String(a.departmentFullAddress ?? '').toUpperCase().includes(proj))
+  }, [bensRaw, effectiveProjectName])
 
   const tipos = useMemo(() => [...new Set(bens.map(a => a.assetTypeName))].sort(), [bens])
   const projetos = useMemo(() => {
@@ -125,21 +144,23 @@ export default function BensPage() {
         {/* Filters */}
         <Card padding="sm">
           <div className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-60">
-              <label className="block text-xs text-gray-500 mb-1">Selecione a unidade *</label>
-              <select value={empresaSel?.id ?? ''}
-                onChange={e => {
-                  setEmpresaSel(empresas.find(x => x.id === Number(e.target.value)) ?? null)
-                  setProjeto(''); setTipo(''); setSearch(''); setVisiveis(PAGE_SIZE)
-                }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
-                disabled={loadEmpresas}>
-                <option value="">{loadEmpresas ? 'Carregando...' : 'Escolha uma unidade'}</option>
-                {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-              </select>
-            </div>
+            {isSuperAdmin && (
+              <div className="flex-1 min-w-60">
+                <label className="block text-xs text-gray-500 mb-1">Selecione a unidade *</label>
+                <select value={empresaSel?.id ?? ''}
+                  onChange={e => {
+                    setEmpresaSel(empresas.find(x => x.id === Number(e.target.value)) ?? null)
+                    setProjeto(''); setTipo(''); setSearch(''); setVisiveis(PAGE_SIZE)
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
+                  disabled={loadEmpresas}>
+                  <option value="">{loadEmpresas ? 'Carregando...' : 'Escolha uma unidade'}</option>
+                  {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                </select>
+              </div>
+            )}
 
-            {empresaSel && !loadBens && (
+            {!!effectiveCompanyId && !loadBens && (
               <>
                 <div className="relative flex-1 min-w-45">
                   <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -172,18 +193,18 @@ export default function BensPage() {
           </div>
         </Card>
 
-        {!empresaSel && (
+        {!effectiveCompanyId && isSuperAdmin && (
           <div className="text-center py-20 text-gray-400">
             <Package size={40} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">Selecione uma unidade para ver os bens patrimoniais</p>
           </div>
         )}
 
-        {empresaSel && loadBens && (
-          <div className="text-center py-20 text-gray-400 text-sm">Carregando bens de {empresaSel.nome}...</div>
+        {!!effectiveCompanyId && loadBens && (
+          <div className="text-center py-20 text-gray-400 text-sm">Carregando bens...</div>
         )}
 
-        {empresaSel && !loadBens && (
+        {!!effectiveCompanyId && !loadBens && (
           <div ref={painelRef} className="relative space-y-4"
             style={painelW ? { width: painelW, marginLeft: 'auto', marginRight: 'auto' } : {}}>
             {/* Resize handles */}

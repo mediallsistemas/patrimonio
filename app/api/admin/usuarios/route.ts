@@ -4,11 +4,13 @@ import { CreateUsuarioSchema } from '@/modules/usuarios/usuarios.types'
 import * as usuariosService from '@/modules/usuarios/usuarios.service'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
 
   try {
-    const usuarios = await usuariosService.listarUsuarios()
+    const usuarios = session.role === 'tenant_admin'
+      ? await usuariosService.listarUsuariosPorTenant(session.tenantId!)
+      : await usuariosService.listarUsuarios()
     return ok(usuarios)
   } catch {
     return serverError('listarUsuarios failed')
@@ -16,11 +18,18 @@ export async function GET(req: Request): Promise<Response> {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
 
-  const parsed = CreateUsuarioSchema.safeParse(await req.json())
+  const body = await req.json()
+  const data = session.role === 'tenant_admin'
+    ? { ...body, tenantId: session.tenantId }
+    : body
+
+  const parsed = CreateUsuarioSchema.safeParse(data)
   if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
+
+  if (session.role === 'tenant_admin' && parsed.data.role === 'super_admin') return forbidden()
 
   try {
     const usuario = await usuariosService.criarUsuario(parsed.data)

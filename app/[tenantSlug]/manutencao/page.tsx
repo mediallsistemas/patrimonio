@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, Activity, Users } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
@@ -15,15 +15,43 @@ export default async function ManutencaoHomePage({
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const actions = [
+  const isTenantAdmin = session.role === 'tenant_admin'
+
+  const operatorActions = [
     {
-      href: `/ocorrencias`,
+      href: `/${tenantSlug}/ronda`,
       icon: ClipboardList,
       title: 'Ronda de Manutenção Predial',
       description: 'Ronda e registro de ocorrências em ambientes hospitalares',
       color: '#0f766e',
     },
+    {
+      href: `/${tenantSlug}/ronda/historico`,
+      icon: Activity,
+      title: 'Monitoramento de Rondas',
+      description: 'Visualize o histórico das suas rondas realizadas',
+      color: '#059669',
+    },
   ]
+
+  const adminActions = [
+    {
+      href: '/admin/rondas',
+      icon: Activity,
+      title: 'Monitoramento de Rondas',
+      description: 'Visualize histórico de inspeções e ocorrências da unidade',
+      color: '#059669',
+    },
+    {
+      href: '/admin/usuarios',
+      icon: Users,
+      title: 'Usuários',
+      description: 'Gerencie operadores e contas de acesso da unidade',
+      color: '#0369a1',
+    },
+  ]
+
+  const actions = isTenantAdmin ? adminActions : operatorActions
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center justify-center p-6">
@@ -39,7 +67,7 @@ export default async function ManutencaoHomePage({
               <ClipboardList className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-semibold font-sans text-gray-400 uppercase tracking-wide">
-              {tenantSlug} · Manutenção
+              {tenantSlug} · {isTenantAdmin ? 'Administração' : 'Manutenção'}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -57,15 +85,15 @@ export default async function ManutencaoHomePage({
             <ClipboardList className="w-8 h-8 text-white" />
           </div>
           <Text as="h1" variant="heading-lg" className="text-dark mb-2 block">
-            Manutenção e Infraestrutura
+            {isTenantAdmin ? 'Painel da Unidade' : 'Manutenção e Infraestrutura'}
           </Text>
           <Text variant="body-md" className="text-gray-300">
-            Gestão de ocorrências e manutenção predial
+            {isTenantAdmin ? 'Monitoramento de rondas e gestão de usuários' : 'Gestão de ocorrências e manutenção predial'}
           </Text>
         </div>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {actions.map(({ href, icon: Icon, title, description, color }) => (
             <Link key={href} href={href} className="group">
               <div
@@ -89,16 +117,17 @@ export default async function ManutencaoHomePage({
           ))}
         </div>
 
-        {/* Link p/ hotelaria */}
-        <div className="mt-8 text-center">
-          <Link
-            href={`/${tenantSlug}/hotelaria`}
-            className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors"
-          >
-            <GiClothes className="w-4 h-4" />
-            Ir para Hotelaria
-          </Link>
-        </div>
+        {!isTenantAdmin && (
+          <div className="mt-8 text-center">
+            <Link
+              href={`/${tenantSlug}/hotelaria`}
+              className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors"
+            >
+              <GiClothes className="w-4 h-4" />
+              Ir para Hotelaria
+            </Link>
+          </div>
+        )}
 
       </div>
     </div>

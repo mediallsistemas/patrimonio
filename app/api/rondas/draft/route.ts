@@ -10,7 +10,7 @@ function resolveTenantId(session: { role: string; tenantId?: string | null }): s
 
 export async function GET(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+    const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!session) return forbidden()
     const draft = await buscarDraft(resolveTenantId(session), session.sub)
     return ok(draft)
@@ -21,7 +21,7 @@ export async function GET(req: Request): Promise<Response> {
 
 export async function PUT(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+    const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!session) return forbidden()
     const estado = await req.json()
     const draft = await salvarDraft(resolveTenantId(session), session.sub, estado)
@@ -33,7 +33,7 @@ export async function PUT(req: Request): Promise<Response> {
 
 export async function DELETE(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+    const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!session) return forbidden()
     await descartarDraft(resolveTenantId(session), session.sub)
     return noContent()

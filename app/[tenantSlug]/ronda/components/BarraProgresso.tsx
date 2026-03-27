@@ -1,15 +1,15 @@
 interface Props {
   totalFeitos: number
-  totalAmbientes: number
+  totalLocais: number
   progresso: number
 }
 
-export default function BarraProgresso({ totalFeitos, totalAmbientes, progresso }: Props) {
+export default function BarraProgresso({ totalFeitos, totalLocais, progresso }: Props) {
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs font-sans text-gray-300">
         <span className="font-semibold text-dark">
-          {totalFeitos} / {totalAmbientes} ambientes
+          {totalFeitos} / {totalLocais} locais
         </span>
         <span>{progresso}% concluído</span>
       </div>

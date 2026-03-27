@@ -4,10 +4,10 @@ import { CheckCircle, ChevronRight, ClipboardList, FlaskConical, LogOut, Search,
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
-import { TIPOS_OCORRENCIA, type Bloco, type DraftEstado } from '@/app/ocorrencias/types'
+import { TIPOS_OCORRENCIA, type BlocoAPI, type DraftEstado } from '@/app/ocorrencias/types'
 
 interface ListaBlocosProps {
-  blocosFiltrados: Bloco[]
+  blocosFiltrados: BlocoAPI[]
   searchBlocos: string
   setSearchBlocos: (v: string) => void
   concluidos: DraftEstado['concluidos']
@@ -15,8 +15,8 @@ interface ListaBlocosProps {
   totalFeitos: number
   totalLocais: number
   feitosNoBloco: (nome: string) => number
-  blocoCompleto: (bloco: Bloco) => boolean
-  selecionarBloco: (bloco: Bloco) => void
+  blocoCompleto: (bloco: BlocoAPI) => boolean
+  selecionarBloco: (bloco: BlocoAPI) => void
   finalizarRonda: () => Promise<void>
   atualizar: (parcial: Partial<DraftEstado>) => void
 }
@@ -84,7 +84,7 @@ export default function ListaBlocos({
           ).length
           return (
             <button
-              key={bloco.nome}
+              key={bloco.id}
               onClick={() => selecionarBloco(bloco)}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 transition-all text-left font-sans active:scale-95"
               style={
@@ -102,7 +102,7 @@ export default function ListaBlocos({
                   color: '#ffffff',
                 }}
               >
-                {completo ? <CheckCircle className="w-4 h-4" /> : feitos > 0 ? feitos : bloco.locais.length}
+                {completo ? <CheckCircle className="w-4 h-4" /> : feitos > 0 ? feitos : bloco.ambientes.length}
               </div>
               <div className="flex-1 min-w-0">
                 <span
@@ -112,7 +112,7 @@ export default function ListaBlocos({
                   {bloco.nome}
                 </span>
                 <span className="text-xs text-gray-300 font-sans">
-                  {feitos}/{bloco.locais.length} locais
+                  {feitos}/{bloco.ambientes.length} locais
                   {comOcorrencia > 0 && (
                     <span style={{ color: '#f97316' }} className="ml-1">
                       · {comOcorrencia} ocorrência{comOcorrencia > 1 ? 's' : ''}
@@ -120,13 +120,18 @@ export default function ListaBlocos({
                   )}
                 </span>
               </div>
-              {bloco.locais.some((l) => l.tipo === 'gases') && (
+              {bloco.ambientes.some((l) => l.tipo === 'gases') && (
                 <FlaskConical className="w-4 h-4 text-purple-400 shrink-0" />
               )}
               <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
             </button>
           )
         })}
+        {blocosFiltrados.length === 0 && (
+          <p className="text-center py-6 text-gray-300 font-sans text-sm">
+            Nenhum bloco encontrado.
+          </p>
+        )}
       </div>
 
       {/* Ações */}

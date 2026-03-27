@@ -40,7 +40,7 @@ const APP_ROUTES = [
 ]
 
 // Roles com acesso ao módulo de manutenção
-const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin'])
+const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin', 'operator'])
 
 // ── Rate limiting simples em memória ──────────────────────────────────────────
 // Nota: em produção com múltiplas instâncias, usar Redis (upstash/redis ou similar).
@@ -165,7 +165,8 @@ export async function middleware(req: NextRequest) {
   try {
     const { payload: p } = await jwtVerify(token, JWT_SECRET)
     payload = p as typeof payload
-  } catch {
+  } catch (err) {
+    console.error('[middleware] jwtVerify falhou para', pathname, '| token prefix:', token?.substring(0, 20), '| err:', err instanceof Error ? err.message : err)
     const loginUrl = new URL('/login', req.url)
     const res = NextResponse.redirect(loginUrl)
     res.cookies.delete(SESSION_COOKIE)
@@ -177,18 +178,26 @@ export async function middleware(req: NextRequest) {
 
   // ── Rota raiz "/" ─────────────────────────────────────────────────────────
   if (pathname === '/') {
-    if (role === 'super_admin') {
+    if (role === 'super_admin' || role === 'tenant_admin') {
       return NextResponse.redirect(new URL('/admin', req.url))
     }
-    if (tenantSlug) {
+    if (MANUTENCAO_ROLES.has(role) && tenantSlug) {
       return NextResponse.redirect(new URL(`/${tenantSlug}/manutencao`, req.url))
     }
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // ── /admin/* — apenas super_admin ─────────────────────────────────────────
-  if (pathname.startsWith('/admin')) {
+  // ── /admin/tenants/* — apenas super_admin ────────────────────────────────
+  if (pathname.startsWith('/admin/tenants')) {
     if (role !== 'super_admin') {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
+    return NextResponse.next()
+  }
+
+  // ── /admin/* — super_admin e tenant_admin ─────────────────────────────────
+  if (pathname.startsWith('/admin')) {
+    if (role !== 'super_admin' && role !== 'tenant_admin') {
       return NextResponse.redirect(new URL('/login', req.url))
     }
     return NextResponse.next()
@@ -208,7 +217,6 @@ export async function middleware(req: NextRequest) {
   const manutencaoMatch = pathname.match(/^\/([a-z0-9-]+)\/manutencao(\/|$)/)
   if (manutencaoMatch) {
     const slugFromPath = manutencaoMatch[1]
-
     if (!MANUTENCAO_ROLES.has(role)) {
       return NextResponse.redirect(new URL('/login', req.url))
     }

@@ -4,22 +4,23 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
-  BLOCOS,
   DRAFT_DEBOUNCE_MS,
   estadoInicial,
-  type Bloco,
-  type Local,
+  detalheVazio,
   type DraftEstado,
+  type DetalheOcorrencia,
+  type BemSelecionado,
   type OcorrenciaRondaState,
   type RegistroConcluido,
-  type TipoOcorrencia,
+  type BlocoAPI,
+  type AmbienteAPI,
 } from '@/app/ocorrencias/types'
+import * as rondasService from '@/services/rondas.service'
 
 export type { OcorrenciaRondaState }
 
 export function useOcorrenciaRonda(): OcorrenciaRondaState {
   const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [rondaIniciada, setRondaIniciada] = useState(false)
@@ -31,30 +32,37 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
   const [showCheck, setShowCheck] = useState(false)
   const [draftServidor, setDraftServidor] = useState<DraftEstado | null>(null)
   const [mostrarBanner, setMostrarBanner] = useState(false)
+  const [loadingDraft, setLoadingDraft] = useState(true)
+  const [blocos, setBlocos] = useState<BlocoAPI[]>([])
+  const [loadingBlocos, setLoadingBlocos] = useState(true)
+
+  // ── Carregar blocos dinâmicos da API ──────────────────────────────────────
+  useEffect(() => {
+    rondasService.buscarBlocos()
+      .then((blocos) => setBlocos(blocos as BlocoAPI[]))
+      .catch(() => {})
+      .finally(() => setLoadingBlocos(false))
+  }, [])
 
   // ── Carregar draft ────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/rondas/draft')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const d = j?.data ?? j
-        if (d?.estado?.rondaId) {
-          setDraftServidor(d.estado as DraftEstado)
+    rondasService.buscarDraft()
+      .then((draft) => {
+        const d = draft?.estado as DraftEstado | undefined
+        if (d?.rondaId && d.etapa !== 'resumo_final') {
+          setDraftServidor(d)
           setMostrarBanner(true)
         }
       })
       .catch(() => {})
+      .finally(() => setLoadingDraft(false))
   }, [])
 
   // ── Salvar draft (debounced) ──────────────────────────────────────────────
   const salvarDraft = useCallback((est: DraftEstado) => {
     if (draftTimer.current) clearTimeout(draftTimer.current)
     draftTimer.current = setTimeout(() => {
-      fetch('/api/rondas/draft', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(est),
-      }).catch(() => {})
+      rondasService.salvarDraftAPI(est).catch(() => {})
     }, DRAFT_DEBOUNCE_MS)
   }, [])
 
@@ -84,7 +92,7 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
   }
 
   function descartarDraft() {
-    fetch('/api/rondas/draft', { method: 'DELETE' }).catch(() => {})
+    rondasService.descartarDraftAPI().catch(() => {})
     setMostrarBanner(false)
     setDraftServidor(null)
   }
@@ -98,50 +106,101 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
     return estado.concluidos.some((c) => c.bloco === nomeBloco && c.local === nomeLocal)
   }
 
-  function blocoCompleto(bloco: Bloco) {
-    return bloco.locais.every((l) => localFeito(bloco.nome, l.nome))
+  function blocoCompleto(bloco: BlocoAPI) {
+    return bloco.ambientes.every((l) => localFeito(bloco.nome, l.nome))
   }
 
   // ── Selecionar bloco / local ──────────────────────────────────────────────
-  function selecionarBloco(bloco: Bloco) {
+  function selecionarBloco(bloco: BlocoAPI) {
     atualizar({ blocoSelecionado: bloco.nome, etapa: 'locais' })
     setSearchLocais('')
   }
 
-  function selecionarLocal(local: Local) {
+  function selecionarLocal(local: AmbienteAPI) {
     if (localFeito(estado.blocoSelecionado!, local.nome)) return
     const etapa = local.tipo === 'gases' ? 'gases_medicoes' : 'ocorrencia_pergunta'
     atualizar({
-      localSelecionado: local,
+      localSelecionado: { nome: local.nome, tipo: local.tipo },
       etapa,
-      detalhe: { tipo: null, descricao: '', foto: null },
+      detalhes: [detalheVazio()],
       medicoes: { purezaO2: '', pressaoO2: '', pressaoAr: '' },
       backupLigado: null,
       abastecimento: { quantidade: '', tamanho: null },
     })
   }
 
+  function atualizarDetalhe(index: number, parcial: Partial<DetalheOcorrencia>) {
+    setEstado((prev) => {
+      const next = { ...prev, detalhes: prev.detalhes.map((d, i) => i === index ? { ...d, ...parcial } : d) }
+      if (rondaIniciada) salvarDraft(next)
+      return next
+    })
+    setErrors({})
+  }
+
+  function adicionarDetalhe() {
+    setEstado((prev) => {
+      const next = { ...prev, detalhes: [...prev.detalhes, detalheVazio()] }
+      if (rondaIniciada) salvarDraft(next)
+      return next
+    })
+  }
+
+  function removerDetalhe(index: number) {
+    setEstado((prev) => {
+      if (prev.detalhes.length <= 1) return prev
+      const next = { ...prev, detalhes: prev.detalhes.filter((_, i) => i !== index) }
+      if (rondaIniciada) salvarDraft(next)
+      return next
+    })
+  }
+
+  async function salvarLocal(temOcorrencia: boolean) {
+    return salvarLocalComDetalhes(temOcorrencia)
+  }
+
+  // ── Selecionar bem (patrimônio) ───────────────────────────────────────────
+  function selecionarBem(bem: BemSelecionado) {
+    const idx = estado.detalhes.findIndex((d) => d.tipo === 'patrimonio')
+    const target = idx >= 0 ? idx : 0
+    const bemValue = bem.id === 0 ? null : bem
+    const novosDetalhes = estado.detalhes.map((d, i) =>
+      i === target ? { ...d, bem: bemValue } : d,
+    )
+    salvarLocalComDetalhes(true, novosDetalhes)
+  }
+
   // ── Salvar local na API ───────────────────────────────────────────────────
-  async function salvarLocal(temOcorrencia: boolean, trilogoChamado?: boolean) {
+  async function salvarLocalComDetalhes(
+    temOcorrencia: boolean,
+    detalhesOverride?: typeof estado.detalhes,
+  ) {
     const local = estado.localSelecionado!
     const blocoNome = estado.blocoSelecionado!
+    const detalhes = detalhesOverride ?? estado.detalhes
     setSubmitting(true)
     try {
       let rondaId = estado.rondaId
       if (!rondaId) {
-        const res = await fetch('/api/rondas', { method: 'POST' })
-        if (!res.ok) throw new Error('Falha ao criar ronda')
-        const j = await res.json()
-        rondaId = (j.data ?? j).id as string
+        const nova = await rondasService.criar()
+        rondaId = nova.id
       }
 
       const isGases = local.tipo === 'gases'
       const temAbast =
         isGases && Boolean(estado.abastecimento.quantidade && estado.abastecimento.tamanho)
 
+      const ocorrenciasValidas = detalhes.filter((d) => d.tipo !== null).map((d) => ({
+        tipo: d.tipo!,
+        descricao: d.descricao,
+        foto: d.foto,
+        trilogoChamado: d.trilogoChamado,
+        ...(d.bem ? { bemPatrimony: d.bem.patrimony, bemDescricao: d.bem.descricao } : {}),
+      }))
+
       const body = isGases
         ? {
-            tipoRegistro: 'gases',
+            tipoRegistro: 'gases' as const,
             ambiente: local.nome,
             purezaO2: Number(estado.medicoes.purezaO2),
             pressaoO2: Number(estado.medicoes.pressaoO2),
@@ -151,54 +210,29 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
             qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null,
             tamCilindro: temAbast ? estado.abastecimento.tamanho : null,
             temOcorrencia,
-            ...(temOcorrencia && estado.detalhe.tipo
-              ? {
-                  ocorrencia: {
-                    tipo: estado.detalhe.tipo,
-                    descricao: estado.detalhe.descricao,
-                    foto: estado.detalhe.foto,
-                    trilogoChamado: trilogoChamado ?? false,
-                  },
-                }
-              : {}),
+            ...(ocorrenciasValidas.length ? { ocorrencias: ocorrenciasValidas } : {}),
           }
         : {
-            tipoRegistro: 'ocorrencia',
+            tipoRegistro: 'ocorrencia' as const,
             ambiente: local.nome,
             temOcorrencia,
-            ...(temOcorrencia && estado.detalhe.tipo
-              ? {
-                  ocorrencia: {
-                    tipo: estado.detalhe.tipo,
-                    descricao: estado.detalhe.descricao,
-                    foto: estado.detalhe.foto,
-                    trilogoChamado: trilogoChamado ?? false,
-                  },
-                }
-              : {}),
+            ...(ocorrenciasValidas.length ? { ocorrencias: ocorrenciasValidas } : {}),
           }
 
-      const res = await fetch(`/api/rondas/${rondaId}/ambientes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? `Erro ${res.status}`)
-      }
+      await rondasService.registrarAmbiente(rondaId, body)
 
       if (!temOcorrencia) {
         setShowCheck(true)
         setTimeout(() => setShowCheck(false), 900)
       }
 
+      const blocoAtualObj = blocos.find((b) => b.nome === blocoNome)
       const novoRegistro: RegistroConcluido = {
         bloco: blocoNome,
         local: local.nome,
         tipo: local.tipo,
         temOcorrencia,
-        tipoOcorrencia: temOcorrencia ? (estado.detalhe.tipo ?? undefined) : undefined,
+        tiposOcorrencia: ocorrenciasValidas.map((o) => o.tipo),
         ...(isGases
           ? {
               purezaO2: Number(estado.medicoes.purezaO2),
@@ -213,10 +247,11 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
       }
 
       const novosConcluidos = [...estado.concluidos, novoRegistro]
-      const bloco = BLOCOS.find((b) => b.nome === blocoNome)!
-      const blocoAgora = bloco.locais.every((l) =>
-        novosConcluidos.some((c) => c.bloco === blocoNome && c.local === l.nome),
-      )
+      const blocoAgora = blocoAtualObj
+        ? blocoAtualObj.ambientes.every((l) =>
+            novosConcluidos.some((c) => c.bloco === blocoNome && c.local === l.nome),
+          )
+        : false
 
       const novoEstado: DraftEstado = {
         ...estado,
@@ -236,15 +271,27 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
 
   // ── Finalizar ronda ───────────────────────────────────────────────────────
   async function finalizarRonda() {
-    if (estado.rondaId) {
-      try {
-        await fetch(`/api/rondas/${estado.rondaId}`, { method: 'PATCH' })
-      } catch {
-        /* não crítico */
-      }
+    // Cancel any pending draft save so it doesn't re-create the draft after discard
+    if (draftTimer.current) {
+      clearTimeout(draftTimer.current)
+      draftTimer.current = null
     }
-    await fetch('/api/rondas/draft', { method: 'DELETE' }).catch(() => {})
-    atualizar({ etapa: 'resumo_final' })
+    setSubmitting(true)
+    try {
+      if (estado.rondaId) {
+        await rondasService.finalizar(estado.rondaId)
+      }
+      await rondasService.descartarDraftAPI().catch(() => {})
+      // Fechar a sessão: mostrar resumo e limpar o draft ativo
+      setRondaIniciada(false)
+      setDraftServidor(null)
+      setMostrarBanner(false)
+      setEstado((prev) => ({ ...prev, etapa: 'resumo_final' }))
+    } catch {
+      toast.error('Erro ao finalizar ronda')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   // ── Abandonar ─────────────────────────────────────────────────────────────
@@ -255,12 +302,11 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
   }
 
   // ── Foto ──────────────────────────────────────────────────────────────────
-  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFoto(e: React.ChangeEvent<HTMLInputElement>, index = 0) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () =>
-      atualizar({ detalhe: { ...estado.detalhe, foto: reader.result as string } })
+    reader.onload = () => atualizarDetalhe(index, { foto: reader.result as string })
     reader.readAsDataURL(file)
   }
 
@@ -290,24 +336,26 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
 
   function validarDetalhe() {
     const e: Record<string, string> = {}
-    if (!estado.detalhe.tipo) e.tipo = 'Selecione o tipo'
-    if (!estado.detalhe.descricao.trim()) e.descricao = 'Descreva o problema'
+    estado.detalhes.forEach((d, i) => {
+      if (!d.tipo) e[`tipo_${i}`] = 'Selecione o tipo'
+      if (!d.descricao.trim()) e[`descricao_${i}`] = 'Descreva o problema'
+    })
     return e
   }
 
   // ── Dados derivados ───────────────────────────────────────────────────────
-  const totalLocais = BLOCOS.reduce((acc, b) => acc + b.locais.length, 0)
+  const totalLocais = blocos.reduce((acc, b) => acc + b.ambientes.length, 0)
   const totalFeitos = estado.concluidos.length
-  const progresso = Math.round((totalFeitos / totalLocais) * 100)
+  const progresso = totalLocais > 0 ? Math.round((totalFeitos / totalLocais) * 100) : 0
 
-  const blocoAtual = BLOCOS.find((b) => b.nome === estado.blocoSelecionado)
+  const blocoAtual = blocos.find((b) => b.nome === estado.blocoSelecionado)
 
-  const blocosFiltrados = BLOCOS.filter((b) =>
+  const blocosFiltrados = blocos.filter((b) =>
     b.nome.toLowerCase().includes(searchBlocos.toLowerCase()),
   )
 
   const locaisFiltrados = blocoAtual
-    ? blocoAtual.locais.filter((l) =>
+    ? blocoAtual.ambientes.filter((l) =>
         l.nome.toLowerCase().includes(searchLocais.toLowerCase()),
       )
     : []
@@ -322,10 +370,12 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
     showCheck,
     draftServidor,
     mostrarBanner,
-    fileInputRef,
     totalLocais,
     totalFeitos,
     progresso,
+    blocos,
+    loadingBlocos,
+    loadingDraft,
     blocoAtual,
     blocosFiltrados,
     locaisFiltrados,
@@ -333,6 +383,9 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
     setSearchLocais,
     setErrors,
     atualizar,
+    atualizarDetalhe,
+    adicionarDetalhe,
+    removerDetalhe,
     iniciar,
     retomar,
     descartarDraft,
@@ -342,6 +395,7 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
     selecionarBloco,
     selecionarLocal,
     salvarLocal,
+    selecionarBem,
     finalizarRonda,
     abandonar,
     handleFoto,
