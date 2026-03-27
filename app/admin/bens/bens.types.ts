@@ -5,6 +5,7 @@ export interface Agendamento {
   trilogoAssetId: number
   titulo: string
   dataAgendada: string
+  dataRealizada: string | null
   observacao: string | null
   status: 'pendente' | 'realizado' | 'cancelado'
   criadoPor: string
@@ -38,11 +39,12 @@ export const STATUS: Record<number, { label: string; color: string }> = {
 export function parseEndereco(full: string) {
   const parts = full.split('>').map(s => s.trim()).filter(Boolean)
   return {
-    empresa:  parts[0] ?? '—',
-    cidade:   parts[1] ?? '—',
-    unidade:  parts[2] ?? '—',
-    bloco:    parts[3] ?? '—',
-    ambiente: parts.length > 1 ? parts.slice(-2).join(' > ') : parts[0] ?? '—',
+    empresa:        parts[0] ?? '—',
+    cidade:         parts[1] ?? '—',
+    unidade:        parts[2] ?? '—',
+    bloco:          parts[3] ?? '—',
+    ambienteSimples: parts[4] ?? parts[3] ?? '—',
+    ambiente:       parts.length > 1 ? parts.slice(-2).join(' > ') : parts[0] ?? '—',
   }
 }
 

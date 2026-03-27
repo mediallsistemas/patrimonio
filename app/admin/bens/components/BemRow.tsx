@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Package, CalendarPlus } from 'lucide-react'
+import { Package, CalendarPlus, AlertCircle } from 'lucide-react'
 import type { Asset, Agendamento } from '../bens.types'
 import { STATUS, parseEndereco, moeda } from '../bens.types'
 
@@ -11,16 +11,32 @@ interface Props {
   onAgendar: (a: Asset) => void
 }
 
+function getStatusAgendamento(pendentes: Agendamento[]) {
+  if (pendentes.length === 0) return null
+  const hojeStr = new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
+  const atrasado = pendentes.some(ag => ag.dataAgendada.slice(0, 10) < hojeStr)
+  return atrasado ? 'atrasado' : 'agendado'
+}
+
 export default function BemRow({ a, agendamentos, onAgendar }: Props) {
   const end = parseEndereco(a.departmentFullAddress)
   const st  = STATUS[a.status] ?? { label: String(a.status), color: 'bg-gray-100 text-gray-500' }
   const pendentes = agendamentos?.filter(ag => ag.status === 'pendente') ?? []
   const temAgendamento = pendentes.length > 0
   const agendamento = pendentes[0]
+  const statusAg = getStatusAgendamento(pendentes)
+  const atrasado = statusAg === 'atrasado'
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
 
+  const rowBg    = atrasado
+    ? 'bg-red-50 border-b border-red-100'
+    : temAgendamento
+    ? 'bg-purple-50 border-b border-purple-100'
+    : 'bg-white border-b border-gray-100 hover:bg-gray-50'
+  const stickyBg = atrasado ? 'bg-red-50' : temAgendamento ? 'bg-purple-50' : 'bg-white'
+
   return (
-    <tr className={temAgendamento ? 'bg-purple-50 border-b border-purple-100' : 'bg-white border-b border-gray-100 hover:bg-gray-50'}>
+    <tr className={rowBg}>
       <td className="px-3 py-2 w-14">
         <div
           className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center cursor-pointer"
@@ -47,9 +63,11 @@ export default function BemRow({ a, agendamentos, onAgendar }: Props) {
         <p className="text-sm font-medium text-gray-800 line-clamp-2 leading-tight">{a.description}</p>
         {temAgendamento && agendamento && (
           <div className="flex items-center gap-1 mt-1">
-            <CalendarPlus size={10} className="text-purple-500 shrink-0" />
-            <span className="text-xs text-purple-600 truncate">{agendamento.titulo}</span>
-            {pendentes.length > 1 && <span className="text-xs text-purple-400">+{pendentes.length - 1}</span>}
+            {atrasado
+              ? <AlertCircle size={10} className="text-red-500 shrink-0" />
+              : <CalendarPlus size={10} className="text-purple-500 shrink-0" />}
+            <span className={`text-xs truncate ${atrasado ? 'text-red-600' : 'text-purple-600'}`}>{agendamento.titulo}</span>
+            {pendentes.length > 1 && <span className={`text-xs ${atrasado ? 'text-red-400' : 'text-purple-400'}`}>+{pendentes.length - 1}</span>}
           </div>
         )}
       </td>
@@ -68,16 +86,29 @@ export default function BemRow({ a, agendamentos, onAgendar }: Props) {
         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.color}`}>{st.label}</span>
       </td>
       <td className="px-3 py-2 overflow-hidden">
+        {statusAg ? (
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${atrasado ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700'}`}>
+            {atrasado ? 'Atrasado' : 'Agendado'}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-300">—</span>
+        )}
+      </td>
+      <td className="px-3 py-2 overflow-hidden">
         <span className="text-xs text-gray-400 truncate block">
           {new Date(a.creationDate ?? '').toLocaleDateString('pt-BR')}
         </span>
       </td>
-      <td className={`px-3 py-2 sticky right-0 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)] ${temAgendamento ? 'bg-purple-50' : 'bg-white'}`}>
+      <td className={`px-3 py-2 sticky right-0 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)] ${stickyBg}`}>
         <button onClick={() => onAgendar(a)} title="Agendamento de manutenção"
-          className={temAgendamento
-            ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-100 hover:bg-purple-200 transition-colors whitespace-nowrap'
-            : 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-500 border border-gray-200 hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 transition-colors whitespace-nowrap'}>
-          <CalendarPlus size={13} /> Agendamento
+          className={
+            atrasado
+              ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-red-600 bg-red-100 hover:bg-red-200 transition-colors whitespace-nowrap'
+              : temAgendamento
+              ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-100 hover:bg-purple-200 transition-colors whitespace-nowrap'
+              : 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-500 border border-gray-200 hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 transition-colors whitespace-nowrap'
+          }>
+          {atrasado ? <AlertCircle size={13} /> : <CalendarPlus size={13} />} Agendamento
         </button>
       </td>
     </tr>

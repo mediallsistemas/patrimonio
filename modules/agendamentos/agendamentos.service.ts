@@ -52,7 +52,11 @@ export async function atualizarStatusAgendamento(
   try {
     return await prisma.agendamentoManutencao.update({
       where: { id },
-      data: { status: input.status, atualizadoPorId },
+      data: {
+        status: input.status,
+        atualizadoPorId,
+        ...(input.dataRealizada ? { dataRealizada: new Date(input.dataRealizada) } : {}),
+      },
     })
   } catch (error) {
     console.error('[agendamentos.service] atualizarStatusAgendamento:', error)

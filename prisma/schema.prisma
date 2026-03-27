@@ -253,10 +253,11 @@ model AgendamentoManutencao {
   status          String   @default("pendente")
   titulo          String   @default("Manutenção")
   criadoPorId     String
-  atualizadoEm    DateTime @updatedAt
+  atualizadoEm    DateTime  @updatedAt
   atualizadoPorId String?
-  atualizadoPor   Usuario? @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
-  criadoPor       Usuario  @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
+  dataRealizada   DateTime?
+  atualizadoPor   Usuario?  @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
+  criadoPor       Usuario   @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
 
   @@map("agendamentos_manutencao")
 }

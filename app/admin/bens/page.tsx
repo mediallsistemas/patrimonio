@@ -24,6 +24,7 @@ export default function BensPage() {
   const [search,     setSearch]     = useState('')
   const [tipo,       setTipo]       = useState('')
   const [projeto,    setProjeto]    = useState('')
+  const [ambiente,   setAmbiente]   = useState('')
   const [assetModal, setAssetModal] = useState<Asset | null>(null)
   const [visiveis,   setVisiveis]   = useState(PAGE_SIZE)
   const [apenasComAgendamento, setApenasComAgendamento] = useState(false)
@@ -90,17 +91,28 @@ export default function BensPage() {
     return [...set].sort()
   }, [bens])
 
+  const ambientes = useMemo(() => {
+    const set = new Set<string>()
+    bens.forEach(a => {
+      const end = parseEndereco(a.departmentFullAddress)
+      if (projeto && end.unidade !== projeto) return
+      if (end.ambienteSimples && end.ambienteSimples !== '—') set.add(end.ambienteSimples)
+    })
+    return [...set].sort()
+  }, [bens, projeto])
+
   const filtrado = useMemo(() => {
     const q = search.toLowerCase()
     return bens.filter(a => {
       const end = parseEndereco(a.departmentFullAddress)
-      if (tipo    && a.assetTypeName !== tipo) return false
-      if (projeto && end.unidade !== projeto)   return false
+      if (tipo     && a.assetTypeName !== tipo)          return false
+      if (projeto  && end.unidade !== projeto)            return false
+      if (ambiente && end.ambienteSimples !== ambiente)   return false
       if (apenasComAgendamento && !agendamentoMap.has(a.id)) return false
       if (q && !(a.description.toLowerCase().includes(q) || a.patrimony.toLowerCase().includes(q) || (a.brand ?? '').toLowerCase().includes(q))) return false
       return true
     })
-  }, [bens, search, tipo, projeto, apenasComAgendamento, agendamentoMap])
+  }, [bens, search, tipo, projeto, ambiente, apenasComAgendamento, agendamentoMap])
 
   const ativos         = filtrado.filter(a => a.status === 1).length
   const manutencao     = filtrado.filter(a => a.status === 4).length
@@ -150,7 +162,7 @@ export default function BensPage() {
                 <select value={empresaSel?.id ?? ''}
                   onChange={e => {
                     setEmpresaSel(empresas.find(x => x.id === Number(e.target.value)) ?? null)
-                    setProjeto(''); setTipo(''); setSearch(''); setVisiveis(PAGE_SIZE)
+                    setProjeto(''); setAmbiente(''); setTipo(''); setSearch(''); setVisiveis(PAGE_SIZE)
                   }}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
                   disabled={loadEmpresas}>
@@ -173,17 +185,22 @@ export default function BensPage() {
                   <option value="">Todos os tipos</option>
                   {tipos.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <select value={projeto} onChange={e => { setProjeto(e.target.value); setVisiveis(PAGE_SIZE) }}
+                <select value={projeto} onChange={e => { setProjeto(e.target.value); setAmbiente(''); setVisiveis(PAGE_SIZE) }}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
                   <option value="">Todos os projetos</option>
                   {projetos.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <select value={ambiente} onChange={e => { setAmbiente(e.target.value); setVisiveis(PAGE_SIZE) }}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
+                  <option value="">Todos os ambientes</option>
+                  {ambientes.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
                 <button onClick={() => { setApenasComAgendamento(v => !v); setVisiveis(PAGE_SIZE) }}
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors whitespace-nowrap ${apenasComAgendamento ? 'bg-purple-600 text-white border-purple-600' : 'text-gray-500 border-gray-200 hover:border-purple-300 hover:text-purple-600'}`}>
                   <CalendarPlus size={14} /> Com agendamento
                 </button>
-                {(search || tipo || projeto || apenasComAgendamento) && (
-                  <button onClick={() => { setSearch(''); setTipo(''); setProjeto(''); setApenasComAgendamento(false); setVisiveis(PAGE_SIZE) }}
+                {(search || tipo || projeto || ambiente || apenasComAgendamento) && (
+                  <button onClick={() => { setSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setApenasComAgendamento(false); setVisiveis(PAGE_SIZE) }}
                     className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg">
                     <X size={14} /> Limpar
                   </button>
@@ -241,7 +258,7 @@ export default function BensPage() {
                     <table className="w-full text-left">
                       <thead>
                         <tr className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                          {['', 'Patrimônio', 'Descrição', 'Ambiente', 'Tipo', 'Marca', 'Modelo', 'Nº série', 'Valor', 'Data da compra', 'Status', 'Data de Cadastro'].map(h => (
+                          {['', 'Patrimônio', 'Descrição', 'Ambiente', 'Tipo', 'Marca', 'Modelo', 'Nº série', 'Valor', 'Data da compra', 'Status', 'Manutenção', 'Data de Cadastro'].map(h => (
                             <th key={h} className="px-3 py-3">{h}</th>
                           ))}
                           <th className="px-3 py-3 sticky right-0 bg-gray-50 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)]">Ação</th>
