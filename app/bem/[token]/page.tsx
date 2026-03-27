@@ -14,6 +14,7 @@ interface Asset {
   departmentFullAddress: string
   status: number
   assetTypeName: string
+  companyId: number
   companyName: string
   coverPermalink: string | null
   creationDate: string | null
