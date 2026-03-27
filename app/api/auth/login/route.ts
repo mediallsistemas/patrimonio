@@ -63,7 +63,8 @@ export async function POST(req: Request): Promise<Response> {
     })
 
     return res
-  } catch {
+  } catch (error) {
+    console.error('[login] erro interno:', error)
     return serverError('login failed')
   }
 }
