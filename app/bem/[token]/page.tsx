@@ -44,10 +44,6 @@ function formatDate(d: Date | string) {
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function moeda(v: number | null) {
-  if (!v) return '—'
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
 const TOKEN_ENV = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
@@ -159,6 +155,9 @@ function BemRow({ bem, agendamentos }: { bem: Asset; agendamentos: Agendamento[]
     : temAgendamento             ? 'bg-purple-50 border-b border-purple-100'
     :                              'bg-white border-b border-gray-100'
 
+  const parts = String(bem.departmentFullAddress ?? '').split('>').map(s => s.trim())
+  const ambienteLabel = parts.length > 1 ? parts.slice(-2).join(' > ') : parts[0] ?? '—'
+
   return (
     <>
       <tr className={rowBg}>
@@ -193,31 +192,9 @@ function BemRow({ bem, agendamentos }: { bem: Asset; agendamentos: Agendamento[]
           )}
         </td>
 
-        {/* Tipo */}
+        {/* Ambiente */}
         <td className="px-3 py-2">
-          <span className="text-xs text-gray-500 whitespace-nowrap">{bem.assetTypeName}</span>
-        </td>
-
-        {/* Marca */}
-        <td className="px-3 py-2">
-          <span className="text-xs text-gray-500 whitespace-nowrap">{bem.brand ?? '—'}</span>
-        </td>
-
-        {/* Modelo */}
-        <td className="px-3 py-2">
-          <span className="text-xs text-gray-500 whitespace-nowrap">{bem.model ?? '—'}</span>
-        </td>
-
-        {/* Valor */}
-        <td className="px-3 py-2">
-          <span className="text-xs text-gray-700 whitespace-nowrap">{moeda(bem.price)}</span>
-        </td>
-
-        {/* Data compra */}
-        <td className="px-3 py-2">
-          <span className="text-xs text-gray-500 whitespace-nowrap">
-            {bem.purchaseDate ? new Date(bem.purchaseDate).toLocaleDateString('pt-BR') : '—'}
-          </span>
+          <span className="text-xs text-gray-500 line-clamp-2">{ambienteLabel}</span>
         </td>
 
         {/* Status */}
@@ -239,19 +216,12 @@ function BemRow({ bem, agendamentos }: { bem: Asset; agendamentos: Agendamento[]
             <span className="text-xs text-gray-300">—</span>
           )}
         </td>
-
-        {/* Data cadastro */}
-        <td className="px-3 py-2">
-          <span className="text-xs text-gray-400 whitespace-nowrap">
-            {bem.creationDate ? new Date(bem.creationDate).toLocaleDateString('pt-BR') : '—'}
-          </span>
-        </td>
       </tr>
 
       {/* Expansão: calendário + pendentes — só se tiver algum agendamento */}
       {agendamentos.length > 0 && (
         <tr className={atrasado ? 'bg-red-50' : temAgendamento ? 'bg-purple-50' : 'bg-white'}>
-          <td colSpan={11} className="px-4 pb-4 pt-1">
+          <td colSpan={6} className="px-4 pb-4 pt-1">
             <div className="space-y-3">
 
               {/* Pendentes */}
@@ -374,7 +344,7 @@ export default async function BemPublicoPage({
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                  {['', 'Patrimônio', 'Descrição', 'Tipo', 'Marca', 'Modelo', 'Valor', 'Data da compra', 'Status', 'Manutenção', 'Data de Cadastro'].map(h => (
+                  {['', 'Patrimônio', 'Descrição', 'Ambiente', 'Status', 'Manutenção'].map(h => (
                     <th key={h} className="px-3 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
