@@ -5,13 +5,14 @@ import { useQuery } from '@tanstack/react-query'
 import * as agendamentosService from '@/services/agendamentos.service'
 import * as trilogoService from '@/services/trilogo.service'
 import * as meService from '@/services/me.service'
-import { ArrowLeft, Package, Layers, Search, X, CalendarPlus } from 'lucide-react'
+import { ArrowLeft, Package, Layers, Search, X, CalendarPlus, QrCode } from 'lucide-react'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import type { Empresa, Asset, Agendamento } from './bens.types'
 import { parseEndereco } from './bens.types'
 import BemRow from './components/BemRow'
 import ModalAgendamento from './components/ModalAgendamento'
+import ModalQrCode from './components/ModalQrCode'
 import { useAuth } from '@/hooks/useAuth'
 
 const PAGE_SIZE = 50
@@ -26,6 +27,7 @@ export default function BensPage() {
   const [projeto,    setProjeto]    = useState('')
   const [ambiente,   setAmbiente]   = useState('')
   const [assetModal, setAssetModal] = useState<Asset | null>(null)
+  const [qrModal,    setQrModal]    = useState(false)
   const [visiveis,   setVisiveis]   = useState(PAGE_SIZE)
   const [apenasComAgendamento, setApenasComAgendamento] = useState(false)
 
@@ -199,6 +201,12 @@ export default function BensPage() {
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors whitespace-nowrap ${apenasComAgendamento ? 'bg-purple-600 text-white border-purple-600' : 'text-gray-500 border-gray-200 hover:border-purple-300 hover:text-purple-600'}`}>
                   <CalendarPlus size={14} /> Com agendamento
                 </button>
+                {ambiente && projeto && (
+                  <button onClick={() => setQrModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors whitespace-nowrap">
+                    <QrCode size={14} /> QR do ambiente
+                  </button>
+                )}
                 {(search || tipo || projeto || ambiente || apenasComAgendamento) && (
                   <button onClick={() => { setSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setApenasComAgendamento(false); setVisiveis(PAGE_SIZE) }}
                     className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg">
@@ -292,6 +300,15 @@ export default function BensPage() {
           asset={assetModal}
           agendamentos={agendamentoMap.get(assetModal.id) ?? []}
           onClose={() => setAssetModal(null)}
+        />
+      )}
+
+      {qrModal && projeto && ambiente && effectiveCompanyId && (
+        <ModalQrCode
+          companyId={effectiveCompanyId}
+          projeto={projeto}
+          ambiente={ambiente}
+          onClose={() => setQrModal(false)}
         />
       )}
     </div>

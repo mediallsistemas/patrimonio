@@ -13,7 +13,7 @@ interface Props {
 
 function getStatusAgendamento(pendentes: Agendamento[]) {
   if (pendentes.length === 0) return null
-  const hojeStr = new Date().toISOString().slice(0, 10) // "YYYY-MM-DD"
+  const hojeStr = new Date().toISOString().slice(0, 10)
   const atrasado = pendentes.some(ag => ag.dataAgendada.slice(0, 10) < hojeStr)
   return atrasado ? 'atrasado' : 'agendado'
 }

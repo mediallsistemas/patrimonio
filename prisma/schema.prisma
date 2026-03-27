@@ -262,6 +262,19 @@ model AgendamentoManutencao {
   @@map("agendamentos_manutencao")
 }
 
+model LinkPublicoBem {
+  id        String   @id @default(uuid())
+  companyId Int
+  projeto   String
+  ambiente  String
+  tenantId  String
+  criadoEm  DateTime @default(now())
+
+  @@unique([companyId, projeto, ambiente])
+  @@index([companyId])
+  @@map("links_publicos_bens")
+}
+
 model TemplateFormulario {
   id           String               @id @default(uuid())
   tenantId     String
