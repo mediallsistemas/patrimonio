@@ -26,6 +26,8 @@ const PUBLIC_PATHS = [
   '/login',
   '/api/auth/login',
   '/api/auth/logout',
+  '/bem',
+  '/api/public',
 ]
 
 // Rotas de primeiro nível que NÃO são tenantSlug
