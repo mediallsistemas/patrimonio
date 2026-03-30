@@ -52,6 +52,7 @@ const rateLimitMap = new Map<string, { count: number; reset: number }>()
 const RATE_LIMIT_RULES: Array<{ path: string; maxReqs: number; windowMs: number }> = [
   { path: '/api/auth/login', maxReqs: 10, windowMs: 60_000 },
   { path: '/api/feedback/form-responses', maxReqs: 5, windowMs: 60_000 },
+  { path: '/api/public/bens', maxReqs: 30, windowMs: 60_000 },
 ]
 
 // Evita memory leak: remove entradas expiradas a cada N chamadas
@@ -104,15 +105,13 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/icons') ||
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
   ) {
-    // Rate limiting em rotas públicas de escrita
-    if (req.method === 'POST') {
-      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
-      if (!checkRateLimit(ip, pathname)) {
-        return applyCors(req, new NextResponse(
-          JSON.stringify({ error: 'Muitas tentativas. Aguarde um momento.' }),
-          { status: 429, headers: { 'Content-Type': 'application/json' } },
-        ))
-      }
+    // Rate limiting em rotas públicas (GET e POST)
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    if (!checkRateLimit(ip, pathname)) {
+      return applyCors(req, new NextResponse(
+        JSON.stringify({ error: 'Muitas tentativas. Aguarde um momento.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      ))
     }
     return applyCors(req, NextResponse.next())
   }

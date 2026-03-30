@@ -22,6 +22,20 @@ async function fetchAssetsByCompany(companyId: number): Promise<Record<string, u
   return filtered
 }
 
+// Apenas campos exibidos no frontend público
+function sanitizeBem(a: Record<string, unknown>) {
+  return {
+    id:               a['id'],
+    patrimony:        a['patrimony'],
+    description:      a['description'],
+    brand:            a['brand'],
+    model:            a['model'],
+    status:           a['status'],
+    assetTypeName:    a['assetTypeName'],
+    coverPermalink:   a['coverPermalink'],
+  }
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -34,7 +48,6 @@ export async function GET(
 
     const todosAssets = await fetchAssetsByCompany(link.companyId)
 
-    // Filtra bens do projeto e ambiente exatos
     const bensDoAmbiente = todosAssets.filter(a => {
       const addr = String(a['departmentFullAddress'] ?? '')
       const parts = addr.split('>').map((s: string) => s.trim())
@@ -46,7 +59,12 @@ export async function GET(
     const ids = bensDoAmbiente.map(a => Number(a['id']))
     const agendamentos = await listarAgendamentosPorAssets(ids)
 
-    return ok({ link, bens: bensDoAmbiente, agendamentos })
+    return ok({
+      ambiente: link.ambiente,
+      projeto:  link.projeto,
+      bens:     bensDoAmbiente.map(sanitizeBem),
+      agendamentos,
+    })
   } catch {
     return serverError('public bem GET failed')
   }
