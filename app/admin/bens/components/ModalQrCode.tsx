@@ -18,7 +18,7 @@ export default function ModalQrCode({ companyId, projeto, ambiente, onClose }: P
   const [error, setError] = useState(false)
   const [copiado, setCopiado] = useState(false)
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+  const base = (process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).trim()
   const url = token ? `${base}/bem/${token}` : ''
 
   useEffect(() => {
