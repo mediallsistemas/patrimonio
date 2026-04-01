@@ -10,13 +10,15 @@ const EXPIRES_IN = 60 * 60 * 24 // 24h
 export async function POST(req: Request): Promise<Response> {
   try {
     const body = await req.json()
-    const email = (body.email ?? '').trim()
+    // Aceita "login" (username ou email) ou "email" por compatibilidade
+    const login = (body.login ?? body.email ?? '').trim()
     // Accepts "senha" (LinenSistem SSR) and "password" (FeedbackForms SPA)
     const senha = (body.senha ?? body.password ?? '').trim()
 
-    if (!email || !senha) return badRequest('Email e senha obrigatórios')
+    if (!login || !senha) return badRequest('Login e senha obrigatórios')
 
-    const usuario = await autenticarUsuario(email, senha)
+    const ip = req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const usuario = await autenticarUsuario(login, senha, ip)
     if (!usuario) return unauthorized()
 
     const payload: SessionPayload = {
@@ -45,11 +47,12 @@ export async function POST(req: Request): Promise<Response> {
         },
         // Kept for LinenSistem SSR compatibility
         usuario: {
-          id:         usuario.id,
-          nome:       usuario.nome,
-          email:      usuario.email,
-          role:       usuario.role,
-          tenantSlug: usuario.tenant?.slug ?? null,
+          id:              usuario.id,
+          nome:            usuario.nome,
+          email:           usuario.email,
+          role:            usuario.role,
+          tenantSlug:      usuario.tenant?.slug ?? null,
+          mustChangePassword: usuario.mustChangePassword ?? false,
         },
       },
     }, { status: 200 })

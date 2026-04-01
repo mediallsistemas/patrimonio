@@ -4,7 +4,7 @@ import { listarBlocos } from '@/modules/ambientes/ambientes.service'
 import { blocosCache, BLOCOS_TTL } from '@/lib/blocos-cache'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator', 'operator_patrimonio'])
   if (!session) return forbidden()
 
   // super_admin não tem tenant próprio — retorna lista vazia

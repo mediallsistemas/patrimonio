@@ -10,7 +10,7 @@ const BodySchema = z.object({
 })
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio'])
   if (!session) return unauthorized()
 
   const parsed = BodySchema.safeParse(await req.json())

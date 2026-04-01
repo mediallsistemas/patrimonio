@@ -35,10 +35,12 @@ model Usuario {
   id                         String                  @id @default(uuid())
   tenantId                   String?
   email                      String                  @unique
+  username                   String?                 @unique
   senhaHash                  String
   nome                       String
   role                       String                  @default("tenant_admin")
   ativo                      Boolean                 @default(true)
+  mustChangePassword         Boolean                 @default(false)
   criadoEm                   DateTime                @default(now())
   atualizadoEm               DateTime                @updatedAt
   agendamentosAtualizados    AgendamentoManutencao[] @relation("AgendamentoAtualizadoPor")

@@ -1,39 +1,36 @@
 import { prisma } from '@/lib/db'
 import { comparePassword } from '@/lib/auth'
 
-export async function autenticarUsuario(email: string, senha: string) {
-  try {
-    const input = email.toLowerCase().trim()
+function auditLog(event: string, details: Record<string, unknown>) {
+  // Structured audit log — replace with persistent log store (DB/SIEM) as needed
+  console.log(JSON.stringify({ audit: true, event, ts: new Date().toISOString(), ...details }))
+}
 
-    // Tenta por email exato primeiro
-    let usuario = await prisma.usuario.findUnique({
-      where: { email: input },
+export async function autenticarUsuario(login: string, senha: string, ip?: string) {
+  try {
+    const input = login.toLowerCase().trim()
+
+    // Tenta por email exato ou username
+    const usuario = await prisma.usuario.findFirst({
+      where: { OR: [{ email: input }, { username: input }] },
       include: { tenant: true },
     })
 
-    // Se não achou e não tem @, tenta username@sistema.local
-    if (!usuario && !input.includes('@')) {
-      usuario = await prisma.usuario.findUnique({
-        where: { email: `${input}@sistema.local` },
-        include: { tenant: true },
-      })
+    if (!usuario || !usuario.ativo) {
+      auditLog('LOGIN_FAILED', { reason: 'user_not_found_or_inactive', login: input, ip })
+      return null
     }
-
-    // Se ainda não achou e não tem @, tenta pela parte antes do @ de emails existentes
-    if (!usuario && !input.includes('@')) {
-      usuario = await prisma.usuario.findFirst({
-        where: { email: { startsWith: `${input}@` } },
-        include: { tenant: true },
-      })
-    }
-    if (!usuario || !usuario.ativo) return null
 
     const senhaValida = await comparePassword(senha, usuario.senhaHash)
-    if (!senhaValida) return null
+    if (!senhaValida) {
+      auditLog('LOGIN_FAILED', { reason: 'invalid_password', userId: usuario.id, login: input, ip })
+      return null
+    }
 
+    auditLog('LOGIN_SUCCESS', { userId: usuario.id, login: input, role: usuario.role, ip })
     return usuario
   } catch (error) {
-    console.error('[auth.service] autenticarUsuario:', error)
+    console.error('[auth.service] autenticarUsuario:', error instanceof Error ? error.message : 'unknown error')
     throw error
   }
 }

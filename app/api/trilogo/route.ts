@@ -6,7 +6,7 @@ const TRILOGO_TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio'])
   if (!session) return forbidden()
 
   if (!TRILOGO_TOKEN) return serverError('TRILOGO_TOKEN não configurado')
@@ -23,7 +23,7 @@ export async function GET(req: Request): Promise<Response> {
   // tenant_admin só vê tickets da própria empresa/projeto
   let tenantCompanyId: number | null = null
   let tenantProjectName: string | null = null
-  if (session.role === 'tenant_admin') {
+  if (session.role === 'tenant_admin' || session.role === 'operator_patrimonio') {
     const tenant = await prisma.tenant.findUnique({
       where: { id: session.tenantId! },
       select: { trilogoCompanyId: true, trilogoProjectName: true },
