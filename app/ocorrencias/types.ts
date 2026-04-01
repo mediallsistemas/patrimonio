@@ -130,7 +130,7 @@ export interface OcorrenciaRondaState {
   setSearchLocais: (v: string) => void
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
   atualizar: (parcial: Partial<DraftEstado>) => void
-  iniciar: () => void
+  iniciar: () => Promise<void>
   retomar: () => void
   descartarDraft: () => void
   feitosNoBloco: (nomeBloco: string) => number

@@ -76,8 +76,9 @@ export function useOcorrenciaRonda(): OcorrenciaRondaState {
   }
 
   // ── Iniciar / retomar ─────────────────────────────────────────────────────
-  function iniciar() {
-    const novo = estadoInicial()
+  async function iniciar() {
+    const nova = await rondasService.criar()
+    const novo = { ...estadoInicial(), rondaId: nova.id }
     setEstado(novo)
     setRondaIniciada(true)
     setMostrarBanner(false)

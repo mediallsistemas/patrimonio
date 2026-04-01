@@ -1,6 +1,48 @@
 import { prisma } from '@/lib/db'
 import type { CreateAmbienteInput } from './ambientes.types'
 
+const TRILOGO_TOKEN = process.env.TRILOGO_TOKEN ?? ''
+const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
+
+// Cache global de assets brutos do Trilogo (30 min TTL)
+let assetsCache: { data: Record<string, unknown>[]; at: number } | null = null
+const ASSETS_TTL = 30 * 60 * 1000
+
+async function fetchAllTrilogoAssets(): Promise<Record<string, unknown>[]> {
+  if (assetsCache && Date.now() - assetsCache.at < ASSETS_TTL) return assetsCache.data
+
+  const res = await fetch(`${TRILOGO_BASE}/asset`, {
+    headers: { accept: 'application/json', token: TRILOGO_TOKEN },
+  })
+  if (!res.ok) throw new Error('Trilogo assets error')
+
+  const data = (await res.json()) as Record<string, unknown>[]
+  assetsCache = { data, at: Date.now() }
+  return data
+}
+
+export async function sincronizarTenant(
+  tenantId: string,
+): Promise<{ blocosCriados: number; ambientesCriados: number } | null> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { trilogoCompanyId: true, trilogoProjectName: true },
+  })
+  if (!tenant?.trilogoCompanyId) return null
+  if (!TRILOGO_TOKEN) throw new Error('TRILOGO_TOKEN não configurado')
+
+  const all = await fetchAllTrilogoAssets()
+
+  const assets = all.filter((a) => {
+    if (Number(a['companyId']) !== tenant.trilogoCompanyId) return false
+    if (!tenant.trilogoProjectName) return true
+    const addr = String(a['departmentFullAddress'] ?? '').toUpperCase()
+    return addr.includes(tenant.trilogoProjectName.toUpperCase())
+  })
+
+  return sincronizarAmbientesTrilogo(tenantId, assets)
+}
+
 export async function listarAmbientes(tenantId: string) {
   try {
     return await prisma.ambienteTenant.findMany({
