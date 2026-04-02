@@ -9,7 +9,7 @@ export const created = <T>(data: T) =>
 export const noContent = () =>
   new NextResponse(null, { status: 204 })
 
-export const badRequest = (error: string) =>
+export const badRequest = (error: unknown) =>
   NextResponse.json({ error }, { status: 400 })
 
 export const conflict = (error: string) =>
