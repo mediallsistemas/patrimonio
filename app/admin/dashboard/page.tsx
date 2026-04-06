@@ -22,6 +22,7 @@ interface Tenant {
   id: string
   nome: string
   slug: string
+  feedbackForms?: boolean
 }
 
 interface RecenteMovimentacao {
@@ -124,11 +125,12 @@ export default function AdminDashboardPage() {
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
   const effectiveTenantId = isSuperAdmin ? selectedTenantId : (user?.tenantId ?? null)
 
-  const { data: tenants = [], isLoading: loadingTenants } = useQuery<Tenant[]>({
+  const { data: allTenants = [], isLoading: loadingTenants } = useQuery<Tenant[]>({
     queryKey: ['admin-tenants'],
     queryFn: () => adminTenantsService.listarTenants(),
     enabled: isSuperAdmin && !authLoading,
   })
+  const tenants = allTenants.filter((t) => t.feedbackForms)
 
   const { data, isLoading } = useQuery<TenantDashboardStats>({
     queryKey: ['admin-dashboard', effectiveTenantId],

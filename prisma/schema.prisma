@@ -17,6 +17,7 @@ model Tenant {
   logoUrl             String?
   trilogoCompanyId    Int?                 // ID da empresa no Trilogo (ex: 168 = Amapá)
   trilogoProjectName  String?              // Nome do projeto/hospital no Trilogo (ex: "HRPG")
+  feedbackForms       Boolean              @default(false) // Participa do sistema de pesquisas de satisfação
   ambientes           AmbienteTenant[]
   blocos              BlocoTenant[]
   movimentacoes       Movimentacao[]
