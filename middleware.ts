@@ -1,10 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? 'linensistem-secret-change-in-production'
-)
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'JWT_SECRET env var is missing or too short (min 32 chars). ' +
+      'Generate with: openssl rand -base64 64'
+    )
+  }
+  return new TextEncoder().encode(secret)
+}
+
+const JWT_SECRET = getJwtSecret()
 const SESSION_COOKIE = 'ls_session'
+
+// Whitelist of trusted proxy IPs — extend as needed for load balancers / Cloudflare
+const TRUSTED_PROXIES = new Set(['127.0.0.1', '::1'])
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) {
+    // Take the leftmost IP (actual client) — only when behind a trusted proxy
+    const remoteIp = req.headers.get('x-real-ip') ?? ''
+    if (remoteIp && TRUSTED_PROXIES.has(remoteIp)) {
+      const first = forwarded.split(',')[0]?.trim()
+      if (first && /^[\d.]+$|^[a-f0-9:]+$/i.test(first)) return first
+    }
+  }
+  // Fallback: use x-real-ip or default
+  const realIp = req.headers.get('x-real-ip')?.trim()
+  if (realIp && /^[\d.]+$|^[a-f0-9:]+$/i.test(realIp)) return realIp
+  return '127.0.0.1'
+}
 
 const ALLOWED_ORIGINS = new Set(
   (process.env.CORS_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean)
@@ -24,8 +52,10 @@ function applyCors(req: NextRequest, res: NextResponse): NextResponse {
 // Rotas totalmente públicas
 const PUBLIC_PATHS = [
   '/login',
+  '/mudar-senha',
   '/api/auth/login',
   '/api/auth/logout',
+  '/api/me/password',
   '/bem',
   '/api/public',
 ]
@@ -50,9 +80,10 @@ const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao
 const rateLimitMap = new Map<string, { count: number; reset: number }>()
 
 const RATE_LIMIT_RULES: Array<{ path: string; maxReqs: number; windowMs: number }> = [
-  { path: '/api/auth/login', maxReqs: 10, windowMs: 60_000 },
-  { path: '/api/feedback/form-responses', maxReqs: 5, windowMs: 60_000 },
-  { path: '/api/public/bens', maxReqs: 30, windowMs: 60_000 },
+  { path: '/api/auth/login',             maxReqs: 5,  windowMs: 60_000  }, // 5/min — brute force protection
+  { path: '/api/feedback/form-responses', maxReqs: 5,  windowMs: 60_000  },
+  { path: '/api/public/bens',            maxReqs: 30, windowMs: 60_000  },
+  { path: '/api/hotelaria',              maxReqs: 20, windowMs: 60_000  }, // public biometric endpoints
 ]
 
 // Evita memory leak: remove entradas expiradas a cada N chamadas
@@ -106,7 +137,7 @@ export async function middleware(req: NextRequest) {
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
   ) {
     // Rate limiting em rotas públicas (GET e POST)
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    const ip = getClientIp(req)
     if (!checkRateLimit(ip, pathname)) {
       return applyCors(req, new NextResponse(
         JSON.stringify({ error: 'Muitas tentativas. Aguarde um momento.' }),
@@ -118,7 +149,7 @@ export async function middleware(req: NextRequest) {
 
   // Rate limiting para POST em rotas de feedback (pré-auth)
   if (req.method === 'POST' && pathname.startsWith('/api/feedback/form-responses')) {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '127.0.0.1'
+    const ip = getClientIp(req)
     if (!checkRateLimit(ip, pathname)) {
       return new NextResponse(
         JSON.stringify({ error: 'Muitas tentativas. Aguarde um momento.' }),

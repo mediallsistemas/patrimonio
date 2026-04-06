@@ -10,8 +10,6 @@ interface Asset {
   brand: string | null
   model: string | null
   serialNumber: string | null
-  price: number | null
-  purchaseDate: string | null
   departmentFullAddress: string
   status: number
   assetTypeName: string

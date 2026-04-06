@@ -1,10 +1,11 @@
-import { verifyAuth } from '@/modules/auth/auth.guards'
-import { ok, created, forbidden, serverError } from '@/lib/api-response'
+import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { ok, created, unauthorized, forbidden, serverError } from '@/lib/api-response'
 import { listarRondas, criarRonda } from '@/modules/rondas/rondas.service'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator'])
-  if (!session) return forbidden()
+  const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
+  if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
+  const session = auth.session
 
   const tenantId = session.role === 'super_admin' ? null : session.tenantId!
   // operators see only their own rondas
@@ -19,8 +20,9 @@ export async function GET(req: Request): Promise<Response> {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator'])
-  if (!session) return forbidden()
+  const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
+  if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
+  const session = auth.session
 
   // super_admin usa tenant de demo; em produção deve receber tenantId no contexto
   const tenantId =

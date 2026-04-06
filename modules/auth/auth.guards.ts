@@ -3,6 +3,10 @@ import type { JWTPayload } from './auth.types'
 
 type AllowedRole = JWTPayload['role']
 
+export type AuthResult =
+  | { ok: true; session: JWTPayload }
+  | { ok: false; reason: 'unauthenticated' | 'forbidden' }
+
 /**
  * Verifica autenticação a partir do cookie de sessão ou do header Authorization.
  * Retorna o payload do JWT se válido e o role estiver autorizado, ou null caso contrário.
@@ -11,6 +15,17 @@ export async function verifyAuth(
   req: Request,
   allowedRoles?: AllowedRole[]
 ): Promise<JWTPayload | null> {
+  const result = await verifyAuthDetailed(req, allowedRoles)
+  return result.ok ? result.session : null
+}
+
+/**
+ * Versão detalhada que distingue entre não autenticado (401) e sem permissão (403).
+ */
+export async function verifyAuthDetailed(
+  req: Request,
+  allowedRoles?: AllowedRole[]
+): Promise<AuthResult> {
   let token: string | undefined
 
   // Tenta Authorization: Bearer <token> (SPA FeedbackForms usa header)
@@ -26,11 +41,11 @@ export async function verifyAuth(
     token = match?.[1]
   }
 
-  if (!token) return null
+  if (!token) return { ok: false, reason: 'unauthenticated' }
 
   // verifyToken retorna SessionPayload — mapear para JWTPayload
   const session = await verifyToken(token)
-  if (!session) return null
+  if (!session) return { ok: false, reason: 'unauthenticated' }
 
   const payload: JWTPayload = {
     sub:        session.sub,
@@ -42,8 +57,8 @@ export async function verifyAuth(
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
-    if (!allowedRoles.includes(payload.role)) return null
+    if (!allowedRoles.includes(payload.role)) return { ok: false, reason: 'forbidden' }
   }
 
-  return payload
+  return { ok: true, session: payload }
 }

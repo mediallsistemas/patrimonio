@@ -1,20 +1,24 @@
 import { ok, forbidden, serverError } from '@/lib/api-response'
-import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 import { sincronizarTenant } from '@/modules/ambientes/ambientes.service'
 import { invalidarCacheBlocos } from '@/lib/blocos-cache'
+import { timingSafeEqual } from '@/lib/crypto-utils'
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
 
 function autenticado(req: Request): boolean {
-  const auth = req.headers.get('authorization')
-  return !!CRON_SECRET && auth === `Bearer ${CRON_SECRET}`
+  if (!CRON_SECRET) return false
+  const auth = req.headers.get('authorization') ?? ''
+  const expected = `Bearer ${CRON_SECRET}`
+  // Use timing-safe comparison to prevent timing attacks
+  return timingSafeEqual(auth, expected)
 }
 
 async function handler(req: Request): Promise<Response> {
   if (!autenticado(req)) return forbidden()
 
   try {
-    const tenants = await prisma.tenant.findMany({
+    const tenants = await prismaAuth.tenant.findMany({
       where: { trilogoCompanyId: { not: null } },
       select: { id: true },
     })

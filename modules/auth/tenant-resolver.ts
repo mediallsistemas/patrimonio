@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db'
+import { prismaAuth as prisma } from '@/lib/db-auth'
 import type { JWTPayload } from './auth.types'
 
 /**

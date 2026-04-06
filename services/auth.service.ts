@@ -13,6 +13,7 @@ export interface LoginResponse {
   usuario: {
     role: string
     tenantSlug: string | null
+    mustChangePassword: boolean
   }
 }
 

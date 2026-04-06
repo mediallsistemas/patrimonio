@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 import type { CreateAmbienteInput } from './ambientes.types'
 
 const TRILOGO_TOKEN = process.env.TRILOGO_TOKEN ?? ''
@@ -24,7 +25,7 @@ async function fetchAllTrilogoAssets(): Promise<Record<string, unknown>[]> {
 export async function sincronizarTenant(
   tenantId: string,
 ): Promise<{ blocosCriados: number; ambientesCriados: number } | null> {
-  const tenant = await prisma.tenant.findUnique({
+  const tenant = await prismaAuth.tenant.findUnique({
     where: { id: tenantId },
     select: { trilogoCompanyId: true, trilogoProjectName: true },
   })

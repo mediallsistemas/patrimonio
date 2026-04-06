@@ -8,3 +8,15 @@ export interface JWTPayload {
   iat?: number
   exp?: number
 }
+
+// Roles que pertencem ao LinenSistem.
+// Roles de outros sistemas (operator_forms, rh, viewer, etc.) não aparecem aqui.
+// Ao adicionar um novo role neste sistema, basta incluir nesta lista.
+export const LINENSISTEM_ROLES = [
+  'super_admin',
+  'tenant_admin',
+  'operator',
+  'operator_patrimonio',
+] as const
+
+export type LinenSistemRole = typeof LINENSISTEM_ROLES[number]

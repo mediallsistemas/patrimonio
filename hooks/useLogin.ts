@@ -18,6 +18,12 @@ export function useLogin(): UseLoginResult {
     setIsPending(true)
     try {
       const { usuario } = await login({ email, senha })
+
+      if (usuario.mustChangePassword) {
+        window.location.href = '/mudar-senha'
+        return
+      }
+
       const isAdmin = usuario.role === 'super_admin' || usuario.role === 'tenant_admin'
       const defaultDest = isAdmin
         ? '/admin'

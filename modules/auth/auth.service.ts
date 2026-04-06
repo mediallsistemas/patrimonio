@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 import { comparePassword } from '@/lib/auth'
 
 function auditLog(event: string, details: Record<string, unknown>) {
@@ -11,7 +11,7 @@ export async function autenticarUsuario(login: string, senha: string, ip?: strin
     const input = login.toLowerCase().trim()
 
     // Tenta por email exato ou username
-    const usuario = await prisma.usuario.findFirst({
+    const usuario = await prismaAuth.usuario.findFirst({
       where: { OR: [{ email: input }, { username: input }] },
       include: { tenant: true },
     })

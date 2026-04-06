@@ -1,6 +1,6 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, forbidden, notFound, serverError } from '@/lib/api-response'
-import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 import { sincronizarTenant } from '@/modules/ambientes/ambientes.service'
 import { invalidarCacheBlocos } from '@/lib/blocos-cache'
 
@@ -14,7 +14,7 @@ export async function POST(
   const { id } = await params
 
   try {
-    const tenant = await prisma.tenant.findUnique({
+    const tenant = await prismaAuth.tenant.findUnique({
       where: { id },
       select: { id: true, trilogoCompanyId: true },
     })

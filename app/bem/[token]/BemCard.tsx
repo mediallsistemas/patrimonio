@@ -21,8 +21,6 @@ interface Asset {
   brand: string | null
   model: string | null
   serialNumber: string | null
-  price: number | null
-  purchaseDate: string | null
   status: number
   assetTypeName: string
   coverPermalink: string | null
@@ -183,8 +181,6 @@ export default function BemCard({ bem, agendamentos }: Props) {
               { label: 'Marca',       value: bem.brand },
               { label: 'Modelo',      value: bem.model },
               { label: 'Nº de série', value: bem.serialNumber },
-              { label: 'Valor',       value: bem.price != null ? `R$ ${bem.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : null },
-              { label: 'Data compra', value: bem.purchaseDate ? formatDate(bem.purchaseDate) : null },
             ].map(({ label, value }) =>
               value ? (
                 <div key={label}>

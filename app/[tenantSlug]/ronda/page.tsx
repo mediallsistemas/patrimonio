@@ -22,10 +22,25 @@ export default function RondaPage() {
   const ronda = useRonda()
   const { estado, rondaIniciada, loadingDraft } = ronda
 
+  const etapasNoBloco: typeof estado.etapa[] = [
+    'locais',
+    'bloco_concluido',
+    'ocorrencia_pergunta',
+    'ocorrencia_detalhe',
+    'gases_medicoes',
+    'gases_backup',
+    'gases_abastecimento',
+    'gases_abastecimento_detalhe',
+  ]
+  const dentroDeBloco = rondaIniciada && etapasNoBloco.includes(estado.etapa)
+
   return (
     <div className="form-bg min-h-screen flex flex-col">
       <CheckFeedback show={ronda.showCheck} />
-      <Header title="Ronda" backHref={`/${ronda.tenantSlug}/manutencao`} />
+      <Header
+        title="Ronda"
+        backHref={dentroDeBloco ? undefined : `/${ronda.tenantSlug}/manutencao`}
+      />
 
       <main className="flex-1 flex items-start justify-center px-4 py-6">
         <div className="w-full max-w-lg space-y-4">

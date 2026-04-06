@@ -1,6 +1,6 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
-import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 
 const TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
@@ -84,7 +84,7 @@ export async function GET(req: Request): Promise<Response> {
   try {
     // tenant_admin só pode ver os bens da própria empresa no Trílogo
     if (session.role === 'tenant_admin' || session.role === 'operator_patrimonio') {
-      const tenant = await prisma.tenant.findUnique({
+      const tenant = await prismaAuth.tenant.findUnique({
         where: { id: session.tenantId! },
         select: { trilogoCompanyId: true },
       })

@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next'
 
-const corsOrigins = (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean)
+const isDev = process.env.NODE_ENV === 'development'
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['@prisma/client', 'prisma'],
@@ -14,9 +14,59 @@ const nextConfig: NextConfig = {
     return config
   },
   async headers() {
-    // CORS dinâmico por origem é tratado no middleware.ts
-    // next.config.ts não suporta header dinâmico por request
-    return []
+    return [
+      {
+        // Apply to all routes
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+          {
+            // Only sent over HTTPS — safe to include in all envs
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            // CSP: em dev permite inline scripts do HMR do Next.js; em prod mais restrito
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              isDev
+                ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"  // HMR + face-api.js
+                : "script-src 'self' 'unsafe-eval'",                  // só face-api.js
+              "style-src 'self' 'unsafe-inline'",  // Tailwind CSS
+              "img-src 'self' data: blob:",         // face snapshots
+              "font-src 'self'",
+              isDev
+                ? "connect-src 'self' ws://localhost:* http://localhost:*"  // HMR websocket
+                : "connect-src 'self'",
+              "worker-src 'self' blob:",            // face-api.js web workers
+              "frame-ancestors 'none'",             // no iframes (backup for X-Frame-Options)
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+        ],
+      },
+    ]
   },
 }
 

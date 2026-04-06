@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 import type { CreatePessoaInput } from './pessoas.types'
 
 export async function listarPessoas(tenantId: string | null) {
@@ -17,7 +18,7 @@ export async function listarPessoas(tenantId: string | null) {
 
 export async function resolverTenantPorSlug(tenantSlug: string) {
   try {
-    return await prisma.tenant.findUnique({
+    return await prismaAuth.tenant.findUnique({
       where: { slug: tenantSlug },
       select: { id: true },
     })

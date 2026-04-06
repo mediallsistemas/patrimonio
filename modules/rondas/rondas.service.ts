@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 import type { RegistroAmbienteInput } from './rondas.types'
 
 // Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
@@ -169,7 +170,7 @@ export async function listarRondasAdmin(limit = 100, tenantId?: string) {
           },
         },
       }),
-      prisma.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
+      prismaAuth.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
     ])
 
     const tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t]))

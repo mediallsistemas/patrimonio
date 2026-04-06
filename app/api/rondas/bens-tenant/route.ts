@@ -1,6 +1,6 @@
-import { verifyAuth } from '@/modules/auth/auth.guards'
-import { ok, forbidden, serverError } from '@/lib/api-response'
-import { prisma } from '@/lib/db'
+import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { ok, unauthorized, forbidden, serverError } from '@/lib/api-response'
+import { prismaAuth } from '@/lib/db-auth'
 
 const TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
@@ -38,11 +38,12 @@ async function fetchBensParaUnidade(
 }
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator', 'operator_patrimonio'])
-  if (!session) return forbidden()
+  const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator', 'operator_patrimonio'])
+  if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
+  const session = auth.session
 
   try {
-    const tenant = await prisma.tenant.findUnique({
+    const tenant = await prismaAuth.tenant.findUnique({
       where: { id: session.tenantId! },
       select: { trilogoCompanyId: true, trilogoProjectName: true },
     })

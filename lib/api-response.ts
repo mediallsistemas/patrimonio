@@ -25,6 +25,8 @@ export const notFound = (resource = 'Recurso') =>
   NextResponse.json({ error: `${resource} não encontrado` }, { status: 404 })
 
 export const serverError = (error: unknown) => {
-  console.error(error)
+  // Log the real error server-side only — never expose internals to the client
+  const message = error instanceof Error ? error.message : String(error)
+  console.error('[server-error]', message)
   return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
 }
