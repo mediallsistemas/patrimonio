@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
                 ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"  // HMR + face-api.js
                 : "script-src 'self' 'unsafe-eval'",                  // só face-api.js
               "style-src 'self' 'unsafe-inline'",  // Tailwind CSS
-              "img-src 'self' data: blob:",         // face snapshots
+              "img-src 'self' data: blob: https://s3.amazonaws.com",  // face snapshots + Trílogo asset images
               "font-src 'self'",
               isDev
                 ? "connect-src 'self' ws://localhost:* http://localhost:*"  // HMR websocket
