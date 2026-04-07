@@ -49,9 +49,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              isDev
-                ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"  // HMR + face-api.js
-                : "script-src 'self' 'unsafe-eval'",                  // só face-api.js
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",  // Next.js RSC hydration requires unsafe-inline
               "style-src 'self' 'unsafe-inline'",  // Tailwind CSS
               "img-src 'self' data: blob: https://s3.amazonaws.com",  // face snapshots + Trílogo asset images
               "font-src 'self'",
