@@ -1,4 +1,4 @@
-import { verifyAuth, assertSistema } from '@/modules/auth/auth.guards'
+import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, created, badRequest, forbidden, unauthorized, serverError } from '@/lib/api-response'
 import { CreateAgendamentoSchema } from '@/modules/agendamentos/agendamentos.types'
 import * as agendamentosService from '@/modules/agendamentos/agendamentos.service'
@@ -6,10 +6,9 @@ import * as agendamentosService from '@/modules/agendamentos/agendamentos.servic
 export async function GET(req: Request): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return unauthorized()
-  await assertSistema(session, 'linenSistem')
 
   try {
-    const agendamentos = await agendamentosService.listarAgendamentos(session.tenantId)
+    const agendamentos = await agendamentosService.listarAgendamentos()
     return ok(agendamentos)
   } catch {
     return serverError('listarAgendamentos failed')
@@ -19,13 +18,12 @@ export async function GET(req: Request): Promise<Response> {
 export async function POST(req: Request): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
-  await assertSistema(session, 'linenSistem')
 
   const parsed = CreateAgendamentoSchema.safeParse(await req.json())
   if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
 
   try {
-    const agendamento = await agendamentosService.criarAgendamento(parsed.data, session.sub, session.tenantId)
+    const agendamento = await agendamentosService.criarAgendamento(parsed.data, session.sub)
     return created(agendamento)
   } catch {
     return serverError('criarAgendamento failed')

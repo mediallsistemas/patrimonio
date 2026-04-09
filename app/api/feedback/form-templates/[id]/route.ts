@@ -1,4 +1,4 @@
-import { verifyAuth, assertSistema } from '@/modules/auth/auth.guards'
+import { verifyAuth } from '@/modules/auth/auth.guards'
 import * as templateService from '@/modules/feedback/form-template.service'
 import { ok, badRequest, unauthorized, forbidden, notFound, serverError } from '@/lib/api-response'
 
@@ -10,7 +10,6 @@ export async function GET(req: Request, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
     if (!session.tenantId) return badRequest('tenantId obrigatório')
 
     const { id } = await params
@@ -26,7 +25,6 @@ export async function PUT(req: Request, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
     if (!session.tenantId) return badRequest('tenantId obrigatório')
 
     const { id } = await params
@@ -47,7 +45,6 @@ export async function DELETE(req: Request, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
     if (!session.tenantId) return forbidden()
 
     const { id } = await params

@@ -1,4 +1,4 @@
-import { verifyAuth, assertSistema } from '@/modules/auth/auth.guards'
+import { verifyAuth } from '@/modules/auth/auth.guards'
 import * as templateService from '@/modules/feedback/form-template.service'
 import { ok, created, badRequest, unauthorized, serverError } from '@/lib/api-response'
 
@@ -6,7 +6,6 @@ export async function GET(req: Request) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
     if (!session.tenantId) return badRequest('tenantId obrigatório')
 
     const templates = await templateService.listarTemplates(session.tenantId)
@@ -20,7 +19,6 @@ export async function POST(req: Request) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
     if (!session.tenantId) return badRequest('tenantId obrigatório')
 
     const body = await req.json()

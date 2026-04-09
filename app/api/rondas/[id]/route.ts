@@ -1,4 +1,4 @@
-import { verifyAuthDetailed, assertSistema } from '@/modules/auth/auth.guards'
+import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
 import { ok, unauthorized, forbidden, notFound, serverError } from '@/lib/api-response'
 import { finalizarRonda } from '@/modules/rondas/rondas.service'
 
@@ -8,7 +8,6 @@ export async function PATCH(
 ): Promise<Response> {
   const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
   const session = auth.session
 
   const { id } = await params

@@ -1,4 +1,4 @@
-import { verifyAuthDetailed, assertSistema } from '@/modules/auth/auth.guards'
+import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
 import { noContent, ok, unauthorized, serverError, forbidden } from '@/lib/api-response'
 import { buscarDraft, salvarDraft, descartarDraft } from '@/modules/rondas/ronda-draft.service'
 
@@ -12,7 +12,6 @@ export async function GET(req: Request): Promise<Response> {
   try {
     const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
     const draft = await buscarDraft(resolveTenantId(auth.session), auth.session.sub)
     return ok(draft)
   } catch {
@@ -24,7 +23,6 @@ export async function PUT(req: Request): Promise<Response> {
   try {
     const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
     const estado = await req.json()
     const draft = await salvarDraft(resolveTenantId(auth.session), auth.session.sub, estado)
     return ok(draft)
@@ -37,7 +35,6 @@ export async function DELETE(req: Request): Promise<Response> {
   try {
     const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
     await descartarDraft(resolveTenantId(auth.session), auth.session.sub)
     return noContent()
   } catch {
