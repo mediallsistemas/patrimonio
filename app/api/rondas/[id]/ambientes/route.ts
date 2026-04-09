@@ -1,4 +1,4 @@
-import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { verifyAuthDetailed, assertSistema } from '@/modules/auth/auth.guards'
 import { created, unauthorized, forbidden, badRequest, notFound, serverError } from '@/lib/api-response'
 import { RegistroAmbienteSchema } from '@/modules/rondas/rondas.types'
 import { buscarRonda, registrarAmbiente } from '@/modules/rondas/rondas.service'
@@ -9,6 +9,7 @@ export async function POST(
 ): Promise<Response> {
   const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
+  await assertSistema(auth.session, 'linenSistem')
   const session = auth.session
 
   const { id: rondaId } = await params

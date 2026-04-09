@@ -1,4 +1,4 @@
-import { verifyAuth } from '@/modules/auth/auth.guards'
+import { verifyAuth, assertSistema } from '@/modules/auth/auth.guards'
 import { ok, badRequest, forbidden, notFound, serverError } from '@/lib/api-response'
 import { UpdateAgendamentoSchema } from '@/modules/agendamentos/agendamentos.types'
 import * as agendamentosService from '@/modules/agendamentos/agendamentos.service'
@@ -9,6 +9,7 @@ export async function PATCH(
 ): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
+  await assertSistema(session, 'linenSistem')
 
   const { id } = await params
 

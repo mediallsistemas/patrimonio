@@ -18,11 +18,14 @@ model Tenant {
   trilogoCompanyId    Int?                 // ID da empresa no Trilogo (ex: 168 = Amapá)
   trilogoProjectName  String?              // Nome do projeto/hospital no Trilogo (ex: "HRPG")
   feedbackForms       Boolean              @default(false) // Participa do sistema de pesquisas de satisfação
+  linenSistem         Boolean              @default(true)  // Participa do sistema de rondas/patrimônio
+  tipo                String               @default("hospital") // "hospital" | "upa" | "clinica" | "laboratorio"
   ambientes           AmbienteTenant[]
   blocos              BlocoTenant[]
   movimentacoes       Movimentacao[]
   pessoas             Pessoa[]
   respostasFormulario RespostaFormulario[]
+  agendamentos        AgendamentoManutencao[]
   rodadas             Rodada[]
   rondasDraft         RondaDraft[]
   rondasOcorrencias   RondaOcorrencia[]
@@ -259,9 +262,12 @@ model AgendamentoManutencao {
   atualizadoEm    DateTime  @updatedAt
   atualizadoPorId String?
   dataRealizada   DateTime?
+  tenantId        String?
   atualizadoPor   Usuario?  @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
   criadoPor       Usuario   @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
   @@map("agendamentos_manutencao")
 }
 
