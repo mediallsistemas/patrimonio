@@ -40,7 +40,7 @@ async function fetchBensParaUnidade(
 export async function GET(req: Request): Promise<Response> {
   const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator', 'operator_patrimonio'])
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
+  assertSistema(auth.session, 'linensistem')
   const session = auth.session
 
   try {

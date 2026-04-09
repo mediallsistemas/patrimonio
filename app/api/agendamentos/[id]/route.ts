@@ -9,7 +9,7 @@ export async function PATCH(
 ): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
-  await assertSistema(session, 'linenSistem')
+  assertSistema(session, 'linensistem')
 
   const { id } = await params
 

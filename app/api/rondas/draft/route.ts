@@ -12,7 +12,7 @@ export async function GET(req: Request): Promise<Response> {
   try {
     const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
+  assertSistema(auth.session, 'linensistem')
     const draft = await buscarDraft(resolveTenantId(auth.session), auth.session.sub)
     return ok(draft)
   } catch {
@@ -24,7 +24,7 @@ export async function PUT(req: Request): Promise<Response> {
   try {
     const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
+  assertSistema(auth.session, 'linensistem')
     const estado = await req.json()
     const draft = await salvarDraft(resolveTenantId(auth.session), auth.session.sub, estado)
     return ok(draft)
@@ -37,7 +37,7 @@ export async function DELETE(req: Request): Promise<Response> {
   try {
     const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
     if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
+  assertSistema(auth.session, 'linensistem')
     await descartarDraft(resolveTenantId(auth.session), auth.session.sub)
     return noContent()
   } catch {

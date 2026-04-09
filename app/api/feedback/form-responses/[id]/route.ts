@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
+    assertSistema(session, 'feedbackforms')
 
     const tenantId = await resolveTenantId(session, req.nextUrl.searchParams.get('tenantSlug'))
     if (!tenantId && session.role !== 'super_admin') return badRequest('tenantId obrigatório')
@@ -30,7 +30,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
+    assertSistema(session, 'feedbackforms')
 
     const tenantId = await resolveTenantId(session, req.nextUrl.searchParams.get('tenantSlug'))
     if (!tenantId && session.role !== 'super_admin') return badRequest('tenantId obrigatório')

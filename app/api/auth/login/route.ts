@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       role:       usuario.role,
       tenantId:   usuario.tenantId,
       tenantSlug: usuario.tenant?.slug ?? null,
+      sistemas:   (usuario as unknown as { sistemas: string[] }).sistemas ?? [],
     }
 
     const accessToken = await setSessionCookie(payload)

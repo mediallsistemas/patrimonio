@@ -5,6 +5,7 @@ export interface JWTPayload {
   role: 'super_admin' | 'tenant_admin' | 'operator'
   tenantId: string | null   // null = super_admin
   tenantSlug: string | null
+  sistemas: string[]        // ["linensistem", "feedbackforms"]
   iat?: number
   exp?: number
 }

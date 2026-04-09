@@ -10,7 +10,7 @@ export async function GET(req: Request, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
+    assertSistema(session, 'feedbackforms')
     if (!session.tenantId) return badRequest('tenantId obrigatório')
 
     const { id } = await params
@@ -26,7 +26,7 @@ export async function PUT(req: Request, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
+    assertSistema(session, 'feedbackforms')
     if (!session.tenantId) return badRequest('tenantId obrigatório')
 
     const { id } = await params
@@ -47,7 +47,7 @@ export async function DELETE(req: Request, { params }: Params) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
+    assertSistema(session, 'feedbackforms')
     if (!session.tenantId) return forbidden()
 
     const { id } = await params

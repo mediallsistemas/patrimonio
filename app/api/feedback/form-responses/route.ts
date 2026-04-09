@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
-    await assertSistema(session, 'feedbackForms')
+    assertSistema(session, 'feedbackforms')
 
     const { searchParams } = req.nextUrl
     const tenantId = await resolveTenantId(session, searchParams.get('tenantSlug'))

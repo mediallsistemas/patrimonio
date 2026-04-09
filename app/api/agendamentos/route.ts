@@ -6,7 +6,7 @@ import * as agendamentosService from '@/modules/agendamentos/agendamentos.servic
 export async function GET(req: Request): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return unauthorized()
-  await assertSistema(session, 'linenSistem')
+  assertSistema(session, 'linensistem')
 
   try {
     const agendamentos = await agendamentosService.listarAgendamentos(session.tenantId)
@@ -19,7 +19,7 @@ export async function GET(req: Request): Promise<Response> {
 export async function POST(req: Request): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
   if (!session) return forbidden()
-  await assertSistema(session, 'linenSistem')
+  assertSistema(session, 'linensistem')
 
   const parsed = CreateAgendamentoSchema.safeParse(await req.json())
   if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))

@@ -45,6 +45,7 @@ model Usuario {
   role                       String                  @default("tenant_admin")
   ativo                      Boolean                 @default(true)
   mustChangePassword         Boolean                 @default(false)
+  sistemas                   String[]                @default([])
   criadoEm                   DateTime                @default(now())
   atualizadoEm               DateTime                @updatedAt
   agendamentosAtualizados    AgendamentoManutencao[] @relation("AgendamentoAtualizadoPor")

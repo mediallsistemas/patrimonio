@@ -8,7 +8,7 @@ export async function PATCH(
 ): Promise<Response> {
   const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
-  await assertSistema(auth.session, 'linenSistem')
+  assertSistema(auth.session, 'linensistem')
   const session = auth.session
 
   const { id } = await params
