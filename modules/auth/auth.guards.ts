@@ -1,4 +1,5 @@
 import { verifyToken } from '@/lib/auth'
+import { prismaAuth } from '@/lib/db-auth'
 import type { JWTPayload } from './auth.types'
 
 type AllowedRole = JWTPayload['role']
@@ -46,4 +47,26 @@ export async function verifyAuth(
   }
 
   return payload
+}
+
+/**
+ * Verifica se o tenant do usuário tem acesso ao sistema solicitado.
+ * super_admin sempre passa. Lança erro se o tenant não tiver o sistema habilitado.
+ */
+export async function assertSistema(
+  session: JWTPayload,
+  sistema: 'feedbackForms' | 'linenSistem',
+): Promise<void> {
+  if (session.role === 'super_admin') return
+
+  if (!session.tenantId) return // sem tenant = sem restrição de sistema
+
+  const tenant = await prismaAuth.tenant.findUnique({
+    where: { id: session.tenantId },
+    select: { [sistema]: true },
+  })
+
+  if (!tenant || !tenant[sistema as keyof typeof tenant]) {
+    throw new Error(`Sistema ${sistema} não habilitado para este tenant`)
+  }
 }

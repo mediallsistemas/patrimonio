@@ -15,10 +15,17 @@ model Tenant {
   criadoEm            DateTime             @default(now())
   atualizadoEm        DateTime             @updatedAt
   logoUrl             String?
+  trilogoCompanyId    Int?                 // ID da empresa no Trilogo (ex: 168 = Amapá)
+  trilogoProjectName  String?              // Nome do projeto/hospital no Trilogo (ex: "HRPG")
+  feedbackForms       Boolean              @default(false) // Participa do sistema de pesquisas de satisfação
+  linenSistem         Boolean              @default(true)  // Participa do sistema de rondas/patrimônio
+  tipo                String               @default("hospital") // "hospital" | "upa" | "clinica" | "laboratorio"
   ambientes           AmbienteTenant[]
+  blocos              BlocoTenant[]
   movimentacoes       Movimentacao[]
   pessoas             Pessoa[]
   respostasFormulario RespostaFormulario[]
+  agendamentos        AgendamentoManutencao[]
   rodadas             Rodada[]
   rondasDraft         RondaDraft[]
   rondasOcorrencias   RondaOcorrencia[]
@@ -32,10 +39,12 @@ model Usuario {
   id                         String                  @id @default(uuid())
   tenantId                   String?
   email                      String                  @unique
+  username                   String?                 @unique
   senhaHash                  String
   nome                       String
   role                       String                  @default("tenant_admin")
   ativo                      Boolean                 @default(true)
+  mustChangePassword         Boolean                 @default(false)
   criadoEm                   DateTime                @default(now())
   atualizadoEm               DateTime                @updatedAt
   agendamentosAtualizados    AgendamentoManutencao[] @relation("AgendamentoAtualizadoPor")
@@ -153,13 +162,13 @@ model RondaOcorrencia {
 }
 
 model RegistroAmbiente {
-  id            String             @id @default(uuid())
+  id            String              @id @default(uuid())
   rondaId       String
   ambiente      String
   // 'ocorrencia' = ronda normal | 'gases' = inspeção de gases
-  tipoRegistro  String             @default("ocorrencia")
+  tipoRegistro  String              @default("ocorrencia")
   temOcorrencia Boolean
-  concluidoEm   DateTime           @default(now())
+  concluidoEm   DateTime            @default(now())
   // Campos exclusivos de inspeção de gases (nullable)
   purezaO2      Float?
   pressaoO2     Float?
@@ -169,8 +178,8 @@ model RegistroAmbiente {
   temAbastecimento Boolean?
   qtdCilindros  Int?
   tamCilindro   String?
-  ocorrencia    OcorrenciaDetalhe?
-  ronda         RondaOcorrencia    @relation(fields: [rondaId], references: [id])
+  ocorrencias   OcorrenciaDetalhe[]
+  ronda         RondaOcorrencia     @relation(fields: [rondaId], references: [id])
 
   @@index([rondaId])
   @@map("registros_ambientes")
@@ -178,28 +187,48 @@ model RegistroAmbiente {
 
 model OcorrenciaDetalhe {
   id             String           @id @default(uuid())
-  registroId     String           @unique
+  registroId     String
   tipo           String
   descricao      String
   foto           String?
   trilogoChamado Boolean
+  bemPatrimony   String?
+  bemDescricao   String?
   registro       RegistroAmbiente @relation(fields: [registroId], references: [id])
 
+  @@index([registroId])
   @@map("ocorrencias_detalhe")
+}
+
+// Blocos organizacionais por tenant (ex: "Bloco Cirúrgico", "Bloco Conforto")
+model BlocoTenant {
+  id        String           @id @default(uuid())
+  tenantId  String
+  nome      String
+  ordem     Int              @default(0)
+  ativo     Boolean          @default(true)
+  ambientes AmbienteTenant[]
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("blocos_tenant")
 }
 
 // Ambientes configuráveis por tenant (usados na ronda de ocorrências)
 model AmbienteTenant {
-  id       String  @id @default(uuid())
+  id       String      @id @default(uuid())
   tenantId String
+  blocoId  String?
   nome     String
-  ordem    Int     @default(0)
-  ativo    Boolean @default(true)
+  ordem    Int         @default(0)
+  ativo    Boolean     @default(true)
   // 'ocorrencia' = ronda normal | 'gases' = inspeção de gases medicinais
-  tipo     String  @default("ocorrencia")
-  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  tipo     String      @default("ocorrencia")
+  bloco    BlocoTenant? @relation(fields: [blocoId], references: [id])
+  tenant   Tenant      @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId])
+  @@index([blocoId])
   @@map("ambientes_tenant")
 }
 
@@ -230,12 +259,29 @@ model AgendamentoManutencao {
   status          String   @default("pendente")
   titulo          String   @default("Manutenção")
   criadoPorId     String
-  atualizadoEm    DateTime @updatedAt
+  atualizadoEm    DateTime  @updatedAt
   atualizadoPorId String?
-  atualizadoPor   Usuario? @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
-  criadoPor       Usuario  @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
+  dataRealizada   DateTime?
+  tenantId        String?
+  atualizadoPor   Usuario?  @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
+  criadoPor       Usuario   @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
   @@map("agendamentos_manutencao")
+}
+
+model LinkPublicoBem {
+  id        String   @id @default(uuid())
+  companyId Int
+  projeto   String
+  ambiente  String
+  tenantId  String
+  criadoEm  DateTime @default(now())
+
+  @@unique([companyId, projeto, ambiente])
+  @@index([companyId])
+  @@map("links_publicos_bens")
 }
 
 model TemplateFormulario {

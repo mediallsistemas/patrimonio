@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/db'
-import { verifyAuth } from '@/modules/auth/auth.guards'
+import { verifyAuth, assertSistema } from '@/modules/auth/auth.guards'
 import { resolveTenantId } from '@/modules/auth/tenant-resolver'
 import * as responseService from '@/modules/feedback/form-response.service'
+import { buscarTenantPorSlug } from '@/modules/tenants/tenants.service'
 import { ok, created, badRequest, unauthorized, serverError } from '@/lib/api-response'
 import type { RespostaCampo } from '@/modules/feedback/feedback.types'
 
@@ -55,10 +55,7 @@ export async function POST(req: Request) {
     // Resolve tenantId: direto do body, ou via slug, ou via JWT
     let tenantId = bodyTenantId
     if (!tenantId && bodyTenantSlug) {
-      const tenant = await prisma.tenant.findUnique({
-        where: { slug: bodyTenantSlug },
-        select: { id: true },
-      })
+      const tenant = await buscarTenantPorSlug(bodyTenantSlug)
       tenantId = tenant?.id ?? null
     }
 
@@ -79,6 +76,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
+    await assertSistema(session, 'feedbackForms')
 
     const { searchParams } = req.nextUrl
     const tenantId = await resolveTenantId(session, searchParams.get('tenantSlug'))

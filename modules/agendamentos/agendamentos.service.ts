@@ -1,10 +1,13 @@
 import { prisma } from '@/lib/db'
 import type { CreateAgendamentoInput, UpdateAgendamentoInput } from './agendamentos.types'
 
-export async function listarAgendamentos() {
+export async function listarAgendamentos(tenantId: string | null) {
   try {
     return await prisma.agendamentoManutencao.findMany({
-      where: { status: { not: 'cancelado' } },
+      where: {
+        status: { not: 'cancelado' },
+        ...(tenantId ? { tenantId } : {}),
+      },
       orderBy: { dataAgendada: 'asc' },
     })
   } catch (error) {
@@ -22,7 +25,7 @@ export async function buscarAgendamento(id: string) {
   }
 }
 
-export async function criarAgendamento(input: CreateAgendamentoInput, criadoPorId: string) {
+export async function criarAgendamento(input: CreateAgendamentoInput, criadoPorId: string, tenantId: string | null) {
   try {
     return await prisma.agendamentoManutencao.create({
       data: {
@@ -36,6 +39,7 @@ export async function criarAgendamento(input: CreateAgendamentoInput, criadoPorI
         titulo: input.titulo,
         observacao: input.observacao ?? null,
         criadoPorId,
+        tenantId: tenantId ?? null,
       },
     })
   } catch (error) {

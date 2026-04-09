@@ -1,67 +1,46 @@
-import { verifyAuth } from '@/modules/auth/auth.guards'
-import { prisma } from '@/lib/db'
-import { noContent, ok, serverError, forbidden } from '@/lib/api-response'
+import { verifyAuthDetailed, assertSistema } from '@/modules/auth/auth.guards'
+import { noContent, ok, unauthorized, serverError, forbidden } from '@/lib/api-response'
+import { buscarDraft, salvarDraft, descartarDraft } from '@/modules/rondas/ronda-draft.service'
+
+const SUPER_ADMIN_TENANT = '00000000-0000-0000-0000-000000000001'
+
+function resolveTenantId(session: { role: string; tenantId?: string | null }): string {
+  return session.role === 'super_admin' ? SUPER_ADMIN_TENANT : session.tenantId!
+}
 
 export async function GET(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
-    if (!session) return forbidden()
-
-    const tenantId =
-      session.role === 'super_admin'
-        ? '00000000-0000-0000-0000-000000000001'
-        : session.tenantId!
-
-    const draft = await prisma.rondaDraft.findUnique({
-      where: { tenantId_criadoPorId: { tenantId, criadoPorId: session.sub } },
-    })
-
+    const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
+    if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
+  await assertSistema(auth.session, 'linenSistem')
+    const draft = await buscarDraft(resolveTenantId(auth.session), auth.session.sub)
     return ok(draft)
-  } catch (err) {
-    return serverError(err)
+  } catch {
+    return serverError('buscarDraft failed')
   }
 }
 
 export async function PUT(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
-    if (!session) return forbidden()
-
-    const tenantId =
-      session.role === 'super_admin'
-        ? '00000000-0000-0000-0000-000000000001'
-        : session.tenantId!
-
+    const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
+    if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
+  await assertSistema(auth.session, 'linenSistem')
     const estado = await req.json()
-
-    const draft = await prisma.rondaDraft.upsert({
-      where: { tenantId_criadoPorId: { tenantId, criadoPorId: session.sub } },
-      update: { estado },
-      create: { tenantId, criadoPorId: session.sub, estado },
-    })
-
+    const draft = await salvarDraft(resolveTenantId(auth.session), auth.session.sub, estado)
     return ok(draft)
-  } catch (err) {
-    return serverError(err)
+  } catch {
+    return serverError('salvarDraft failed')
   }
 }
 
 export async function DELETE(req: Request): Promise<Response> {
   try {
-    const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
-    if (!session) return forbidden()
-
-    const tenantId =
-      session.role === 'super_admin'
-        ? '00000000-0000-0000-0000-000000000001'
-        : session.tenantId!
-
-    await prisma.rondaDraft.deleteMany({
-      where: { tenantId, criadoPorId: session.sub },
-    })
-
+    const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'operator'])
+    if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
+  await assertSistema(auth.session, 'linenSistem')
+    await descartarDraft(resolveTenantId(auth.session), auth.session.sub)
     return noContent()
-  } catch (err) {
-    return serverError(err)
+  } catch {
+    return serverError('descartarDraft failed')
   }
 }
