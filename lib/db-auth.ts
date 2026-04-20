@@ -1,9 +1,13 @@
 import { Pool } from 'pg'
+import { prisma } from './db'
 
 declare global {
   // eslint-disable-next-line no-var
   var __authPool: Pool | undefined
 }
+
+// prismaAuth: alias do prisma client principal — usado por módulos de auth/tenants
+export { prisma as prismaAuth }
 
 function createAuthPool(): Pool {
   const url = process.env.AUTH_DATABASE_URL
