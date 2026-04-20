@@ -1,22 +1,45 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { authPool } from '@/lib/db-auth'
 import { comparePassword, setSessionCookie, SessionPayload } from '@/lib/auth'
+
+interface UsuarioRow {
+  id: string
+  email: string
+  nome: string
+  senhaHash: string
+  role: string
+  tenantId: string | null
+  ativo: boolean
+  mustChangePassword: boolean
+  sistemas: string[]
+  tenantSlug: string | null
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const email = (body.email ?? '').trim()
+    // Aceita "username" (principal), "login" (SPA FeedbackForms) ou "email" (legado)
+    const login = (body.username ?? body.login ?? body.email ?? '').trim().toLowerCase()
     // Aceita "senha" (LinenSistem SSR) e "password" (SPA FeedbackForms)
     const senha = (body.senha ?? body.password ?? '').trim()
 
-    if (!email || !senha) {
-      return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 })
+    if (!login || !senha) {
+      return NextResponse.json({ error: 'Usuário e senha obrigatórios' }, { status: 400 })
     }
 
-    const usuario = await prisma.usuario.findUnique({
-      where: { email: email.toLowerCase() },
-      include: { tenant: true },
-    })
+    const result = await authPool.query<UsuarioRow>(
+      `SELECT u.id, u.email, u.nome, u."senhaHash", u.role, u."tenantId", u.ativo,
+              COALESCE(u."mustChangePassword", false) AS "mustChangePassword",
+              COALESCE(u.sistemas, ARRAY[]::text[]) AS sistemas,
+              t.slug AS "tenantSlug"
+       FROM usuarios u
+       LEFT JOIN tenants t ON t.id = u."tenantId"
+       WHERE u.username = $1 OR u.email = $1
+       LIMIT 1`,
+      [login],
+    )
+
+    const usuario = result.rows[0] ?? null
 
     if (!usuario || !usuario.ativo) {
       return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
@@ -34,14 +57,13 @@ export async function POST(req: Request) {
       nome:       usuario.nome,
       role:       usuario.role,
       tenantId:   usuario.tenantId,
-      tenantSlug: usuario.tenant?.slug ?? null,
-      sistemas:   (usuario as unknown as { sistemas: string[] }).sistemas ?? [],
+      tenantSlug: usuario.tenantSlug,
+      sistemas:   usuario.sistemas,
     }
 
     const accessToken = await setSessionCookie(payload)
 
     return NextResponse.json({
-      // Formato esperado pela SPA FeedbackForms
       accessToken,
       user: {
         id:         usuario.id,
@@ -49,15 +71,14 @@ export async function POST(req: Request) {
         email:      usuario.email,
         role:       usuario.role,
         tenantId:   usuario.tenantId,
-        tenantSlug: usuario.tenant?.slug ?? null,
+        tenantSlug: usuario.tenantSlug,
       },
-      // Mantido para compatibilidade com o Next.js SSR do LinenSistem
       usuario: {
         id:         usuario.id,
         nome:       usuario.nome,
         email:      usuario.email,
         role:       usuario.role,
-        tenantSlug: usuario.tenant?.slug ?? null,
+        tenantSlug: usuario.tenantSlug,
       },
     })
   } catch (err) {

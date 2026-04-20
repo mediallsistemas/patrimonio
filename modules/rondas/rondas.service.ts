@@ -1,11 +1,15 @@
 import { prisma } from '@/lib/db'
+import type { z } from 'zod'
+import type { RegistroAmbienteSchema } from './rondas.types'
+
+type RegistroAmbienteInput = z.infer<typeof RegistroAmbienteSchema>
 
 // Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
 const INCLUDE_AMBIENTES = {
   ambientes: {
     orderBy: { concluidoEm: 'asc' as const },
     include: {
-      ocorrencia: {
+      ocorrencias: {
         select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true },
       },
     },
@@ -22,9 +26,12 @@ const SELECT_RONDA_LIGHT = {
   _count: { select: { ambientes: true } },
 } as const
 
-export async function listarRondas(tenantId: string | null, limit = 50) {
+export async function listarRondas(tenantId: string | null, limit = 50, criadoPorId?: string) {
   try {
-    const where = tenantId ? { tenantId } : {}
+    const where = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(criadoPorId ? { criadoPorId } : {}),
+    }
     return await prisma.rondaOcorrencia.findMany({
       where,
       orderBy: { iniciadoEm: 'desc' },
@@ -79,13 +86,66 @@ export async function finalizarRonda(id: string, tenantId: string | null) {
   }
 }
 
+export async function registrarAmbiente(rondaId: string, input: RegistroAmbienteInput) {
+  try {
+    return await prisma.registroAmbiente.create({
+      data: {
+        rondaId,
+        ambiente: input.ambiente,
+        temOcorrencia: input.temOcorrencia,
+        concluidoEm: new Date(),
+        ...(input.temOcorrencia && input.ocorrencia
+          ? {
+              ocorrencias: {
+                create: {
+                  tipo: input.ocorrencia.tipo,
+                  descricao: input.ocorrencia.descricao,
+                  foto: input.ocorrencia.foto ?? null,
+                  trilogoChamado: input.ocorrencia.trilogoChamado,
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        ocorrencias: {
+          select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true },
+        },
+      },
+    })
+  } catch (error) {
+    console.error('[rondas.service] registrarAmbiente:', error)
+    throw error
+  }
+}
+
 export async function listarRondasAdmin(limit = 100) {
   try {
     const [rondas, tenants] = await Promise.all([
       prisma.rondaOcorrencia.findMany({
         orderBy: { iniciadoEm: 'desc' },
         take: limit,
-        select: SELECT_RONDA_LIGHT,
+        select: {
+          ...SELECT_RONDA_LIGHT,
+          ambientes: {
+            select: {
+              id: true,
+              ambiente: true,
+              temOcorrencia: true,
+              concluidoEm: true,
+              tipoRegistro: true,
+              ocorrencias: {
+                select: {
+                  id: true,
+                  tipo: true,
+                  descricao: true,
+                  foto: true,
+                  trilogoChamado: true,
+                },
+              },
+            },
+          },
+        },
       }),
       prisma.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
     ])

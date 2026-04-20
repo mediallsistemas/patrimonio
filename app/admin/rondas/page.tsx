@@ -26,7 +26,7 @@ interface RegistroAmbiente {
   ambiente: string
   temOcorrencia: boolean
   concluidoEm: string
-  ocorrencia: OcorrenciaDetalhe | null
+  ocorrencias: OcorrenciaDetalhe[]
 }
 
 interface Tenant {
@@ -58,12 +58,14 @@ function GrupoAmbientes({
   titulo,
   ambientes,
   variante,
+  defaultAberto = false,
 }: {
   titulo: string
   ambientes: RegistroAmbiente[]
   variante: 'normal' | 'ocorrencia'
+  defaultAberto?: boolean
 }) {
-  const [aberto, setAberto] = useState(false)
+  const [aberto, setAberto] = useState(defaultAberto)
 
   const estilos =
     variante === 'normal'
@@ -108,26 +110,28 @@ function GrupoAmbientes({
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-semibold font-sans text-dark">{amb.ambiente}</span>
-                {amb.temOcorrencia && amb.ocorrencia ? (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[amb.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
-                    {TIPO_LABEL[amb.ocorrencia.tipo]?.label ?? amb.ocorrencia.tipo}
-                  </span>
+                {amb.temOcorrencia && amb.ocorrencias.length > 0 ? (
+                  amb.ocorrencias.map((oc) => (
+                    <span key={oc.id} className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[oc.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
+                      {TIPO_LABEL[oc.tipo]?.label ?? oc.tipo}
+                    </span>
+                  ))
                 ) : (
                   <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">Normal</span>
                 )}
               </div>
-              {amb.temOcorrencia && amb.ocorrencia && (
-                <>
-                  <p className="text-xs text-gray-500 font-sans mt-0.5 line-clamp-2">{amb.ocorrencia.descricao}</p>
-                  {amb.ocorrencia.foto && (
+              {amb.temOcorrencia && amb.ocorrencias.map((oc) => (
+                <div key={oc.id} className="mt-1.5 space-y-1">
+                  <p className="text-xs text-gray-500 font-sans line-clamp-2">{oc.descricao}</p>
+                  {oc.foto && (
                     <img
-                      src={amb.ocorrencia.foto}
+                      src={oc.foto}
                       alt="Foto da ocorrência"
-                      className="mt-1.5 rounded-lg w-full max-h-48 object-cover border border-orange-100"
+                      className="rounded-lg w-full max-h-48 object-cover border border-orange-100"
                     />
                   )}
-                </>
-              )}
+                </div>
+              ))}
               <span className="text-xs text-gray-300 font-sans">
                 {format(new Date(amb.concluidoEm), 'HH:mm', { locale: ptBR })}
               </span>
@@ -183,8 +187,8 @@ function RondaCard({ ronda }: { ronda: Ronda }) {
 
       {aberto && (
         <div className="px-4 pb-4 space-y-2 border-t border-gray-100 pt-3">
-          <GrupoAmbientes titulo="Ocorrências" ambientes={ocorrencias} variante="ocorrencia" />
-          <GrupoAmbientes titulo="Conformidade" ambientes={normais} variante="normal" />
+          <GrupoAmbientes titulo="Ocorrências" ambientes={ocorrencias} variante="ocorrencia" defaultAberto={ocorrencias.length > 0} />
+          <GrupoAmbientes titulo="Conformidade" ambientes={normais} variante="normal" defaultAberto={ocorrencias.length === 0} />
           {total === 0 && (
             <p className="text-xs text-gray-300 font-sans text-center py-2">Nenhum ambiente registrado.</p>
           )}

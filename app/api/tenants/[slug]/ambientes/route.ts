@@ -62,7 +62,7 @@ export async function POST(
     if (session.role !== 'super_admin' && session.tenantId !== tenant.id) return forbidden()
 
     const parsed = CreateAmbienteSchema.safeParse(await req.json())
-    if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
+    if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
 
     const ambiente = await prisma.ambienteTenant.create({
       data: {

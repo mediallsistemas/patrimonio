@@ -10,7 +10,8 @@ const SELECT_USUARIO = {
   ativo: true,
   criadoEm: true,
   tenantId: true,
-  tenant: { select: { slug: true, nome: true } },
+  sistemas: true,
+  tenant: { select: { slug: true, nome: true, id: true } },
 } as const
 
 export async function listarUsuarios() {
@@ -77,6 +78,23 @@ export async function deletarUsuario(id: string) {
     await prisma.usuario.delete({ where: { id } })
   } catch (error) {
     console.error('[usuarios.service] deletarUsuario:', error)
+    throw error
+  }
+}
+
+export async function resetSenhaUsuario(id: string) {
+  try {
+    const novaSenha = Math.random().toString(36).slice(-10) + 'A1!'
+    return await prisma.usuario.update({
+      where: { id },
+      data: {
+        senhaHash: await hashPassword(novaSenha),
+        mustChangePassword: true,
+      },
+      select: { ...SELECT_USUARIO, mustChangePassword: true },
+    })
+  } catch (error) {
+    console.error('[usuarios.service] resetSenhaUsuario:', error)
     throw error
   }
 }

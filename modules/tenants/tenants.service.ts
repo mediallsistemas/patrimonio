@@ -72,6 +72,15 @@ export async function atualizarTenant(id: string, input: UpdateTenantInput) {
   }
 }
 
+export async function buscarTenantPorSlug(slug: string) {
+  try {
+    return await prisma.tenant.findUnique({ where: { slug } })
+  } catch (error) {
+    console.error('[tenants.service] buscarTenantPorSlug:', error)
+    throw error
+  }
+}
+
 export async function deletarTenant(id: string) {
   try {
     await prisma.tenant.delete({ where: { id } })

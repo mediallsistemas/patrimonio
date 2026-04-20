@@ -11,7 +11,7 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const from = searchParams.get('from') ?? '/'
 
-  const [email, setEmail]   = useState('')
+  const [username, setUsername] = useState('')
   const [senha, setSenha]   = useState('')
   const [show, setShow]     = useState(false)
   const [loading, setLoading] = useState(false)
@@ -26,7 +26,7 @@ function LoginForm() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, senha }),
+        body: JSON.stringify({ username, senha }),
       })
 
       const data = await res.json()
@@ -73,17 +73,17 @@ function LoginForm() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* Email */}
+            {/* Usuário */}
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-gray-400 font-sans">
-                E-mail
+                Usuário
               </label>
               <input
-                type="email"
-                autoComplete="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                autoComplete="username"
+                placeholder="rafael.moreira"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all placeholder:text-gray-300"
               />

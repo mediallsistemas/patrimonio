@@ -58,3 +58,43 @@ export async function softDeletarResposta(id: string, tenantId: string | null) {
     data: { deletadoEm: new Date() },
   })
 }
+
+interface FiltrosMetricas {
+  startDate?: string | null
+  endDate?: string | null
+  formType?: string | null
+}
+
+export async function buscarMetricas(tenantId: string, filtros: FiltrosMetricas = {}) {
+  const where = {
+    tenantId,
+    deletadoEm: null as null,
+    ...(filtros.formType && { setor: filtros.formType }),
+    ...((filtros.startDate || filtros.endDate)
+      ? {
+          criadoEm: {
+            ...(filtros.startDate && { gte: new Date(filtros.startDate) }),
+            ...(filtros.endDate && { lte: new Date(filtros.endDate) }),
+          },
+        }
+      : {}),
+  }
+
+  const [total, porSetor, porTemplate] = await Promise.all([
+    prisma.respostaFormulario.count({ where }),
+    prisma.respostaFormulario.groupBy({
+      by: ['setor'],
+      where,
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    }),
+    prisma.respostaFormulario.groupBy({
+      by: ['templateId'],
+      where,
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    }),
+  ])
+
+  return { total, porSetor, porTemplate }
+}
