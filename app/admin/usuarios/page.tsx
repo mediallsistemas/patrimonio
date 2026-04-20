@@ -3,8 +3,8 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Users, ArrowLeft } from 'lucide-react'
-import Text from '@/components/text'
-import Card from '@/components/card'
+import Text from '@/components/ui/Text'
+import Card from '@/components/ui/Card'
 
 interface Tenant { id: string; slug: string; nome: string }
 interface Usuario {

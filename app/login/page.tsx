@@ -2,9 +2,8 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, LogIn } from 'lucide-react'
-import { GiClothes } from 'react-icons/gi'
-import Text from '@/components/text'
+import { Eye, EyeOff, LogIn, Landmark } from 'lucide-react'
+import Text from '@/components/ui/Text'
 
 function LoginForm() {
   const router = useRouter()
@@ -59,7 +58,7 @@ function LoginForm() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-[#FF7F50] flex items-center justify-center mb-4">
-            <GiClothes className="w-8 h-8 text-white" />
+            <Landmark className="w-8 h-8 text-white" />
           </div>
           <Text as="h1" variant="heading-md" className="text-dark block text-center">
             Sistema de Rouparia
