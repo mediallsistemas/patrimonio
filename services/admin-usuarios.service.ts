@@ -14,6 +14,7 @@ export interface Usuario {
   ativo: boolean
   criadoEm: string
   tenantId: string | null
+  sistemas: string[]
   tenant: Tenant | null
 }
 
