@@ -1,29 +1,17 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { Building2, ArrowLeft } from 'lucide-react'
-import Text from '@/components/text'
-import Card from '@/components/card'
-
-interface Tenant {
-  id: string
-  slug: string
-  nome: string
-  ativo: boolean
-  criadoEm: string
-  _count: { usuarios: number; pessoas: number }
-}
+import { Building2, ArrowLeft, Plus } from 'lucide-react'
+import Text from '@/components/ui/Text'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import ModalCriarTenant from '@/components/ui/modal/ModalCriarTenant'
+import { useTenantsList } from '@/hooks/useAdminTenants'
 
 export default function TenantsPage() {
-  const [tenants, setTenants] = useState<Tenant[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch('/api/admin/tenants')
-      .then((r) => r.json())
-      .then((j) => { setTenants(j.data ?? j); setLoading(false) })
-  }, [])
+  const [modal, setModal] = useState(false)
+  const { tenants, loading, reload } = useTenantsList()
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center p-6">
@@ -36,15 +24,27 @@ export default function TenantsPage() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-[#6366f1] flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#6366f1] flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <Text as="h1" variant="heading-sm" className="text-dark block">Unidades</Text>
+              <Text variant="body-sm" className="text-gray-300 block">Hospitais e unidades cadastradas</Text>
+            </div>
           </div>
-          <div>
-            <Text as="h1" variant="heading-sm" className="text-dark block">Unidades</Text>
-            <Text variant="body-sm" className="text-gray-300 block">Hospitais e unidades cadastradas</Text>
-          </div>
+          <Button variant="primary" size="sm" onClick={() => setModal(true)}>
+            <Plus className="w-4 h-4" />
+            Nova Unidade
+          </Button>
         </div>
+
+        <ModalCriarTenant
+          open={modal}
+          onClose={() => setModal(false)}
+          onCreated={reload}
+        />
 
         {loading ? (
           <Text variant="body-sm" className="text-gray-300 text-center block py-10">Carregando...</Text>
@@ -60,8 +60,12 @@ export default function TenantsPage() {
                     <span className="text-sm font-semibold font-sans text-dark block truncate">{t.nome}</span>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-xs text-gray-300 font-mono">/{t.slug}</span>
-                      <span className="text-xs text-gray-300 font-sans">{t._count.usuarios} usuário(s)</span>
-                      <span className="text-xs text-gray-300 font-sans">{t._count.pessoas} pessoa(s)</span>
+                      {t._count && (
+                        <>
+                          <span className="text-xs text-gray-300 font-sans">{t._count.usuarios} usuário(s)</span>
+                          <span className="text-xs text-gray-300 font-sans">{t._count.pessoas} pessoa(s)</span>
+                        </>
+                      )}
                       <span className={`text-xs font-sans px-1.5 py-0.5 rounded ${t.ativo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
                         {t.ativo ? 'ativo' : 'inativo'}
                       </span>

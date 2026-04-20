@@ -1,8 +1,6 @@
 import { prisma } from '@/lib/db'
-import type { z } from 'zod'
-import type { RegistroAmbienteSchema } from './rondas.types'
-
-type RegistroAmbienteInput = z.infer<typeof RegistroAmbienteSchema>
+import { prismaAuth } from '@/lib/db-auth'
+import type { RegistroAmbienteInput } from './rondas.types'
 
 // Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
 const INCLUDE_AMBIENTES = {
@@ -22,8 +20,19 @@ const SELECT_RONDA_LIGHT = {
   iniciadoEm: true,
   finalizadoEm: true,
   tenantId: true,
-  criadoPorId: true,
-  _count: { select: { ambientes: true } },
+  criadoPor: { select: { id: true, nome: true } },
+  ambientes: {
+    orderBy: { concluidoEm: 'asc' as const },
+    select: {
+      id: true,
+      ambiente: true,
+      temOcorrencia: true,
+      concluidoEm: true,
+      ocorrencias: {
+        select: { id: true, tipo: true, descricao: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
+      },
+    },
+  },
 } as const
 
 export async function listarRondas(tenantId: string | null, limit = 50, criadoPorId?: string) {
@@ -88,20 +97,38 @@ export async function finalizarRonda(id: string, tenantId: string | null) {
 
 export async function registrarAmbiente(rondaId: string, input: RegistroAmbienteInput) {
   try {
+    const gasesData =
+      input.tipoRegistro === 'gases'
+        ? {
+            purezaO2: input.purezaO2,
+            pressaoO2: input.pressaoO2,
+            pressaoAr: input.pressaoAr,
+            backupLigado: input.backupLigado,
+            temAbastecimento: input.temAbastecimento,
+            qtdCilindros: input.qtdCilindros ?? null,
+            tamCilindro: input.tamCilindro ?? null,
+          }
+        : {}
+
     return await prisma.registroAmbiente.create({
       data: {
         rondaId,
         ambiente: input.ambiente,
+        tipoRegistro: input.tipoRegistro,
         temOcorrencia: input.temOcorrencia,
-        concluidoEm: new Date(),
-        ...(input.temOcorrencia && input.ocorrencia
+        ...gasesData,
+        ...(input.temOcorrencia && input.ocorrencias?.length
           ? {
               ocorrencias: {
-                create: {
-                  tipo: input.ocorrencia.tipo,
-                  descricao: input.ocorrencia.descricao,
-                  foto: input.ocorrencia.foto ?? null,
-                  trilogoChamado: input.ocorrencia.trilogoChamado,
+                createMany: {
+                  data: input.ocorrencias.map((o) => ({
+                    tipo: o.tipo,
+                    descricao: o.descricao,
+                    foto: o.foto ?? null,
+                    trilogoChamado: o.trilogoChamado,
+                    bemPatrimony: o.bemPatrimony ?? null,
+                    bemDescricao: o.bemDescricao ?? null,
+                  })),
                 },
               },
             }
@@ -109,7 +136,7 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
       },
       include: {
         ocorrencias: {
-          select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true },
+          select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
         },
       },
     })
@@ -119,35 +146,31 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
   }
 }
 
-export async function listarRondasAdmin(limit = 100) {
+export async function listarRondasAdmin(limit = 100, tenantId?: string) {
   try {
     const [rondas, tenants] = await Promise.all([
       prisma.rondaOcorrencia.findMany({
+        where: tenantId ? { tenantId } : undefined,
         orderBy: { iniciadoEm: 'desc' },
         take: limit,
         select: {
           ...SELECT_RONDA_LIGHT,
+          criadoPor: { select: { id: true, nome: true } },
           ambientes: {
+            orderBy: { concluidoEm: 'asc' as const },
             select: {
               id: true,
               ambiente: true,
               temOcorrencia: true,
               concluidoEm: true,
-              tipoRegistro: true,
               ocorrencias: {
-                select: {
-                  id: true,
-                  tipo: true,
-                  descricao: true,
-                  foto: true,
-                  trilogoChamado: true,
-                },
+                select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
               },
             },
           },
         },
       }),
-      prisma.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
+      prismaAuth.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
     ])
 
     const tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t]))

@@ -1,15 +1,15 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { ok, serverError } from '@/lib/api-response'
+import { finalizarRodada } from '@/modules/rodadas/rodadas.service'
 
-// PATCH /api/rodadas/[id] — finaliza a rodada (seta finalizadoEm)
 export async function PATCH(
   _: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
   const { id } = await params
-  const rodada = await prisma.rodada.update({
-    where: { id },
-    data: { finalizadoEm: new Date() },
-  })
-  return NextResponse.json(rodada)
+  try {
+    const rodada = await finalizarRodada(id)
+    return ok(rodada)
+  } catch {
+    return serverError('finalizarRodada failed')
+  }
 }

@@ -2,19 +2,20 @@
 
 import { CheckCircle, History } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import Card from '@/components/card'
-import Button from '@/components/button'
-import Text from '@/components/text'
-import { BLOCOS, type DraftEstado } from '@/app/ocorrencias/types'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Text from '@/components/ui/Text'
+import { type BlocoAPI, type DraftEstado } from '@/app/ocorrencias/types'
 
 interface ResumoFinalProps {
   estado: DraftEstado
+  blocos: BlocoAPI[]
   totalFeitos: number
   feitosNoBloco: (nome: string) => number
   resetar: () => void
 }
 
-export default function ResumoFinal({ estado, totalFeitos, feitosNoBloco, resetar }: ResumoFinalProps) {
+export default function ResumoFinal({ estado, blocos, totalFeitos, feitosNoBloco, resetar }: ResumoFinalProps) {
   const router = useRouter()
 
   return (
@@ -36,7 +37,7 @@ export default function ResumoFinal({ estado, totalFeitos, feitosNoBloco, reseta
 
       {/* Resumo por bloco */}
       <div className="space-y-2 mb-6 max-h-64 overflow-y-auto pr-1">
-        {BLOCOS.map((bloco) => {
+        {blocos.map((bloco) => {
           const feitosB = feitosNoBloco(bloco.nome)
           if (feitosB === 0) return null
           const comOcorrencia = estado.concluidos.filter(
@@ -44,7 +45,7 @@ export default function ResumoFinal({ estado, totalFeitos, feitosNoBloco, reseta
           ).length
           return (
             <div
-              key={bloco.nome}
+              key={bloco.id}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
                 comOcorrencia > 0
                   ? 'border-orange-200 bg-orange-50'
@@ -60,7 +61,7 @@ export default function ResumoFinal({ estado, totalFeitos, feitosNoBloco, reseta
                 {bloco.nome}
               </span>
               <span className="text-xs text-gray-300 font-sans shrink-0">
-                {feitosB}/{bloco.locais.length}
+                {feitosB}/{bloco.ambientes.length}
               </span>
               <span
                 className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans shrink-0 ${

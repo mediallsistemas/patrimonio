@@ -1,68 +1,43 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { created, badRequest, serverError } from '@/lib/api-response'
+import { registrarAmbienteRodada } from '@/modules/rodadas/rodadas.service'
+import { z } from 'zod'
 
-// POST /api/rodadas/[id]/ambientes — registra um ambiente dentro de uma rodada
+const RegistrarAmbienteSchema = z.object({
+  ambiente: z.string().min(1),
+  purezaO2: z.number(),
+  pressaoO2: z.number(),
+  pressaoAr: z.number(),
+  backupLigado: z.boolean(),
+  temAbastecimento: z.boolean(),
+  temAlteracao: z.boolean(),
+  abastecimento: z
+    .object({ quantidade: z.number(), tamanho: z.string() })
+    .optional()
+    .nullable(),
+  alteracao: z
+    .object({
+      tipo: z.string(),
+      descricao: z.string(),
+      foto: z.string().optional().nullable(),
+      trilogoChamado: z.boolean(),
+    })
+    .optional()
+    .nullable(),
+})
+
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
   try {
     const { id: rodadaId } = await params
-    const body = await req.json()
-    const {
-      ambiente,
-      purezaO2, pressaoO2, pressaoAr, backupLigado,
-      temAbastecimento, abastecimento,
-      temAlteracao, alteracao,
-    } = body
+    const parsed = RegistrarAmbienteSchema.safeParse(await req.json())
+    if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
 
-    const ambienteInspecionado = await prisma.ambienteInspecionado.create({
-      data: {
-        rodadaId,
-        ambiente,
-        purezaO2:         Number(purezaO2),
-        pressaoO2:        Number(pressaoO2),
-        pressaoAr:        Number(pressaoAr),
-        backupLigado:     Boolean(backupLigado),
-        temAbastecimento: Boolean(temAbastecimento),
-        temAlteracao:     Boolean(temAlteracao),
-        ...(temAbastecimento && abastecimento
-          ? {
-              abastecimento: {
-                create: {
-                  quantidade: Number(abastecimento.quantidade),
-                  tamanho:    String(abastecimento.tamanho),
-                },
-              },
-            }
-          : {}),
-        ...(temAlteracao && alteracao
-          ? {
-              alteracao: {
-                create: {
-                  tipo:           alteracao.tipo,
-                  descricao:      alteracao.descricao,
-                  foto:           alteracao.foto ?? null,
-                  trilogoChamado: Boolean(alteracao.trilogoChamado),
-                },
-              },
-            }
-          : {}),
-      },
-      include: {
-        abastecimento: true,
-        alteracao: {
-          select: { id: true, tipo: true, descricao: true, trilogoChamado: true },
-        },
-      },
-    })
-
-    return NextResponse.json(ambienteInspecionado, { status: 201 })
+    const ambiente = await registrarAmbienteRodada(rodadaId, parsed.data)
+    return created(ambiente)
   } catch (err) {
-    console.error('Erro ao salvar ambiente:', err)
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Erro interno' },
-      { status: 500 }
-    )
+    console.error('[rodadas/ambientes] POST:', err)
+    return serverError('registrarAmbiente failed')
   }
 }

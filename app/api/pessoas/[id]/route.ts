@@ -1,19 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { ok, notFound, serverError } from '@/lib/api-response'
+import { buscarPessoa, deletarPessoa } from '@/modules/pessoas/pessoas.service'
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
   const { id } = await params
-  const pessoa = await prisma.pessoa.findUnique({
-    where: { id },
-    select: { id: true, nome: true, cpf: true, criadoEm: true },
-  })
-  if (!pessoa) return NextResponse.json({ message: 'Não encontrado' }, { status: 404 })
-  return NextResponse.json(pessoa)
+  try {
+    const pessoa = await buscarPessoa(id)
+    if (!pessoa) return notFound('Pessoa')
+    return ok(pessoa)
+  } catch {
+    return serverError('buscarPessoa failed')
+  }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
   const { id } = await params
-  await prisma.movimentacao.deleteMany({ where: { pessoaId: id } })
-  await prisma.pessoa.delete({ where: { id } })
-  return NextResponse.json({ success: true })
+  try {
+    await deletarPessoa(id)
+    return ok({ success: true })
+  } catch {
+    return serverError('deletarPessoa failed')
+  }
 }

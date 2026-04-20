@@ -1,15 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function LogoutButton() {
-  const router = useRouter()
+  const { logout } = useAuth()
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'DELETE', credentials: 'include' })
-    router.push('/login')
-    router.refresh()
+    await logout()
   }
 
   return (

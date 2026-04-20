@@ -1,10 +1,10 @@
 'use client'
 
 import { ChevronRight, FlaskConical } from 'lucide-react'
-import Card from '@/components/card'
-import Button from '@/components/button'
-import Input from '@/components/input'
-import Text from '@/components/text'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Text from '@/components/ui/Text'
 import type { DraftEstado } from '@/app/ocorrencias/types'
 
 interface GasesMedicoesProps {

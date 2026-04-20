@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi_UnidadesDB Viewer</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3347;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --blue: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+
+    /* Layout */
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+    .sidebar-header h1 { font-size: 13px; font-weight: 700; color: var(--accent2); letter-spacing: 0.05em; text-transform: uppercase; }
+    .sidebar-header p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .nav { flex: 1; padding: 8px; overflow-y: auto; }
+    .nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 13px; transition: all 0.15s; user-select: none; }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: rgba(99,102,241,0.15); color: var(--accent2); }
+    .nav-item svg { flex-shrink: 0; }
+    .nav-section { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px; }
+
+    /* Main */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+    .topbar h2 { font-size: 16px; font-weight: 600; }
+    .topbar .badge { font-size: 11px; background: rgba(99,102,241,0.2); color: var(--accent2); padding: 2px 8px; border-radius: 99px; }
+    .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.15s; }
+    .stat-card:hover { border-color: var(--accent); }
+    .stat-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .stat-card .value { font-size: 28px; font-weight: 700; line-height: 1; }
+    .stat-card .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* Filter bar */
+    .filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-bar select, .filter-bar input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+    .filter-bar select:focus, .filter-bar input:focus { border-color: var(--accent); }
+    .filter-bar label { font-size: 12px; color: var(--muted); }
+
+    /* Table */
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .table-wrap table { width: 100%; border-collapse: collapse; }
+    .table-wrap th { background: var(--surface2); color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .table-wrap td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .table-wrap tr:last-child td { border-bottom: none; }
+    .table-wrap tr:hover td { background: var(--surface2); }
+    .table-wrap .empty { text-align: center; color: var(--muted); padding: 40px; font-size: 13px; }
+
+    /* Badges */
+    .badge-green { background: rgba(34,197,94,0.15); color: var(--green); padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .badge-red { background: rgba(239,68,68,0.15); color: var(--red); padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .badge-blue { background: rgba(59,130,246,0.15); color: var(--blue); padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .badge-purple { background: rgba(99,102,241,0.15); color: var(--accent2); padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+
+    /* Loading */
+    .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 40px; justify-content: center; }
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Section title */
+    .section-title { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* Pagination */
+    .pagination { display: flex; align-items: center; gap: 8px; margin-top: 12px; justify-content: flex-end; font-size: 12px; color: var(--muted); }
+    .pagination span { padding: 4px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; }
+    .pagination span:hover { border-color: var(--accent); color: var(--text); }
+    .pagination .active-page { color: var(--accent2); border-color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>DB Viewer</h1>
+      <p>Multi_UnidadesDB</p>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Visão Geral</div>
+      <div class="nav-item active" onclick="showPage('overview')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Overview
+      </div>
+
+      <div class="nav-section">Autenticação</div>
+      <div class="nav-item" onclick="showPage('tenants')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 21V5a2 2 0 012-2h14a2 2 0 012 2v16"/><path d="M9 21v-6h6v6"/></svg>
+        Tenants
+      </div>
+      <div class="nav-item" onclick="showPage('usuarios')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Usuários
+      </div>
+
+      <div class="nav-section">Operacional</div>
+      <div class="nav-item" onclick="showPage('rodadas')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Rodadas (Gases)
+      </div>
+      <div class="nav-item" onclick="showPage('rondas')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9"/></svg>
+        Rondas Ocorrências
+      </div>
+      <div class="nav-item" onclick="showPage('agendamentos')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Agendamentos
+      </div>
+
+      <div class="nav-section">Formulários</div>
+      <div class="nav-item" onclick="showPage('respostas')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        Respostas
+      </div>
+
+      <div class="nav-section">Config</div>
+      <div class="nav-item" onclick="showPage('ambientes')">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+        Ambientes
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h2 id="page-title">Overview</h2>
+      <span class="badge" id="page-badge">Multi_UnidadesDB</span>
+    </div>
+    <div class="content" id="content">
+      <div class="loading"><div class="spinner"></div> Carregando...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentPage = 'overview'
+let tenantsCache = []
+let filterTenant = ''
+let searchTerm = ''
+
+const titles = {
+  overview: 'Overview',
+  tenants: 'Tenants',
+  usuarios: 'Usuários',
+  rodadas: 'Rodadas de Gases',
+  rondas: 'Rondas de Ocorrências',
+  agendamentos: 'Agendamentos de Manutenção',
+  respostas: 'Respostas de Formulário',
+  ambientes: 'Ambientes por Tenant',
+}
+
+function showPage(page) {
+  currentPage = page
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'))
+  event.currentTarget.classList.add('active')
+  document.getElementById('page-title').textContent = titles[page]
+  document.getElementById('page-badge').textContent = page
+  filterTenant = ''
+  searchTerm = ''
+  load(page)
+}
+
+async function load(page) {
+  const content = document.getElementById('content')
+  content.innerHTML = '<div class="loading"><div class="spinner"></div> Carregando...</div>'
+  try {
+    if (page === 'overview') await renderOverview()
+    else if (page === 'tenants') await renderTenants()
+    else if (page === 'usuarios') await renderUsuarios()
+    else if (page === 'rodadas') await renderRodadas()
+    else if (page === 'rondas') await renderRondas()
+    else if (page === 'agendamentos') await renderAgendamentos()
+    else if (page === 'respostas') await renderRespostas()
+    else if (page === 'ambientes') await renderAmbientes()
+  } catch (e) {
+    content.innerHTML = `<div style="color:var(--red);padding:40px">Erro: ${e.message}</div>`
+  }
+}
+
+function fmt(dateStr) {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+}
+function fmtDate(dateStr) {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('pt-BR')
+}
+function duration(start, end) {
+  if (!end) return '<span class="badge-yellow">Em andamento</span>'
+  const ms = new Date(end) - new Date(start)
+  const min = Math.floor(ms / 60000)
+  return `${min}min`
+}
+
+async function renderOverview() {
+  const stats = await fetch('/api/stats').then(r => r.json())
+  const tenants = await fetch('/api/tenants').then(r => r.json())
+  tenantsCache = tenants
+
+  const statItems = [
+    { label: 'Tenants', value: stats.tenants, color: '#818cf8', page: 'tenants' },
+    { label: 'Usuários', value: stats.usuarios, color: '#22c55e', page: 'usuarios' },
+    { label: 'Pessoas', value: stats.pessoas, color: '#3b82f6', sub: 'reconhec. facial' },
+    { label: 'Rodadas Gases', value: stats.rodadas, color: '#f59e0b', page: 'rodadas' },
+    { label: 'Rondas Ocorr.', value: stats.rondasOcorrencias, color: '#ec4899', page: 'rondas' },
+    { label: 'Agendamentos', value: stats.agendamentos, color: '#14b8a6', page: 'agendamentos' },
+    { label: 'Respostas', value: stats.respostasFormulario, color: '#a855f7', page: 'respostas' },
+    { label: 'Templates', value: stats.templatesFormulario, color: '#f97316' },
+    { label: 'Movimentações', value: stats.movimentacoes, color: '#ef4444' },
+    { label: 'Ambientes', value: stats.ambientesTenant, color: '#6366f1', page: 'ambientes' },
+  ]
+
+  let html = '<div class="stats-grid">'
+  for (const s of statItems) {
+    html += `<div class="stat-card" ${s.page ? `onclick="showPageDirect('${s.page}')"` : ''}>
+      <div class="label">${s.label}</div>
+      <div class="value" style="color:${s.color}">${s.value.toLocaleString('pt-BR')}</div>
+      ${s.sub ? `<div class="sub">${s.sub}</div>` : ''}
+    </div>`
+  }
+  html += '</div>'
+
+  html += '<div class="section-title">Tenants Ativos</div>'
+  html += '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Nome</th><th>Slug</th><th>Trilogo</th><th>Usuários</th><th>Rodadas</th><th>Rondas</th><th>Status</th><th>Criado em</th>'
+  html += '</tr></thead><tbody>'
+  for (const t of tenants) {
+    html += `<tr>
+      <td title="${t.nome}">${t.nome}</td>
+      <td><code style="color:var(--muted);font-size:12px">${t.slug}</code></td>
+      <td>${t.trilogoProjectName || '—'} ${t.trilogoCompanyId ? `<span style="color:var(--muted);font-size:11px">(#${t.trilogoCompanyId})</span>` : ''}</td>
+      <td><span style="font-weight:600;color:var(--accent2)">${t.total_usuarios}</span></td>
+      <td>${t.total_rodadas}</td>
+      <td>${t.total_rondas_ocorrencias}</td>
+      <td>${t.ativo ? '<span class="badge-green">Ativo</span>' : '<span class="badge-red">Inativo</span>'}</td>
+      <td style="color:var(--muted)">${fmtDate(t.criadoEm)}</td>
+    </tr>`
+  }
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+function showPageDirect(page) {
+  currentPage = page
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'))
+  document.getElementById('page-title').textContent = titles[page]
+  document.getElementById('page-badge').textContent = page
+  filterTenant = ''
+  searchTerm = ''
+  load(page)
+}
+
+async function renderTenants() {
+  const tenants = await fetch('/api/tenants').then(r => r.json())
+  tenantsCache = tenants
+
+  let html = '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Nome</th><th>Slug</th><th>Ativo</th><th>Feedback Forms</th><th>Trilogo ID</th><th>Trilogo Project</th><th>Usuários</th><th>Pessoas</th><th>Rodadas</th><th>Rondas</th><th>Criado em</th>'
+  html += '</tr></thead><tbody>'
+  for (const t of tenants) {
+    html += `<tr>
+      <td title="${t.nome}" style="font-weight:600">${t.nome}</td>
+      <td><code style="color:var(--muted);font-size:12px">${t.slug}</code></td>
+      <td>${t.ativo ? '<span class="badge-green">Sim</span>' : '<span class="badge-red">Não</span>'}</td>
+      <td>${t.feedbackForms ? '<span class="badge-green">Sim</span>' : '<span class="badge-red">Não</span>'}</td>
+      <td style="color:var(--muted)">${t.trilogoCompanyId || '—'}</td>
+      <td>${t.trilogoProjectName || '—'}</td>
+      <td style="font-weight:600;color:var(--accent2)">${t.total_usuarios}</td>
+      <td>${t.total_pessoas}</td>
+      <td>${t.total_rodadas}</td>
+      <td>${t.total_rondas_ocorrencias}</td>
+      <td style="color:var(--muted)">${fmt(t.criadoEm)}</td>
+    </tr>`
+  }
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+async function renderUsuarios() {
+  const tenants = await fetch('/api/tenants').then(r => r.json())
+  tenantsCache = tenants
+
+  const url = filterTenant ? `/api/usuarios?tenantId=${filterTenant}` : '/api/usuarios'
+  const usuarios = await fetch(url).then(r => r.json())
+
+  const filtered = searchTerm
+    ? usuarios.filter(u => u.nome.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+    : usuarios
+
+  let html = `<div class="filter-bar">
+    <label>Tenant:</label>
+    <select onchange="filterTenant=this.value;load('usuarios')">
+      <option value="">Todos</option>
+      ${tenants.map(t => `<option value="${t.id}" ${filterTenant===t.id?'selected':''}>${t.nome}</option>`).join('')}
+    </select>
+    <label>Buscar:</label>
+    <input type="text" placeholder="Nome ou email..." value="${searchTerm}" oninput="searchTerm=this.value;load('usuarios')" style="width:200px"/>
+    <span style="color:var(--muted);margin-left:auto;font-size:12px">${filtered.length} usuários</span>
+  </div>`
+
+  html += '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Nome</th><th>Email</th><th>Username</th><th>Role</th><th>Tenant</th><th>Ativo</th><th>Trocar Senha</th><th>Criado em</th>'
+  html += '</tr></thead><tbody>'
+
+  const roleColor = { super_admin: 'badge-purple', tenant_admin: 'badge-blue', viewer: 'badge-yellow' }
+  for (const u of filtered) {
+    html += `<tr>
+      <td style="font-weight:600">${u.nome}</td>
+      <td style="color:var(--muted)">${u.email}</td>
+      <td style="color:var(--muted);font-size:12px">${u.username || '—'}</td>
+      <td><span class="${roleColor[u.role] || 'badge-blue'}">${u.role}</span></td>
+      <td>${u.tenant_nome || '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${u.ativo ? '<span class="badge-green">Ativo</span>' : '<span class="badge-red">Inativo</span>'}</td>
+      <td>${u.mustChangePassword ? '<span class="badge-yellow">Sim</span>' : '<span style="color:var(--muted)">Não</span>'}</td>
+      <td style="color:var(--muted)">${fmt(u.criadoEm)}</td>
+    </tr>`
+  }
+  if (!filtered.length) html += '<tr><td colspan="8" class="empty">Nenhum usuário encontrado</td></tr>'
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+async function renderRodadas() {
+  const tenants = await fetch('/api/tenants').then(r => r.json())
+  const url = filterTenant ? `/api/rodadas?tenantId=${filterTenant}` : '/api/rodadas'
+  const rodadas = await fetch(url).then(r => r.json())
+
+  let html = `<div class="filter-bar">
+    <label>Tenant:</label>
+    <select onchange="filterTenant=this.value;load('rodadas')">
+      <option value="">Todos</option>
+      ${tenants.map(t => `<option value="${t.id}" ${filterTenant===t.id?'selected':''}>${t.nome}</option>`).join('')}
+    </select>
+    <span style="color:var(--muted);margin-left:auto;font-size:12px">${rodadas.length} rodadas (últimas 100)</span>
+  </div>`
+
+  html += '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Tenant</th><th>Criado por</th><th>Iniciado em</th><th>Finalizado em</th><th>Duração</th><th>Ambientes</th>'
+  html += '</tr></thead><tbody>'
+  for (const r of rodadas) {
+    html += `<tr>
+      <td>${r.tenant_nome}</td>
+      <td>${r.criado_por}</td>
+      <td style="color:var(--muted)">${fmt(r.iniciadoEm)}</td>
+      <td style="color:var(--muted)">${fmt(r.finalizadoEm)}</td>
+      <td>${duration(r.iniciadoEm, r.finalizadoEm)}</td>
+      <td><span class="badge-blue">${r.total_ambientes}</span></td>
+    </tr>`
+  }
+  if (!rodadas.length) html += '<tr><td colspan="6" class="empty">Nenhuma rodada encontrada</td></tr>'
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+async function renderRondas() {
+  const tenants = await fetch('/api/tenants').then(r => r.json())
+  const url = filterTenant ? `/api/rondas?tenantId=${filterTenant}` : '/api/rondas'
+  const rondas = await fetch(url).then(r => r.json())
+
+  let html = `<div class="filter-bar">
+    <label>Tenant:</label>
+    <select onchange="filterTenant=this.value;load('rondas')">
+      <option value="">Todos</option>
+      ${tenants.map(t => `<option value="${t.id}" ${filterTenant===t.id?'selected':''}>${t.nome}</option>`).join('')}
+    </select>
+    <span style="color:var(--muted);margin-left:auto;font-size:12px">${rondas.length} rondas (últimas 100)</span>
+  </div>`
+
+  html += '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Tenant</th><th>Criado por</th><th>Iniciado em</th><th>Finalizado em</th><th>Duração</th><th>Ambientes</th><th>Ocorrências</th>'
+  html += '</tr></thead><tbody>'
+  for (const r of rondas) {
+    html += `<tr>
+      <td>${r.tenant_nome}</td>
+      <td>${r.criado_por}</td>
+      <td style="color:var(--muted)">${fmt(r.iniciadoEm)}</td>
+      <td style="color:var(--muted)">${fmt(r.finalizadoEm)}</td>
+      <td>${duration(r.iniciadoEm, r.finalizadoEm)}</td>
+      <td><span class="badge-blue">${r.total_ambientes}</span></td>
+      <td>${parseInt(r.total_ocorrencias) > 0 ? `<span class="badge-red">${r.total_ocorrencias}</span>` : `<span style="color:var(--muted)">0</span>`}</td>
+    </tr>`
+  }
+  if (!rondas.length) html += '<tr><td colspan="7" class="empty">Nenhuma ronda encontrada</td></tr>'
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+async function renderAgendamentos() {
+  const agendamentos = await fetch('/api/agendamentos').then(r => r.json())
+
+  const statusColor = { pendente: 'badge-yellow', concluido: 'badge-green', cancelado: 'badge-red' }
+
+  let html = `<div class="filter-bar">
+    <span style="color:var(--muted);font-size:12px">${agendamentos.length} agendamentos (últimos 100)</span>
+  </div>`
+
+  html += '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Título</th><th>Bem</th><th>Patrimônio</th><th>Empresa</th><th>Ambiente</th><th>Status</th><th>Agendado para</th><th>Realizado em</th><th>Criado por</th>'
+  html += '</tr></thead><tbody>'
+  for (const a of agendamentos) {
+    html += `<tr>
+      <td style="font-weight:600">${a.titulo}</td>
+      <td title="${a.descricaoBem}">${a.descricaoBem.length > 30 ? a.descricaoBem.slice(0,30)+'…' : a.descricaoBem}</td>
+      <td><code style="font-size:12px">${a.patrimony}</code></td>
+      <td>${a.companyName}</td>
+      <td>${a.ambiente}</td>
+      <td><span class="${statusColor[a.status] || 'badge-blue'}">${a.status}</span></td>
+      <td style="color:var(--muted)">${fmtDate(a.dataAgendada)}</td>
+      <td style="color:var(--muted)">${fmtDate(a.dataRealizada)}</td>
+      <td style="color:var(--muted)">${a.criado_por}</td>
+    </tr>`
+  }
+  if (!agendamentos.length) html += '<tr><td colspan="9" class="empty">Nenhum agendamento encontrado</td></tr>'
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+async function renderRespostas() {
+  const tenants = await fetch('/api/tenants').then(r => r.json())
+  const url = filterTenant ? `/api/respostas?tenantId=${filterTenant}` : '/api/respostas'
+  const respostas = await fetch(url).then(r => r.json())
+
+  const filtered = searchTerm
+    ? respostas.filter(r => (r.nomePaciente || '').toLowerCase().includes(searchTerm.toLowerCase()) || (r.setor || '').toLowerCase().includes(searchTerm.toLowerCase()))
+    : respostas
+
+  let html = `<div class="filter-bar">
+    <label>Tenant:</label>
+    <select onchange="filterTenant=this.value;load('respostas')">
+      <option value="">Todos</option>
+      ${tenants.map(t => `<option value="${t.id}" ${filterTenant===t.id?'selected':''}>${t.nome}</option>`).join('')}
+    </select>
+    <label>Buscar:</label>
+    <input type="text" placeholder="Paciente ou setor..." value="${searchTerm}" oninput="searchTerm=this.value;load('respostas')" style="width:200px"/>
+    <span style="color:var(--muted);margin-left:auto;font-size:12px">${filtered.length} respostas</span>
+  </div>`
+
+  html += '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Paciente</th><th>Setor</th><th>Gênero</th><th>Idade</th><th>Internação</th><th>Alta</th><th>Template</th><th>Tenant</th><th>Criado em</th>'
+  html += '</tr></thead><tbody>'
+  for (const r of filtered) {
+    html += `<tr>
+      <td style="font-weight:600">${r.nomePaciente || '<span style="color:var(--muted)">Anônimo</span>'}</td>
+      <td>${r.setor || '—'}</td>
+      <td>${r.genero || '—'}</td>
+      <td>${r.idade || '—'}</td>
+      <td style="color:var(--muted)">${fmtDate(r.dataInternacao)}</td>
+      <td style="color:var(--muted)">${fmtDate(r.dataAlta)}</td>
+      <td>${r.template_nome || '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${r.tenant_nome}</td>
+      <td style="color:var(--muted)">${fmt(r.criadoEm)}</td>
+    </tr>`
+  }
+  if (!filtered.length) html += '<tr><td colspan="9" class="empty">Nenhuma resposta encontrada</td></tr>'
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+async function renderAmbientes() {
+  const tenants = await fetch('/api/tenants').then(r => r.json())
+  const url = filterTenant ? `/api/ambientes?tenantId=${filterTenant}` : '/api/ambientes'
+  const ambientes = await fetch(url).then(r => r.json())
+
+  const tipoColor = { ocorrencia: 'badge-blue', gases: 'badge-yellow' }
+
+  let html = `<div class="filter-bar">
+    <label>Tenant:</label>
+    <select onchange="filterTenant=this.value;load('ambientes')">
+      <option value="">Todos</option>
+      ${tenants.map(t => `<option value="${t.id}" ${filterTenant===t.id?'selected':''}>${t.nome}</option>`).join('')}
+    </select>
+    <span style="color:var(--muted);margin-left:auto;font-size:12px">${ambientes.length} ambientes</span>
+  </div>`
+
+  html += '<div class="table-wrap"><table><thead><tr>'
+  html += '<th>Nome</th><th>Tipo</th><th>Bloco</th><th>Tenant</th><th>Ativo</th><th>Ordem</th>'
+  html += '</tr></thead><tbody>'
+  for (const a of ambientes) {
+    html += `<tr>
+      <td style="font-weight:600">${a.nome}</td>
+      <td><span class="${tipoColor[a.tipo] || 'badge-blue'}">${a.tipo}</span></td>
+      <td>${a.bloco_nome || '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${a.tenant_nome}</td>
+      <td>${a.ativo ? '<span class="badge-green">Ativo</span>' : '<span class="badge-red">Inativo</span>'}</td>
+      <td style="color:var(--muted)">${a.ordem}</td>
+    </tr>`
+  }
+  if (!ambientes.length) html += '<tr><td colspan="6" class="empty">Nenhum ambiente encontrado</td></tr>'
+  html += '</tbody></table></div>'
+  document.getElementById('content').innerHTML = html
+}
+
+// Initial load
+load('overview')
+</script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+================================================================================
+  LINENSISTEM — ARCHITECTURE IMPROVEMENT PLAN
+  Current score: 6/10  →  Target: 9/10
+  Date: 2026-03-24
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 1 — Critical: fetch() inside components                [DONE ✓]
+--------------------------------------------------------------------------------
+
+  1.1  components/ui/modal/ModalCriarUsuario.tsx  → uses hooks/useAdminUsuarios.ts
+  1.2  components/ui/LogoutButton.tsx             → uses hooks/useAuth.ts
+
+--------------------------------------------------------------------------------
+PHASE 2 — High: pages using useEffect + raw fetch            [DONE ✓]
+--------------------------------------------------------------------------------
+
+  2.1  app/admin/usuarios/page.tsx   → uses hooks/useAdminUsuarios.ts
+  2.2  app/admin/tenants/page.tsx    → uses hooks/useAdminTenants.ts
+  2.3  app/login/page.tsx            → uses hooks/useLogin.ts
+
+--------------------------------------------------------------------------------
+PHASE 3 — Medium: client-side service layer                  [DONE ✓]
+--------------------------------------------------------------------------------
+
+  services/ directory fully created:
+    auth.service.ts, admin-usuarios.service.ts, admin-tenants.service.ts,
+    admin-rondas.service.ts, admin-patrimonio.service.ts,
+    admin-dashboard.service.ts, agendamentos.service.ts, trilogo.service.ts,
+    me.service.ts, rondas.service.ts (criar, finalizar, draft, ambientes,
+    buscarBlocos, buscarAmbientesTenant, buscarFotoOcorrencia)
+
+  All admin pages and hooks now go through service layer. No inline fetch
+  in queryFn or hooks. hooks/useRonda.ts and hooks/useOcorrenciaRonda.ts
+  updated to use rondas.service.ts.
+  app/[tenantSlug]/ronda/historico/page.tsx updated.
+
+--------------------------------------------------------------------------------
+PHASE 4 — Medium: split large pages into components                   [MEDIUM]
+--------------------------------------------------------------------------------
+
+Pages should only: read params, call hooks, render layout + components.
+No business logic, no inline data transforms, no 300-line JSX blocks.
+
+  FILE                                    LINES   EXTRACT
+  ─────────────────────────────────────────────────────────────────────────────
+  inspecao/historico/page.tsx              330    HistoricoTable
+                                                  HistoricoFiltros
+                                                  DetalheDrawer (foto/obs popup)
+
+  admin/patrimonio/page.tsx                311    ChamadoRow
+                                                  FiltrosPatrimonio
+                                                  usePatrimonio hook
+
+  admin/dashboard/page.tsx                 307    GraficoMovimentacoes
+                                                  TabelaRecentes
+                                                  EstatCard
+
+  admin/rondas/page.tsx                    296    RondaRow
+                                                  FiltrosRondas
+
+  ronda/historico/page.tsx                 252    RondaHistoricoRow
+                                                  BlocoDetalhe
+
+  ocorrencias/historico/page.tsx           226    OcorrenciaRow
+
+  All historico pages share the same filter + table pattern — consider a
+  shared HistoricoLayout component if the pattern is identical across 3+ pages.
+
+--------------------------------------------------------------------------------
+PHASE 5 — Low: split large hooks                                        [LOW]
+--------------------------------------------------------------------------------
+
+  5.1  hooks/useOcorrenciaRonda.ts  (352 lines)
+       The salvarLocal() function alone is ~110 lines. Split into:
+
+       hooks/useOcorrenciaRondaDraft.ts    (~80 lines)
+         loadDraft, salvarDraft (debounced), descartarDraft
+         iniciar, retomar
+
+       hooks/useOcorrenciaRondaActions.ts  (~130 lines)
+         salvarLocal, finalizarRonda, abandonar, handleFoto
+
+       hooks/useOcorrenciaRonda.ts         (~100 lines, facade)
+         composes both hooks, exposes OcorrenciaRondaState
+
+  5.2  hooks/useRonda.ts  (281 lines)
+       Same split pattern:
+       hooks/useRondaDraftSync.ts   — draft load/save
+       hooks/useRondaSave.ts        — salvarAmbiente, finalizar, abandonar
+       hooks/useRonda.ts            — facade (~80 lines)
+
+--------------------------------------------------------------------------------
+PHASE 6 — Low: data/types separation + minor fixes                      [LOW]
+--------------------------------------------------------------------------------
+
+  6.1  app/ocorrencias/types.ts  (276 lines)
+       The BLOCOS array is ~150 lines of static data inside a types file.
+       Move to: app/ocorrencias/blocos.data.ts
+       types.ts drops to ~120 lines (types + small constants only).
+
+  6.2  hooks/useRondaDraft.ts
+       Missing 'use client' directive at top of file.
+       Add it. (Hooks that use useState/useEffect need this in App Router.)
+
+  6.3  app/[tenantSlug]/dashboard/page.tsx  (223 lines)
+       Likely has inline fetch — audit and apply service layer from Phase 3.
+
+  6.4  app/dashboard/page.tsx  (221 lines)
+       Same as 6.3.
+
+  6.5  app/[tenantSlug]/devolucao/page.tsx  (203 lines)
+  6.6  app/devolucao/page.tsx               (201 lines)
+  6.7  app/[tenantSlug]/retirada/page.tsx   (191 lines)
+  6.8  app/retirada/page.tsx                (189 lines)
+       These mirror each other (public vs tenant-scoped). If they share
+       significant logic, consider extracting a shared useMovimentacao hook.
+
+--------------------------------------------------------------------------------
+SCORE PROJECTION
+--------------------------------------------------------------------------------
+
+  Phase       Description                         Score
+  ─────────────────────────────────────────────────────
+  Baseline    Current state                        6/10
+  + Phase 1   fetch out of components              7/10
+  + Phase 2   useEffect→useQuery in pages          7.5/10
+  + Phase 3   Client service layer                 8/10
+  + Phase 4   Pages split into components          8.5/10
+  + Phase 5   Hooks split                          9/10
+  + Phase 6   Data separation + minor fixes        9/10
+
+--------------------------------------------------------------------------------
+BOUNDARY RULES (from CLAUDE.md — never break these)
+--------------------------------------------------------------------------------
+
+  route.ts        receive req → verify auth → call service → return response
+  modules/        all business logic + Prisma queries
+  components/     dumb UI — props in, events out, NO fetch
+  hooks/          state + client-side calls — pages consume hooks
+  services/       client-side fetch wrappers targeting /api/* routes
+  lib/            shared server utilities (db, jwt, api-response)
+
+  DO NOT:
+    - call fetch() inside a component
+    - call fetch() inside a page (use a hook or service + useQuery)
+    - write Prisma queries in route.ts
+    - accept criadoPorId/tenantId/role from request body
+    - skip tenant isolation filters on Prisma queries
+    - use any / @ts-ignore
+    - add business logic to route.ts
+
+================================================================================

@@ -18,8 +18,8 @@ export function useAuth() {
         setState({ status: 'unauthenticated' })
         return
       }
-      const json = await res.json() as { data: JWTPayload }
-      setState({ status: 'authenticated', user: json.data })
+      const json = await res.json() as { usuario: JWTPayload }
+      setState({ status: 'authenticated', user: json.usuario })
     } catch {
       setState({ status: 'unauthenticated' })
     }
@@ -38,7 +38,7 @@ export function useAuth() {
   const isLoading = state.status === 'loading'
   const user = state.status === 'authenticated' ? state.user : null
   const isSuperAdmin = user?.role === 'super_admin'
-  const isViewer = user?.role === 'viewer'
+  const isViewer = (user?.role as string) === 'viewer'
 
   return { state, user, isLoading, isSuperAdmin, isViewer, logout, refresh: fetchMe }
 }

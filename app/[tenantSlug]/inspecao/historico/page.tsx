@@ -7,9 +7,9 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ChevronDown, ChevronUp, ArrowLeft, Building2, Package } from 'lucide-react'
 import Link from 'next/link'
-import Card from '@/components/card'
-import Text from '@/components/text'
-import Header from '@/components/header'
+import Card from '@/components/ui/Card'
+import Text from '@/components/ui/Text'
+import Header from '@/components/ui/Header'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 

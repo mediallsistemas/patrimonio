@@ -14,6 +14,7 @@ export const CreateAgendamentoSchema = z.object({
 
 export const UpdateAgendamentoSchema = z.object({
   status: z.enum(['realizado', 'cancelado']),
+  dataRealizada: z.string().datetime().optional(),
 })
 
 export type CreateAgendamentoInput = z.infer<typeof CreateAgendamentoSchema>

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { prismaAuth } from '@/lib/db-auth'
 import type { CreatePessoaInput } from './pessoas.types'
 
 export async function listarPessoas(tenantId: string | null) {
@@ -17,7 +18,7 @@ export async function listarPessoas(tenantId: string | null) {
 
 export async function resolverTenantPorSlug(tenantSlug: string) {
   try {
-    return await prisma.tenant.findUnique({
+    return await prismaAuth.tenant.findUnique({
       where: { slug: tenantSlug },
       select: { id: true },
     })
@@ -42,6 +43,30 @@ export async function buscarPessoasParaFaceMatch(tenantId: string | null): Promi
     })
   } catch (error) {
     console.error('[pessoas.service] buscarPessoasParaFaceMatch:', error)
+    throw error
+  }
+}
+
+export async function buscarPessoa(id: string) {
+  try {
+    return await prisma.pessoa.findUnique({
+      where: { id },
+      select: { id: true, nome: true, cpf: true, criadoEm: true },
+    })
+  } catch (error) {
+    console.error('[pessoas.service] buscarPessoa:', error)
+    throw error
+  }
+}
+
+export async function deletarPessoa(id: string) {
+  try {
+    await prisma.$transaction([
+      prisma.movimentacao.deleteMany({ where: { pessoaId: id } }),
+      prisma.pessoa.delete({ where: { id } }),
+    ])
+  } catch (error) {
+    console.error('[pessoas.service] deletarPessoa:', error)
     throw error
   }
 }

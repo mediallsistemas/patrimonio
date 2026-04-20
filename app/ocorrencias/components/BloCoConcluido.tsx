@@ -1,13 +1,14 @@
 'use client'
 
 import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
-import Card from '@/components/card'
-import Button from '@/components/button'
-import Text from '@/components/text'
-import { BLOCOS, type Bloco, type DraftEstado } from '@/app/ocorrencias/types'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Text from '@/components/ui/Text'
+import { type BlocoAPI, type DraftEstado } from '@/app/ocorrencias/types'
 
 interface BlocoConcluido {
-  blocoAtual: Bloco
+  blocoAtual: BlocoAPI
+  blocos: BlocoAPI[]
   concluidos: DraftEstado['concluidos']
   submitting: boolean
   finalizarRonda: () => Promise<void>
@@ -16,16 +17,18 @@ interface BlocoConcluido {
 
 export default function BloCoConcluido({
   blocoAtual,
+  blocos,
   concluidos,
   submitting,
   finalizarRonda,
   atualizar,
 }: BlocoConcluido) {
-  const idx = BLOCOS.findIndex((b) => b.nome === blocoAtual.nome)
   const comOcorrencia = concluidos.filter(
     (c) => c.bloco === blocoAtual.nome && c.temOcorrencia,
   ).length
-  const isUltimo = idx === BLOCOS.length - 1
+  const todosConcluidos = blocos.every((b) =>
+    b.ambientes.every((l) => concluidos.some((c) => c.bloco === b.nome && c.local === l.nome)),
+  )
 
   return (
     <Card shadow="md">
@@ -48,7 +51,7 @@ export default function BloCoConcluido({
             {blocoAtual.nome} concluído!
           </Text>
           <Text variant="body-sm" className="text-gray-300 block">
-            {blocoAtual.locais.length} locais verificados
+            {blocoAtual.ambientes.length} locais verificados
             {comOcorrencia > 0 && ` · ${comOcorrencia} ocorrência${comOcorrencia > 1 ? 's' : ''}`}
           </Text>
         </div>
@@ -56,11 +59,11 @@ export default function BloCoConcluido({
 
       {/* Resumo dos locais */}
       <div className="space-y-1.5 mb-5 max-h-48 overflow-y-auto pr-1">
-        {blocoAtual.locais.map((l) => {
+        {blocoAtual.ambientes.map((l) => {
           const reg = concluidos.find((c) => c.bloco === blocoAtual.nome && c.local === l.nome)
           return (
             <div
-              key={l.nome}
+              key={l.id}
               className={`flex items-center gap-3 px-3 py-2 rounded-xl border ${
                 reg?.temOcorrencia
                   ? 'border-orange-200 bg-orange-50'
@@ -86,11 +89,7 @@ export default function BloCoConcluido({
       </div>
 
       <div className="space-y-2">
-        {!isUltimo ? (
-          <Button onClick={() => atualizar({ etapa: 'blocos' })} className="w-full">
-            Selecionar próximo bloco <ChevronRight className="w-4 h-4" />
-          </Button>
-        ) : (
+        {todosConcluidos ? (
           <>
             <Button onClick={finalizarRonda} disabled={submitting} className="w-full">
               <CheckCircle className="w-4 h-4" /> Finalizar Ronda
@@ -99,6 +98,10 @@ export default function BloCoConcluido({
               Ver todos os blocos
             </Button>
           </>
+        ) : (
+          <Button onClick={() => atualizar({ etapa: 'blocos' })} className="w-full">
+            Selecionar próximo bloco <ChevronRight className="w-4 h-4" />
+          </Button>
         )}
       </div>
     </Card>

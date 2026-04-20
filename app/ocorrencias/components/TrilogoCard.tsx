@@ -1,8 +1,8 @@
 'use client'
 
-import Button from '@/components/button'
-import Card from '@/components/card'
-import Text from '@/components/text'
+import Button from '@/components/ui/Button'
+import Card from '@/components/ui/Card'
+import Text from '@/components/ui/Text'
 import type { DraftEstado } from '@/app/ocorrencias/types'
 
 interface TrilogoCardProps {

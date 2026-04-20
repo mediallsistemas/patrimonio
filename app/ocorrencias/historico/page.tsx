@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import * as rondasService from '@/services/rondas.service'
+import { api } from '@/services/api'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import Card from '@/components/card'
-import Text from '@/components/text'
-import Header from '@/components/header'
+import Card from '@/components/ui/Card'
+import Text from '@/components/ui/Text'
+import Header from '@/components/ui/Header'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -17,6 +19,8 @@ interface OcorrenciaDetalhe {
   tipo: string
   descricao: string
   trilogoChamado: boolean
+  bemPatrimony: string | null
+  bemDescricao: string | null
 }
 
 interface RegistroAmbiente {
@@ -24,7 +28,7 @@ interface RegistroAmbiente {
   ambiente: string
   temOcorrencia: boolean
   concluidoEm: string
-  ocorrencia: OcorrenciaDetalhe | null
+  ocorrencias: OcorrenciaDetalhe[]
 }
 
 interface Ronda {
@@ -48,7 +52,7 @@ function FotoLazy({ ocorrenciaId }: { ocorrenciaId: string }) {
   const [mostrar, setMostrar] = useState(false)
   const { data, isLoading } = useQuery({
     queryKey: ['foto-ocorrencia', ocorrenciaId],
-    queryFn: () => fetch(`/api/ocorrencias/${ocorrenciaId}/foto`).then((r) => r.json()),
+    queryFn: () => api.get<{ foto: string | null }>(`ocorrencias/${ocorrenciaId}/foto`),
     enabled: mostrar,
   })
 
@@ -72,6 +76,7 @@ function FotoLazy({ ocorrenciaId }: { ocorrenciaId: string }) {
 
 function AmbienteCard({ reg }: { reg: RegistroAmbiente }) {
   const [aberto, setAberto] = useState(false)
+  const primeiraOcorrencia = reg.ocorrencias[0] ?? null
 
   return (
     <div className={`rounded-xl border transition-all ${reg.temOcorrencia ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-white'}`}>
@@ -83,10 +88,17 @@ function AmbienteCard({ reg }: { reg: RegistroAmbiente }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold font-sans text-dark text-sm">{reg.ambiente}</span>
-            {reg.temOcorrencia && reg.ocorrencia ? (
-              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[reg.ocorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
-                {TIPO_LABEL[reg.ocorrencia.tipo]?.label ?? reg.ocorrencia.tipo}
-              </span>
+            {reg.temOcorrencia && primeiraOcorrencia ? (
+              <>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold font-sans ${TIPO_LABEL[primeiraOcorrencia.tipo]?.color ?? 'bg-gray-100 text-gray-500'}`}>
+                  {TIPO_LABEL[primeiraOcorrencia.tipo]?.label ?? primeiraOcorrencia.tipo}
+                </span>
+                {reg.ocorrencias.length > 1 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-orange-100 text-orange-700">
+                    +{reg.ocorrencias.length - 1}
+                  </span>
+                )}
+              </>
             ) : (
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold font-sans bg-green-100 text-green-700">Normal</span>
             )}
@@ -98,19 +110,33 @@ function AmbienteCard({ reg }: { reg: RegistroAmbiente }) {
         {aberto ? <ChevronUp className="w-4 h-4 text-gray-300 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-300 shrink-0" />}
       </button>
 
-      {aberto && reg.temOcorrencia && reg.ocorrencia && (
-        <div className="px-4 pb-4 space-y-3 border-t border-orange-100 pt-3">
-          <div>
-            <Text variant="caption" className="text-gray-300 uppercase tracking-wide font-semibold block mb-1">Ocorrência</Text>
-            <p className="text-sm font-sans text-gray-700">{reg.ocorrencia.descricao}</p>
-          </div>
-          <div className="flex items-center gap-3 text-sm font-sans">
-            <span className="text-gray-400">Trilogo:</span>
-            <span className={`font-semibold ${reg.ocorrencia.trilogoChamado ? 'text-green-600' : 'text-red-600'}`}>
-              {reg.ocorrencia.trilogoChamado ? 'Chamado aberto' : 'Não aberto'}
-            </span>
-          </div>
-          <FotoLazy ocorrenciaId={reg.ocorrencia.id} />
+      {aberto && reg.temOcorrencia && reg.ocorrencias.length > 0 && (
+        <div className="px-4 pb-4 space-y-4 border-t border-orange-100 pt-3">
+          {reg.ocorrencias.map((oc, i) => (
+            <div key={oc.id} className="space-y-2">
+              {reg.ocorrencias.length > 1 && (
+                <Text variant="caption" className="text-gray-400 uppercase tracking-wide font-semibold block">
+                  Ocorrência {i + 1}
+                </Text>
+              )}
+              {oc.bemPatrimony && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-purple-50 border border-purple-100">
+                  <span className="text-xs font-mono font-semibold text-purple-700 shrink-0">{oc.bemPatrimony}</span>
+                  {oc.bemDescricao && (
+                    <span className="text-xs font-sans text-purple-600 truncate">{oc.bemDescricao}</span>
+                  )}
+                </div>
+              )}
+              <p className="text-sm font-sans text-gray-700">{oc.descricao}</p>
+              <div className="flex items-center gap-3 text-sm font-sans">
+                <span className="text-gray-400">Trilogo:</span>
+                <span className={`font-semibold ${oc.trilogoChamado ? 'text-green-600' : 'text-red-600'}`}>
+                  {oc.trilogoChamado ? 'Chamado aberto' : 'Não aberto'}
+                </span>
+              </div>
+              <FotoLazy ocorrenciaId={oc.id} />
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -171,13 +197,11 @@ function RondaCard({ ronda }: { ronda: Ronda }) {
 export default function HistoricoOcorrenciasPage() {
   const { data: rondas = [], isLoading } = useQuery<Ronda[]>({
     queryKey: ['rondas'],
-    queryFn: () => fetch('/api/rondas').then((r) => r.json()).then((j) => j.data ?? j),
+    queryFn: () => rondasService.listar(),
     refetchInterval: 30_000,
   })
 
-  const totalRondas      = rondas.length
-  const totalOcorrencias = rondas.reduce((acc, r) => acc + r.ambientes.filter((a) => a.temOcorrencia).length, 0)
-  const totalNormais     = rondas.reduce((acc, r) => acc + r.ambientes.filter((a) => !a.temOcorrencia).length, 0)
+  const totalRondas = rondas.length
 
   return (
     <div className="form-bg min-h-screen flex flex-col">
@@ -195,17 +219,11 @@ export default function HistoricoOcorrenciasPage() {
         </div>
 
         {/* Resumo */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          {[
-            { label: 'Rondas',        value: totalRondas,      color: 'text-dark' },
-            { label: 'Ocorrências',   value: totalOcorrencias, color: 'text-orange-600' },
-            { label: 'Normal',        value: totalNormais,     color: 'text-green-600' },
-          ].map(({ label, value, color }) => (
-            <Card key={label} shadow="sm" padding="sm" className="text-center">
-              <p className={`text-xl font-bold font-sans ${color}`}>{value}</p>
-              <p className="text-xs text-gray-300 font-sans">{label}</p>
-            </Card>
-          ))}
+        <div className="mb-5">
+          <Card shadow="sm" padding="sm" className="text-center">
+            <p className="text-xl font-bold font-sans text-dark">{totalRondas}</p>
+            <p className="text-xs text-gray-300 font-sans">Rondas</p>
+          </Card>
         </div>
 
         {/* Lista */}

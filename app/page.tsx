@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { BarChart3, FlaskConical, ClipboardList } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
 import { TbFaceId } from 'react-icons/tb'
-import Text from '@/components/text'
+import Text from '@/components/ui/Text'
 
 const actions = [
   {

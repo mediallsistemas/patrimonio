@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { FlaskConical, ClipboardList, History } from 'lucide-react'
+import { ClipboardList, Activity, Users } from 'lucide-react'
 import { GiClothes } from 'react-icons/gi'
-import Text from '@/components/text'
+import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import LogoutButton from '@/components/logout-button'
+import LogoutButton from '@/components/ui/LogoutButton'
 
 export default async function ManutencaoHomePage({
   params,
@@ -15,36 +15,43 @@ export default async function ManutencaoHomePage({
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const actions = [
+  const isTenantAdmin = session.role === 'tenant_admin'
+
+  const operatorActions = [
     {
-      href: `/${tenantSlug}/manutencao/ocorrencias`,
+      href: `/${tenantSlug}/ronda`,
       icon: ClipboardList,
-      title: 'Registro de Ocorrências',
+      title: 'Ronda de Manutenção Predial',
       description: 'Ronda e registro de ocorrências em ambientes hospitalares',
       color: '#0f766e',
     },
     {
-      href: `/${tenantSlug}/manutencao/ocorrencias/historico`,
-      icon: History,
-      title: 'Histórico de Rondas',
-      description: 'Consulte o histórico de rondas e ocorrências registradas',
-      color: '#6366f1',
+      href: `/${tenantSlug}/ronda/historico`,
+      icon: Activity,
+      title: 'Monitoramento de Rondas',
+      description: 'Visualize o histórico das suas rondas realizadas',
+      color: '#059669',
+    },
+  ]
+
+  const adminActions = [
+    {
+      href: '/admin/rondas',
+      icon: Activity,
+      title: 'Monitoramento de Rondas',
+      description: 'Visualize histórico de inspeções e ocorrências da unidade',
+      color: '#059669',
     },
     {
-      href: `/${tenantSlug}/manutencao/inspecao`,
-      icon: FlaskConical,
-      title: 'Inspeção de Gases',
-      description: 'Inspeção técnica da usina de gases medicinais',
-      color: '#7c3aed',
-    },
-    {
-      href: `/${tenantSlug}/manutencao/inspecao/historico`,
-      icon: History,
-      title: 'Histórico de Inspeções',
-      description: 'Consulte o histórico de inspeções técnicas realizadas',
+      href: '/admin/usuarios',
+      icon: Users,
+      title: 'Usuários',
+      description: 'Gerencie operadores e contas de acesso da unidade',
       color: '#0369a1',
     },
   ]
+
+  const actions = isTenantAdmin ? adminActions : operatorActions
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center justify-center p-6">
@@ -60,7 +67,7 @@ export default async function ManutencaoHomePage({
               <ClipboardList className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-semibold font-sans text-gray-400 uppercase tracking-wide">
-              {tenantSlug} · Manutenção
+              {tenantSlug} · {isTenantAdmin ? 'Administração' : 'Manutenção'}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -78,10 +85,10 @@ export default async function ManutencaoHomePage({
             <ClipboardList className="w-8 h-8 text-white" />
           </div>
           <Text as="h1" variant="heading-lg" className="text-dark mb-2 block">
-            Manutenção e Infraestrutura
+            {isTenantAdmin ? 'Painel da Unidade' : 'Manutenção e Infraestrutura'}
           </Text>
           <Text variant="body-md" className="text-gray-300">
-            Gestão de ocorrências e inspeção técnica hospitalar
+            {isTenantAdmin ? 'Monitoramento de rondas e gestão de usuários' : 'Gestão de ocorrências e manutenção predial'}
           </Text>
         </div>
 
@@ -110,16 +117,17 @@ export default async function ManutencaoHomePage({
           ))}
         </div>
 
-        {/* Link p/ hotelaria */}
-        <div className="mt-8 text-center">
-          <Link
-            href={`/${tenantSlug}/hotelaria`}
-            className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors"
-          >
-            <GiClothes className="w-4 h-4" />
-            Ir para Hotelaria
-          </Link>
-        </div>
+        {!isTenantAdmin && (
+          <div className="mt-8 text-center">
+            <Link
+              href={`/${tenantSlug}/hotelaria`}
+              className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors"
+            >
+              <GiClothes className="w-4 h-4" />
+              Ir para Hotelaria
+            </Link>
+          </div>
+        )}
 
       </div>
     </div>

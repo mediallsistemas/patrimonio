@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const CreateUsuarioSchema = z.object({
-  email: z.string().email('E-mail inválido').max(255),
+  username: z.string().min(3).max(40).regex(/^[a-z0-9._-]+$/, 'Apenas letras minúsculas, números, ponto, hífen e underscore'),
   nome: z.string().min(2).max(120),
   senha: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   role: z.enum(['super_admin', 'tenant_admin', 'operator']),

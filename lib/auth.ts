@@ -2,11 +2,20 @@ import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? 'linensistem-secret-change-in-production'
-)
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'JWT_SECRET env var is missing or too short (min 32 chars). ' +
+      'Generate with: openssl rand -base64 64'
+    )
+  }
+  return new TextEncoder().encode(secret)
+}
+
+const JWT_SECRET = getJwtSecret()
 const COOKIE_NAME = 'ls_session'
-const EXPIRES_IN  = 60 * 60 * 24 // 24h em segundos
+const EXPIRES_IN  = 60 * 60 * 4 // 4h em segundos (reduzido de 24h)
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 

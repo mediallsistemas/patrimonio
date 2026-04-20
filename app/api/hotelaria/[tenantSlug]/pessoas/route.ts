@@ -1,30 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { NextRequest } from 'next/server'
+import { created, badRequest, notFound, conflict, serverError } from '@/lib/api-response'
+import { buscarTenantPorSlug } from '@/modules/tenants/tenants.service'
+import { criarPessoa } from '@/modules/pessoas/pessoas.service'
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ tenantSlug: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+): Promise<Response> {
   const { tenantSlug } = await params
   const { nome, cpf, faceDescriptor } = await req.json()
 
-  if (!nome || !cpf || !faceDescriptor) {
-    return NextResponse.json({ message: 'Dados incompletos' }, { status: 400 })
-  }
-
-  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } })
-  if (!tenant) return NextResponse.json({ message: 'Tenant não encontrado' }, { status: 404 })
+  if (!nome || !cpf || !faceDescriptor) return badRequest('Dados incompletos')
 
   const cpfLimpo = String(cpf).replace(/\D/g, '')
-  if (cpfLimpo.length !== 11) {
-    return NextResponse.json({ message: 'CPF inválido' }, { status: 400 })
+  if (cpfLimpo.length !== 11) return badRequest('CPF inválido')
+
+  try {
+    const tenant = await buscarTenantPorSlug(tenantSlug)
+    if (!tenant) return notFound('Tenant')
+
+    const result = await criarPessoa({ nome: String(nome).trim(), cpf: cpfLimpo, faceDescriptor }, tenant.id)
+    if (result.conflict) return conflict('CPF já cadastrado')
+
+    return created({ id: result.pessoa.id, nome: result.pessoa.nome, cpf: result.pessoa.cpf })
+  } catch {
+    return serverError('criarPessoa failed')
   }
-
-  const existing = await prisma.pessoa.findUnique({ where: { tenantId_cpf: { tenantId: tenant.id, cpf: cpfLimpo } } })
-  if (existing) {
-    return NextResponse.json({ message: 'CPF já cadastrado' }, { status: 409 })
-  }
-
-  const pessoa = await prisma.pessoa.create({
-    data: { tenantId: tenant.id, nome: String(nome).trim(), cpf: cpfLimpo, faceDescriptor: JSON.stringify(faceDescriptor) },
-  })
-
-  return NextResponse.json({ id: pessoa.id, nome: pessoa.nome, cpf: pessoa.cpf }, { status: 201 })
 }

@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import * as adminPatrimonioService from '@/services/admin-patrimonio.service'
 import { format, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowLeft, Package, Wrench, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
-import Card from '@/components/card'
+import Card from '@/components/ui/Card'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -126,12 +127,7 @@ export default function PatrimonioPage() {
 
   const { data = [], isLoading, isError, refetch } = useQuery<Ticket[]>({
     queryKey: ['trilogo-patrimonio', start, end],
-    queryFn: async () => {
-      const res = await fetch(`/api/trilogo?startDate=${start}&endDate=${end}`)
-      if (!res.ok) throw new Error('Erro ao buscar dados')
-      const json = await res.json()
-      return json.data ?? json
-    },
+    queryFn: () => adminPatrimonioService.listarChamados(start, end),
   })
 
   const filtrado = data.filter(t => {

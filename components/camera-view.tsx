@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Camera, Loader2 } from 'lucide-react'
-import Text from './text'
+import Text from '@/components/ui/Text'
 
 const MODELS_URL = '/models'
 

@@ -1,48 +1,96 @@
-'use client'
+import { api } from '@/services/api'
+import type { OcorrenciaDetalhe, RegistroAmbiente, Ronda } from '@/services/rondas.types'
 
-import { api } from './api'
+export type { OcorrenciaDetalhe, RegistroAmbiente, Ronda }
 
-export interface RondaOcorrencia {
+export interface BlocoAPI {
   id: string
-  iniciadoEm: string
-  finalizadoEm: string | null
-  tenantId: string
-  criadoPorId: string
-  ambientes: RegistroAmbiente[]
+  nome: string
+  ordem: number
+  ambientes: AmbienteAPI[]
 }
 
-export interface RegistroAmbiente {
+export interface AmbienteAPI {
   id: string
-  rondaId: string
+  nome: string
+  tipo: 'ocorrencia' | 'gases'
+  ordem: number
+}
+
+export interface AmbienteTenant {
+  id: string
+  nome: string
+  tipo: 'ocorrencia' | 'gases'
+  ordem: number
+}
+
+export interface DraftPayload {
+  estado: unknown
+}
+
+export interface RegistrarAmbienteBody {
+  tipoRegistro: 'ocorrencia' | 'gases'
   ambiente: string
   temOcorrencia: boolean
-  concluidoEm: string
-  ocorrencia: OcorrenciaDetalhe | null
+  ocorrencias?: unknown[]
+  // gases-specific
+  purezaO2?: number
+  pressaoO2?: number
+  pressaoAr?: number
+  backupLigado?: boolean
+  temAbastecimento?: boolean
+  qtdCilindros?: number | null
+  tamCilindro?: string | null
 }
 
-export interface OcorrenciaDetalhe {
-  id: string
-  tipo: string
-  descricao: string
-  trilogoChamado: boolean
+export async function listar(): Promise<Ronda[]> {
+  const json = await api.get<{ data: Ronda[] } | Ronda[]>('rondas')
+  if (Array.isArray(json)) return json
+  return (json as { data?: Ronda[] }).data ?? []
 }
 
-interface ApiResponse<T> {
-  data: T
+export async function criar(): Promise<{ id: string }> {
+  const json = await api.post<{ data: { id: string } }>('rondas', {})
+  return json.data
 }
 
-export const rondasService = {
-  listar: () => api.get<ApiResponse<RondaOcorrencia[]>>('rondas'),
+export async function finalizar(rondaId: string): Promise<void> {
+  await api.patch(`rondas/${rondaId}`, {})
+}
 
-  criar: () => api.post<ApiResponse<RondaOcorrencia>>('rondas', {}),
+export async function registrarAmbiente(rondaId: string, body: RegistrarAmbienteBody): Promise<void> {
+  await api.post(`rondas/${rondaId}/ambientes`, body)
+}
 
-  finalizar: (id: string) =>
-    api.patch<ApiResponse<RondaOcorrencia>>(`rondas/${id}`, {}),
+export async function buscarDraft(): Promise<{ estado: unknown } | null> {
+  const json = await api.get<{ data: { estado: unknown } | null }>('rondas/draft')
+  return json.data ?? null
+}
 
-  getDraft: () => api.get<ApiResponse<unknown>>('rondas/draft'),
+export async function salvarDraftAPI(estado: unknown): Promise<void> {
+  await fetch('/api/rondas/draft', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(estado),
+    credentials: 'include',
+  })
+}
 
-  saveDraft: (estado: unknown) =>
-    api.patch<ApiResponse<unknown>>('rondas/draft', estado),
+export async function descartarDraftAPI(): Promise<void> {
+  await api.delete('rondas/draft')
+}
 
-  deleteDraft: () => api.delete<void>('rondas/draft'),
+export async function buscarBlocos(): Promise<BlocoAPI[]> {
+  const json = await api.get<{ data: BlocoAPI[] }>('me/blocos')
+  return json.data ?? []
+}
+
+export async function buscarAmbientesTenant(tenantSlug: string): Promise<AmbienteTenant[]> {
+  const json = await api.get<{ data: AmbienteTenant[] }>(`tenants/${tenantSlug}/ambientes`)
+  return json.data ?? []
+}
+
+export async function buscarFotoOcorrencia(ocorrenciaId: string): Promise<{ foto: string | null }> {
+  const json = await api.get<{ data: { foto: string | null } }>(`ocorrencias/${ocorrenciaId}/foto`)
+  return json.data ?? { foto: null }
 }

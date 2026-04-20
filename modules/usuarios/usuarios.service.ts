@@ -1,5 +1,6 @@
-import { prisma } from '@/lib/db'
+import { prismaAuth as prisma } from '@/lib/db-auth'
 import { hashPassword } from '@/lib/auth'
+import { LINENSISTEM_ROLES } from '@/modules/auth/auth.types'
 import type { CreateUsuarioInput, UpdateUsuarioInput } from './usuarios.types'
 
 const SELECT_USUARIO = {
@@ -17,11 +18,25 @@ const SELECT_USUARIO = {
 export async function listarUsuarios() {
   try {
     return await prisma.usuario.findMany({
+      where: { role: { in: [...LINENSISTEM_ROLES] } },
       orderBy: { criadoEm: 'asc' },
       select: SELECT_USUARIO,
     })
   } catch (error) {
     console.error('[usuarios.service] listarUsuarios:', error)
+    throw error
+  }
+}
+
+export async function listarUsuariosPorTenant(tenantId: string) {
+  try {
+    return await prisma.usuario.findMany({
+      where: { tenantId, role: { in: [...LINENSISTEM_ROLES] } },
+      orderBy: { criadoEm: 'asc' },
+      select: SELECT_USUARIO,
+    })
+  } catch (error) {
+    console.error('[usuarios.service] listarUsuariosPorTenant:', error)
     throw error
   }
 }
@@ -40,9 +55,10 @@ export async function buscarUsuario(id: string) {
 
 export async function criarUsuario(input: CreateUsuarioInput) {
   try {
+    const email = `${input.username.trim().toLowerCase()}@sistema.local`
     return await prisma.usuario.create({
       data: {
-        email: input.email.trim().toLowerCase(),
+        email,
         nome: input.nome.trim(),
         senhaHash: await hashPassword(input.senha),
         role: input.role,
