@@ -1,25 +1,54 @@
-import { signToken } from '@/lib/auth'
-import type { SessionPayload } from '@/lib/auth'
-import { badRequest, unauthorized, serverError } from '@/lib/api-response'
-import { autenticarUsuario } from '@/modules/auth/auth.service'
 import { NextResponse } from 'next/server'
+import { authPool } from '@/lib/db-auth'
+import { comparePassword, setSessionCookie, SessionPayload } from '@/lib/auth'
 
-const SESSION_COOKIE = 'ls_session'
-const EXPIRES_IN = 60 * 60 * 24 // 24h
+interface UsuarioRow {
+  id: string
+  email: string
+  nome: string
+  senhaHash: string
+  role: string
+  tenantId: string | null
+  ativo: boolean
+  mustChangePassword: boolean
+  sistemas: string[]
+  tenantSlug: string | null
+}
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(req: Request) {
   try {
     const body = await req.json()
-    // Aceita "login" (username ou email) ou "email" por compatibilidade
-    const login = (body.login ?? body.email ?? '').trim()
-    // Accepts "senha" (LinenSistem SSR) and "password" (FeedbackForms SPA)
+    // Aceita "username" (principal), "login" (SPA FeedbackForms) ou "email" (legado)
+    const login = (body.username ?? body.login ?? body.email ?? '').trim().toLowerCase()
+    // Aceita "senha" (LinenSistem SSR) e "password" (SPA FeedbackForms)
     const senha = (body.senha ?? body.password ?? '').trim()
 
-    if (!login || !senha) return badRequest('Login e senha obrigatórios')
+    if (!login || !senha) {
+      return NextResponse.json({ error: 'Usuário e senha obrigatórios' }, { status: 400 })
+    }
 
-    const ip = req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-    const usuario = await autenticarUsuario(login, senha, ip)
-    if (!usuario) return unauthorized()
+    const result = await authPool.query<UsuarioRow>(
+      `SELECT u.id, u.email, u.nome, u."senhaHash", u.role, u."tenantId", u.ativo,
+              COALESCE(u."mustChangePassword", false) AS "mustChangePassword",
+              COALESCE(u.sistemas, ARRAY[]::text[]) AS sistemas,
+              t.slug AS "tenantSlug"
+       FROM usuarios u
+       LEFT JOIN tenants t ON t.id = u."tenantId"
+       WHERE u.username = $1 OR u.email = $1
+       LIMIT 1`,
+      [login],
+    )
+
+    const usuario = result.rows[0] ?? null
+
+    if (!usuario || !usuario.ativo) {
+      return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
+    }
+
+    const senhaValida = await comparePassword(senha, usuario.senhaHash)
+    if (!senhaValida) {
+      return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
+    }
 
     const payload: SessionPayload = {
       sub:        usuario.id,
@@ -28,46 +57,32 @@ export async function POST(req: Request): Promise<Response> {
       nome:       usuario.nome,
       role:       usuario.role,
       tenantId:   usuario.tenantId,
-      tenantSlug: usuario.tenant?.slug ?? null,
+      tenantSlug: usuario.tenantSlug,
+      sistemas:   usuario.sistemas,
     }
 
-    const accessToken = await signToken(payload)
+    const accessToken = await setSessionCookie(payload)
 
-    const res = NextResponse.json({
-      data: {
-        // Format expected by FeedbackForms SPA
-        accessToken,
-        user: {
-          id:         usuario.id,
-          name:       usuario.nome,
-          email:      usuario.email,
-          role:       usuario.role,
-          tenantId:   usuario.tenantId,
-          tenantSlug: usuario.tenant?.slug ?? null,
-        },
-        // Kept for LinenSistem SSR compatibility
-        usuario: {
-          id:              usuario.id,
-          nome:            usuario.nome,
-          email:           usuario.email,
-          role:            usuario.role,
-          tenantSlug:      usuario.tenant?.slug ?? null,
-          mustChangePassword: usuario.mustChangePassword ?? false,
-        },
+    return NextResponse.json({
+      accessToken,
+      user: {
+        id:         usuario.id,
+        name:       usuario.nome,
+        email:      usuario.email,
+        role:       usuario.role,
+        tenantId:   usuario.tenantId,
+        tenantSlug: usuario.tenantSlug,
       },
-    }, { status: 200 })
-
-    res.cookies.set(SESSION_COOKIE, accessToken, {
-      httpOnly: true,
-      secure:   process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge:   EXPIRES_IN,
-      path:     '/',
+      usuario: {
+        id:         usuario.id,
+        nome:       usuario.nome,
+        email:      usuario.email,
+        role:       usuario.role,
+        tenantSlug: usuario.tenantSlug,
+      },
     })
-
-    return res
-  } catch (error) {
-    console.error('[login] erro interno:', error)
-    return serverError('login failed')
+  } catch (err) {
+    console.error('Erro no login:', err)
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

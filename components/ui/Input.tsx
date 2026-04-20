@@ -21,6 +21,7 @@ export default function Input({ label, error, className, id, ...props }: InputPr
           ${error ? 'border-red-base focus:ring-red-base' : 'border-gray-200 focus:ring-red-base'}
           bg-white focus:outline-none focus:ring-2 focus:ring-offset-0 transition-all
           placeholder:text-gray-300
+          [&::-ms-reveal]:hidden [&::-ms-clear]:hidden
           ${className ?? ''}
         `}
         {...props}

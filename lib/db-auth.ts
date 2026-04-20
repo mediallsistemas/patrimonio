@@ -1,16 +1,33 @@
-import { PrismaClient } from '@prisma/client'
+import { Pool } from 'pg'
 
 declare global {
   // eslint-disable-next-line no-var
-  var __prismaAuth: PrismaClient | undefined
+  var __authPool: Pool | undefined
 }
 
-// Cliente dedicado ao banco de autenticação centralizado (Multi_UnidadesDB).
-// Usado exclusivamente por modules/auth/auth.service.ts — nunca para dados operacionais.
-export const prismaAuth = global.__prismaAuth ?? new PrismaClient({
-  datasources: {
-    db: { url: process.env.AUTH_DATABASE_URL },
-  },
-})
+function createAuthPool(): Pool {
+  const url = process.env.AUTH_DATABASE_URL
+  if (!url) throw new Error('AUTH_DATABASE_URL não definida')
 
-global.__prismaAuth = prismaAuth
+  // Parse manual para separar host/user/password/db e forçar SSL sem validar certificado
+  const parsed = new URL(url)
+  return new Pool({
+    host:     parsed.hostname,
+    port:     parseInt(parsed.port || '5432'),
+    user:     decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, ''),
+    ssl:      { rejectUnauthorized: false },
+    max: 5,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+  })
+}
+
+if (global.__authPool) {
+  global.__authPool.end().catch(() => {})
+  global.__authPool = undefined
+}
+
+export const authPool: Pool = createAuthPool()
+global.__authPool = authPool

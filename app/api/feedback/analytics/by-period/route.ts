@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { verifyAuth } from '@/modules/auth/auth.guards'
+import { verifyAuth, assertSistema } from '@/modules/auth/auth.guards'
 import { resolveTenantId } from '@/modules/auth/tenant-resolver'
 import * as analyticsService from '@/modules/feedback/analytics.service'
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
     if (!session) return unauthorized()
+    assertSistema(session, 'feedbackforms')
 
     const { searchParams } = req.nextUrl
     const tenantId = await resolveTenantId(session, searchParams.get('tenantSlug'))

@@ -27,6 +27,7 @@ export interface SessionPayload {
   role:       string         // "super_admin" | "tenant_admin" | "operator"
   tenantId:   string | null
   tenantSlug: string | null
+  sistemas:   string[]       // ["linensistem", "feedbackforms"]
 }
 
 // ── JWT ───────────────────────────────────────────────────────────────────────

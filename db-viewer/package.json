@@ -1,0 +1,14 @@
+{
+  "name": "db-viewer",
+  "version": "1.0.0",
+  "description": "Multi_UnidadesDB visual explorer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3"
+  }
+}

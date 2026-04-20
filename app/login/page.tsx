@@ -1,24 +1,55 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, LogIn, Landmark } from 'lucide-react'
-import Text from '@/components/ui/Text'
-import { useLogin } from '@/hooks/useLogin'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Eye, EyeOff, LogIn } from 'lucide-react'
+import { GiClothes } from 'react-icons/gi'
+import Text from '@/components/text'
 
 function LoginForm() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') ?? '/'
 
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [show, setShow]   = useState(false)
-
-  const { isPending, error, submit } = useLogin()
+  const [username, setUsername] = useState('')
+  const [senha, setSenha]   = useState('')
+  const [show, setShow]     = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [erro, setErro]     = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    await submit(email, senha, from)
+    setErro('')
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, senha }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setErro(data.error ?? 'Erro ao fazer login')
+        return
+      }
+
+      const { usuario } = data
+      // Redireciona para o tenant do usuário ou para o destino original
+      const dest = from !== '/'
+        ? from
+        : usuario.role === 'super_admin'
+          ? '/admin'
+          : `/${usuario.tenantSlug}`
+
+      window.location.href = dest
+    } catch {
+      setErro('Erro de conexão')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -28,10 +59,10 @@ function LoginForm() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-[#FF7F50] flex items-center justify-center mb-4">
-            <Landmark className="w-8 h-8 text-white" />
+            <GiClothes className="w-8 h-8 text-white" />
           </div>
           <Text as="h1" variant="heading-md" className="text-dark block text-center">
-            Sistema de Patrimônio
+            Sistema de Rouparia
           </Text>
           <Text variant="body-sm" className="text-gray-300 block text-center mt-1">
             Entre com suas credenciais
@@ -42,17 +73,17 @@ function LoginForm() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* Email */}
+            {/* Usuário */}
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-gray-400 font-sans">
-                E-mail ou usuário
+                Usuário
               </label>
               <input
                 type="text"
                 autoComplete="username"
-                placeholder="E-mail ou usuário"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="rafael.moreira"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all placeholder:text-gray-300"
               />
@@ -84,19 +115,19 @@ function LoginForm() {
             </div>
 
             {/* Erro */}
-            {error && (
+            {erro && (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                <p className="text-sm text-red-600 font-sans">{error}</p>
+                <p className="text-sm text-red-600 font-sans">{erro}</p>
               </div>
             )}
 
             {/* Botão */}
             <button
               type="submit"
-              disabled={isPending}
+              disabled={loading}
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-red-base hover:bg-red-dark text-white font-sans font-semibold text-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
             >
-              {isPending ? (
+              {loading ? (
                 <span>Entrando...</span>
               ) : (
                 <>
