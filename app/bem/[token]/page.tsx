@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Package, MapPin, Layers, CalendarPlus } from 'lucide-react'
 import { buscarLinkAmbiente, listarAgendamentosPorAssets } from '@/modules/links-publicos/links-publicos.service'
-import BemCard from './BemCard'
+import { BensListaFiltrada } from './BensListaFiltrada'
 
 interface Asset {
   id: number
@@ -121,19 +121,8 @@ export default async function BemPublicoPage({
           <StatCard label="Manutenção agendada" value={comAgendamento} icon={<CalendarPlus size={18} className="text-purple-600" />} bg="bg-purple-100"  />
         </div>
 
-        {/* Lista de bens */}
-        {bens.length === 0 ? (
-          <div className="text-center py-16 text-gray-400 text-sm bg-white rounded-2xl border border-gray-100">
-            <Package size={40} className="mx-auto mb-3 opacity-30" />
-            Nenhum bem encontrado neste ambiente.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {bens.map(bem => (
-              <BemCard key={bem.id} bem={bem} agendamentos={agMap.get(bem.id) ?? []} />
-            ))}
-          </div>
-        )}
+        {/* Lista de bens com filtro por patrimônio */}
+        <BensListaFiltrada bens={bens} agendamentos={agendamentos} />
 
         <p className="text-center text-xs text-gray-300 pb-4">
           LinenSistem · {link.projeto} · {link.ambiente}
