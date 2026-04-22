@@ -26,6 +26,7 @@ model Tenant {
   rodadas             Rodada[]
   rondasDraft         RondaDraft[]
   rondasOcorrencias   RondaOcorrencia[]
+  agendamentos        AgendamentoManutencao[]
   templatesFormulario TemplateFormulario[]
   usuarios            Usuario[]
 
@@ -244,6 +245,7 @@ model RondaDraft {
 
 model AgendamentoManutencao {
   id              String   @id @default(uuid())
+  tenantId        String?
   trilogoAssetId  Int
   patrimony       String
   descricaoBem    String
@@ -261,7 +263,9 @@ model AgendamentoManutencao {
   dataRealizada   DateTime?
   atualizadoPor   Usuario?  @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
   criadoPor       Usuario   @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
   @@map("agendamentos_manutencao")
 }
 
