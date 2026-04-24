@@ -26,6 +26,7 @@ export default function BensPage() {
   const [tipo,       setTipo]       = useState('')
   const [projeto,    setProjeto]    = useState('')
   const [ambiente,   setAmbiente]   = useState('')
+  const [patrimonioSearch, setPatrimonioSearch] = useState('')
   const [assetModal, setAssetModal] = useState<Asset | null>(null)
   const [qrModal,    setQrModal]    = useState(false)
   const [visiveis,   setVisiveis]   = useState(PAGE_SIZE)
@@ -111,6 +112,7 @@ export default function BensPage() {
       if (projeto  && end.unidade !== projeto)            return false
       if (ambiente && end.ambienteSimples !== ambiente)   return false
       if (apenasComAgendamento && !agendamentoMap.has(a.id)) return false
+      if (patrimonioSearch && !a.patrimony.toLowerCase().includes(patrimonioSearch.toLowerCase())) return false
       if (q && !(a.description.toLowerCase().includes(q) || a.patrimony.toLowerCase().includes(q) || (a.brand ?? '').toLowerCase().includes(q))) return false
       return true
     })
@@ -178,8 +180,14 @@ export default function BensPage() {
               <>
                 <div className="relative flex-1 min-w-45">
                   <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" placeholder="Descrição, patrimônio..." value={search}
+                  <input type="text" placeholder="Descrição, marca..." value={search}
                     onChange={e => { setSearch(e.target.value); setVisiveis(PAGE_SIZE) }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                </div>
+                <div className="relative min-w-44">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" placeholder="Nº patrimônio..." value={patrimonioSearch}
+                    onChange={e => { setPatrimonioSearch(e.target.value); setVisiveis(PAGE_SIZE) }}
                     className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" />
                 </div>
                 <select value={tipo} onChange={e => { setTipo(e.target.value); setVisiveis(PAGE_SIZE) }}
@@ -207,8 +215,8 @@ export default function BensPage() {
                     <QrCode size={14} /> QR do ambiente
                   </button>
                 )}
-                {(search || tipo || projeto || ambiente || apenasComAgendamento) && (
-                  <button onClick={() => { setSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setApenasComAgendamento(false); setVisiveis(PAGE_SIZE) }}
+                {(search || patrimonioSearch || tipo || projeto || ambiente || apenasComAgendamento) && (
+                  <button onClick={() => { setSearch(''); setPatrimonioSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setApenasComAgendamento(false); setVisiveis(PAGE_SIZE) }}
                     className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg">
                     <X size={14} /> Limpar
                   </button>
