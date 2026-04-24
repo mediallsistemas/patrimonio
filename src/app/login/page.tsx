@@ -61,7 +61,7 @@ function LoginForm() {
             <Landmark className="w-8 h-8 text-white" />
           </div>
           <Text as="h1" variant="heading-md" className="text-dark block text-center">
-            Sistema de Rouparia
+            Sistema de Patrimônio
           </Text>
           <Text variant="body-sm" className="text-gray-300 block text-center mt-1">
             Entre com suas credenciais
