@@ -24,11 +24,11 @@ model Tenant {
   pessoas             Pessoa[]
   respostasFormulario RespostaFormulario[]
   rodadas             Rodada[]
-  rondasDraft         RondaDraft[]
-  rondasOcorrencias   RondaOcorrencia[]
-  agendamentos        AgendamentoManutencao[]
-  templatesFormulario TemplateFormulario[]
-  usuarios            Usuario[]
+  agendamentosManutencao AgendamentoManutencao[]
+  rondasDraft            RondaDraft[]
+  rondasOcorrencias      RondaOcorrencia[]
+  templatesFormulario    TemplateFormulario[]
+  usuarios               Usuario[]
 
   @@map("tenants")
 }
@@ -41,6 +41,7 @@ model Usuario {
   senhaHash                  String
   nome                       String
   role                       String                  @default("tenant_admin")
+  sistemas                   String[]
   ativo                      Boolean                 @default(true)
   mustChangePassword         Boolean                 @default(false)
   criadoEm                   DateTime                @default(now())
@@ -245,7 +246,6 @@ model RondaDraft {
 
 model AgendamentoManutencao {
   id              String   @id @default(uuid())
-  tenantId        String?
   trilogoAssetId  Int
   patrimony       String
   descricaoBem    String
@@ -261,11 +261,13 @@ model AgendamentoManutencao {
   atualizadoEm    DateTime  @updatedAt
   atualizadoPorId String?
   dataRealizada   DateTime?
+  tenantId        String?
   atualizadoPor   Usuario?  @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
   criadoPor       Usuario   @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
   tenant          Tenant?   @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId])
+  @@index([companyId])
   @@map("agendamentos_manutencao")
 }
 
