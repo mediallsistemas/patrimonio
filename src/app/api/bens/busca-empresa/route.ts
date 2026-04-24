@@ -9,11 +9,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!session) return unauthorized()
 
   const { searchParams } = new URL(req.url)
-  const patrimony = searchParams.get('patrimony')?.trim()
   const companyIdRaw = searchParams.get('companyId')
-  const projeto = searchParams.get('projeto')?.trim()
-
-  if (!patrimony) return badRequest('patrimony obrigatório')
   if (!companyIdRaw) return badRequest('companyId obrigatório')
 
   const companyId = parseInt(companyIdRaw, 10)
@@ -22,7 +18,7 @@ export async function GET(req: Request): Promise<Response> {
   try {
     const res = await fetch(`${TRILOGO_BASE}/asset`, {
       headers: { accept: 'application/json', token: TOKEN_ENV },
-      next: { revalidate: 60 },
+      next: { revalidate: 600 },
     })
     if (!res.ok) return serverError('Trilogo API indisponível')
 
@@ -41,20 +37,9 @@ export async function GET(req: Request): Promise<Response> {
       coverPermalink: string | null
     }>
 
-    const found = all.filter(a => {
-      if (String(a.companyId) !== String(companyId)) return false
-      // busca por patrimônio: substring case-insensitive
-      if (!a.patrimony.toLowerCase().includes(patrimony.toLowerCase())) return false
-      // se veio projeto, restringe ao projeto (parts[2] do departmentFullAddress)
-      if (projeto) {
-        const parts = String(a.departmentFullAddress ?? '').split('>').map(s => s.trim())
-        if (parts[2] !== projeto) return false
-      }
-      return true
-    })
-
-    return ok(found)
+    const bens = all.filter(a => String(a.companyId) === String(companyId))
+    return ok(bens)
   } catch {
-    return serverError('buscar-por-patrimonio failed')
+    return serverError('busca-empresa failed')
   }
 }
