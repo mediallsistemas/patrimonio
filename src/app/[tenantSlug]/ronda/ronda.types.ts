@@ -138,6 +138,7 @@ export interface RondaState {
   setSearchBlocos: (v: string) => void
   setSearchLocais: (v: string) => void
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  setFieldErrors: (e: Record<string, string>) => void
   atualizar: (parcial: Partial<DraftEstado>) => void
   iniciar: () => void
   retomar: () => void
