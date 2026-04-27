@@ -12,10 +12,12 @@ import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 
 import { listarRondas } from '@/services/admin-rondas.service'
+import { listarTenants } from '@/services/admin-tenants.service'
 import { desnormalizarOcorrencias } from '@/lib/rondas-admin-utils'
 import { KpiCard } from '@/components/ui/ronda/KpiCard'
 import { OcorrenciaRow } from '@/components/ui/ronda/OcorrenciaRow'
 import type { Ronda } from '@/services/rondas.types'
+import type { Tenant } from '@/services/admin-tenants.service'
 
 // ── Hook: tempo em aberto atualizado a cada minuto ────────────────────────────
 
@@ -156,13 +158,11 @@ export default function AdminRondasPage() {
     refetchInterval: 30_000,
   })
 
-  const tenants = Array.from(
-    new Map<string, NonNullable<typeof rondas[0]['tenant']>>(
-      rondas
-        .filter((r) => r.tenant?.id)
-        .map((r) => [r.tenant!.id, r.tenant!] as const),
-    ).values(),
-  )
+  const { data: tenants = [] } = useQuery<Tenant[]>({
+    queryKey: ['admin-tenants'],
+    queryFn: listarTenants,
+    staleTime: 5 * 60_000,
+  })
 
   const rondasFiltradas = rondas.filter((r) =>
     filtroTenant === 'todos' || r.tenant?.id === filtroTenant,

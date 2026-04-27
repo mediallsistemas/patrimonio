@@ -20,14 +20,15 @@ const EXPIRES_IN  = 60 * 60 * 4 // 4h em segundos (reduzido de 24h)
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface SessionPayload {
-  sub:        string         // userId — campo padrão JWT, usado pela SPA FeedbackForms
-  userId:     string         // mantido por compatibilidade com código existente
-  email:      string
-  nome:       string
-  role:       string         // "super_admin" | "tenant_admin" | "operator"
-  tenantId:   string | null
-  tenantSlug: string | null
-  sistemas:   string[]       // ["linensistem", "feedbackforms"]
+  sub:                string         // userId — campo padrão JWT, usado pela SPA FeedbackForms
+  userId:             string         // mantido por compatibilidade com código existente
+  email:              string
+  nome:               string
+  role:               string         // "super_admin" | "tenant_admin" | "operator"
+  tenantId:           string | null
+  tenantSlug:         string | null
+  sistemas:           string[]       // ["linensistem", "feedbackforms"]
+  mustChangePassword?: boolean
 }
 
 // ── JWT ───────────────────────────────────────────────────────────────────────

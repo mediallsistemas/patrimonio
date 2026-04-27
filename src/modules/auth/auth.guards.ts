@@ -30,13 +30,14 @@ export async function verifyAuth(
   if (!session) return null
 
   const payload: JWTPayload = {
-    sub:        session.sub,
-    email:      session.email,
-    nome:       session.nome,
-    role:       session.role as JWTPayload['role'],
-    tenantId:   session.tenantId,
-    tenantSlug: session.tenantSlug,
-    sistemas:   session.sistemas ?? [],
+    sub:                session.sub,
+    email:              session.email,
+    nome:               session.nome,
+    role:               session.role as JWTPayload['role'],
+    tenantId:           session.tenantId,
+    tenantSlug:         session.tenantSlug,
+    sistemas:           session.sistemas ?? [],
+    mustChangePassword: (session as { mustChangePassword?: boolean }).mustChangePassword ?? false,
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
@@ -67,13 +68,14 @@ export async function verifyAuthDetailed(
   if (!session) return { ok: false, reason: 'unauthenticated' }
 
   const payload: JWTPayload = {
-    sub:        session.sub,
-    email:      session.email,
-    nome:       session.nome,
-    role:       session.role as JWTPayload['role'],
-    tenantId:   session.tenantId,
-    tenantSlug: session.tenantSlug,
-    sistemas:   session.sistemas ?? [],
+    sub:                session.sub,
+    email:              session.email,
+    nome:               session.nome,
+    role:               session.role as JWTPayload['role'],
+    tenantId:           session.tenantId,
+    tenantSlug:         session.tenantSlug,
+    sistemas:           session.sistemas ?? [],
+    mustChangePassword: (session as { mustChangePassword?: boolean }).mustChangePassword ?? false,
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
