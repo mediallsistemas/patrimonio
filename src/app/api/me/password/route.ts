@@ -1,9 +1,19 @@
 import { badRequest, ok, serverError, unauthorized } from '@/lib/api-response'
-import { comparePassword, hashPassword } from '@/lib/auth'
+import { comparePassword, hashPassword, setSessionCookie } from '@/lib/auth'
+import type { SessionPayload } from '@/lib/auth'
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { authPool } from '@/lib/db-auth'
 
-interface UsuarioRow { id: string; senhaHash: string }
+interface UsuarioRow {
+  id: string
+  senhaHash: string
+  email: string
+  nome: string
+  role: string
+  tenantId: string | null
+  tenantSlug: string | null
+  sistemas: string[]
+}
 
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -20,26 +30,40 @@ export async function POST(req: Request): Promise<Response> {
       return badRequest('A nova senha deve ter pelo menos 6 caracteres')
     }
 
-    console.log('[me/password] userId:', payload.sub)
-
     const result = await authPool.query<UsuarioRow>(
-      `SELECT id, "senhaHash" FROM usuarios WHERE id = $1 LIMIT 1`,
+      `SELECT u.id, u."senhaHash", u.email, u.nome, u.role, u."tenantId",
+              COALESCE(u.sistemas, ARRAY[]::text[]) AS sistemas,
+              t.slug AS "tenantSlug"
+       FROM usuarios u
+       LEFT JOIN tenants t ON t.id = u."tenantId"
+       WHERE u.id = $1 LIMIT 1`,
       [payload.sub],
     )
     const usuario = result.rows[0] ?? null
-    console.log('[me/password] usuario encontrado:', !!usuario)
     if (!usuario) return unauthorized()
 
     const senhaValida = await comparePassword(senhaAtual, usuario.senhaHash)
-    console.log('[me/password] senha valida:', senhaValida)
     if (!senhaValida) return badRequest('Senha atual incorreta')
 
     const novoHash = await hashPassword(novaSenha)
-    const updateResult = await authPool.query(
+    await authPool.query(
       `UPDATE usuarios SET "senhaHash" = $1, "mustChangePassword" = false WHERE id = $2`,
       [novoHash, usuario.id],
     )
-    console.log('[me/password] rows updated:', updateResult.rowCount)
+
+    // Reemite o cookie JWT com mustChangePassword = false
+    const newSession: SessionPayload = {
+      sub:                usuario.id,
+      userId:             usuario.id,
+      email:              usuario.email,
+      nome:               usuario.nome,
+      role:               usuario.role,
+      tenantId:           usuario.tenantId,
+      tenantSlug:         usuario.tenantSlug,
+      sistemas:           usuario.sistemas,
+      mustChangePassword: false,
+    }
+    await setSessionCookie(newSession)
 
     return ok(null, 'Senha alterada com sucesso')
   } catch (error) {

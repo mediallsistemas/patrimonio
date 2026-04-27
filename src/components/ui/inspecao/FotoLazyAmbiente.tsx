@@ -35,7 +35,7 @@ export function FotoLazyAmbiente({ ambienteId }: { ambienteId: string }) {
           src={data.foto}
           alt="Ocorrência"
           onClick={() => setLightbox(true)}
-          className="rounded-xl max-h-48 object-contain border border-gray-200 cursor-zoom-in"
+          className="rounded-xl w-full max-h-64 object-cover border border-gray-200 cursor-zoom-in"
         />
         <button
           onClick={() => setMostrar(false)}

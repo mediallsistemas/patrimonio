@@ -6,6 +6,7 @@ export interface JWTPayload {
   tenantId: string | null   // null = super_admin
   tenantSlug: string | null
   sistemas: string[]
+  mustChangePassword?: boolean
   iat?: number
   exp?: number
 }

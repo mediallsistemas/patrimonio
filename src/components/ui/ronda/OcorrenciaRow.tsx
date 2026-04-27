@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Camera, Phone, MapPin, Tag, ChevronDown, ChevronUp } from 'lucide-react'
+import { Camera, Phone, MapPin, Tag, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { TIPO_OCORRENCIA } from '@/lib/ronda-tipos'
 import type { OcorrenciaFlat } from '@/lib/rondas-admin-utils'
 
@@ -37,6 +37,7 @@ const FALLBACK_CONFIG = {
 
 export function OcorrenciaRow({ oc }: { oc: OcorrenciaFlat }) {
   const [fotoAberta, setFotoAberta] = useState(false)
+  const [lightbox, setLightbox] = useState(false)
   const tipoBase = TIPO_OCORRENCIA[oc.tipo]
   const config = TIPO_CONFIG[oc.tipo] ?? FALLBACK_CONFIG
 
@@ -102,12 +103,35 @@ export function OcorrenciaRow({ oc }: { oc: OcorrenciaFlat }) {
                 : <ChevronDown className="w-3 h-3" />}
             </button>
             {fotoAberta && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={oc.foto}
-                alt="Foto da ocorrência"
-                className="mt-2.5 rounded-lg w-full max-h-72 object-cover ring-1 ring-gray-200"
-              />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={oc.foto}
+                  alt="Foto da ocorrência"
+                  onClick={() => setLightbox(true)}
+                  className="mt-2.5 rounded-lg w-full max-h-72 object-cover ring-1 ring-gray-200 cursor-zoom-in"
+                />
+                {lightbox && (
+                  <div
+                    className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+                    onClick={() => setLightbox(false)}
+                  >
+                    <button
+                      onClick={() => setLightbox(false)}
+                      className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={oc.foto}
+                      alt="Foto da ocorrência"
+                      onClick={(e) => e.stopPropagation()}
+                      className="max-w-full max-h-full object-contain rounded-xl"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
