@@ -17,12 +17,18 @@
   --color-red-light: #fff7ed;
   --color-red-base: #f97316;
   --color-red-dark: #ea580c;
+  --color-red-50:  #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
   --color-yellow-light: #fef9c3;
   --color-yellow-base: #eab308;
   --color-yellow-dark: #a16207;
-  --color-teal-light: #fff7ed;
-  --color-teal-base: #f97316;
-  --color-teal-dark: #ea580c;
+  --color-teal-light: #ccfbf1;
+  --color-teal-base: #14b8a6;
+  --color-teal-dark: #0f766e;
   --color-dark: #111827;
 
   --color-purple-50:  #faf5ff;
@@ -81,6 +87,17 @@
 
 .blob {
   display: none;
+}
+
+@keyframes ping-slow {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ping-slow {
+  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 .accent-bar {

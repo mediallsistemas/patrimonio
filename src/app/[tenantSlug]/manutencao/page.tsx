@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { ClipboardList, Activity, Users } from 'lucide-react'
-import { GiClothes } from 'react-icons/gi'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
@@ -117,17 +116,6 @@ export default async function ManutencaoHomePage({
           ))}
         </div>
 
-        {!isTenantAdmin && (
-          <div className="mt-8 text-center">
-            <Link
-              href={`/${tenantSlug}/hotelaria`}
-              className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors"
-            >
-              <GiClothes className="w-4 h-4" />
-              Ir para Hotelaria
-            </Link>
-          </div>
-        )}
 
       </div>
     </div>

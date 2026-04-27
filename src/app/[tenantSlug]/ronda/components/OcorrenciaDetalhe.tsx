@@ -17,7 +17,7 @@ interface OcorrenciaDetalheProps {
   adicionarDetalhe: () => void
   removerDetalhe: (index: number) => void
   validarDetalhe: () => Record<string, string>
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  setFieldErrors: (e: Record<string, string>) => void
   handleFoto: (e: React.ChangeEvent<HTMLInputElement>, index?: number) => void
   salvarLocal: (temOcorrencia: boolean) => Promise<void>
 }
@@ -31,7 +31,7 @@ export default function OcorrenciaDetalhe({
   adicionarDetalhe,
   removerDetalhe,
   validarDetalhe,
-  setErrors,
+  setFieldErrors,
   handleFoto,
   salvarLocal,
 }: OcorrenciaDetalheProps) {
@@ -246,7 +246,7 @@ export default function OcorrenciaDetalhe({
             onClick={() => {
               const e = validarDetalhe()
               if (Object.keys(e).length > 0) {
-                setErrors(e)
+                setFieldErrors(e)
                 return
               }
               salvarLocal(true)

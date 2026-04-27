@@ -149,6 +149,7 @@ model RondaOcorrencia {
   id           String             @id @default(uuid())
   iniciadoEm   DateTime           @default(now())
   finalizadoEm DateTime?
+  atualizadoEm DateTime           @updatedAt
   tenantId     String
   criadoPorId  String
   ambientes    RegistroAmbiente[]
@@ -157,6 +158,7 @@ model RondaOcorrencia {
 
   @@index([tenantId])
   @@index([tenantId, iniciadoEm])
+  @@index([finalizadoEm])
   @@map("rondas_ocorrencias")
 }
 

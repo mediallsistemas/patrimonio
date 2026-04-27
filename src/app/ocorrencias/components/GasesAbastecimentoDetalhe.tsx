@@ -12,7 +12,7 @@ interface GasesAbastecimentoDetalheProps {
   errors: Record<string, string>
   atualizar: (parcial: Partial<DraftEstado>) => void
   validarAbastecimento: () => Record<string, string>
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  setFieldErrors: (e: Record<string, string>) => void
 }
 
 export default function GasesAbastecimentoDetalhe({
@@ -20,7 +20,7 @@ export default function GasesAbastecimentoDetalhe({
   errors,
   atualizar,
   validarAbastecimento,
-  setErrors,
+  setFieldErrors,
 }: GasesAbastecimentoDetalheProps) {
   return (
     <Card shadow="md">
@@ -83,7 +83,7 @@ export default function GasesAbastecimentoDetalhe({
         <Button
           onClick={() => {
             const e = validarAbastecimento()
-            if (Object.keys(e).length > 0) { setErrors(e); return }
+            if (Object.keys(e).length > 0) { setFieldErrors(e); return }
             atualizar({ etapa: 'ocorrencia_pergunta' })
           }}
           className="flex-1"

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { toUserMessage, ApiError } from '@/lib/error-message'
 import {
   DRAFT_DEBOUNCE_MS,
   estadoInicial,
@@ -255,7 +256,14 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
       setEstado(novoEstado)
       salvarDraft(novoEstado)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
+      if (err instanceof ApiError && err.status === 404) {
+        toast.error('Esta ronda expirou. Inicie uma nova ronda.')
+        await rondasService.descartarDraftAPI().catch(() => {})
+        setRondaIniciada(false)
+        setEstado(estadoInicial)
+        return
+      }
+      toast.error(toUserMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -276,8 +284,15 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
       setDraftServidor(null)
       setMostrarBanner(false)
       setEstado((prev) => ({ ...prev, etapa: 'resumo_final' }))
-    } catch {
-      toast.error('Erro ao finalizar ronda')
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        toast.error('Esta ronda expirou. Inicie uma nova ronda.')
+        await rondasService.descartarDraftAPI().catch(() => {})
+        setRondaIniciada(false)
+        setEstado(estadoInicial)
+        return
+      }
+      toast.error(toUserMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -290,9 +305,20 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
   function handleFoto(e: React.ChangeEvent<HTMLInputElement>, index = 0) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => atualizarDetalhe(index, { foto: reader.result as string })
-    reader.readAsDataURL(file)
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      const MAX_PX = 1280
+      const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const base64 = canvas.toDataURL('image/jpeg', 0.7)
+      atualizarDetalhe(index, { foto: base64 })
+    }
+    img.src = objectUrl
   }
 
   function validarMedicoes() {
@@ -357,7 +383,7 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
     locaisFiltrados,
     setSearchBlocos,
     setSearchLocais,
-    setErrors,
+    setFieldErrors: (e: Record<string, string>) => setErrors(e),
     atualizar,
     iniciar,
     retomar,

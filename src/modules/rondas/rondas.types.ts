@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const OcorrenciaDetalheSchema = z.object({
   tipo: z.string().min(1).max(100),
   descricao: z.string().min(1).max(1000),
-  foto: z.string().optional().nullable(),
+  foto: z.string().max(2_000_000).optional().nullable(), // ~1.5MB imagem base64
   trilogoChamado: z.boolean(),
   bemPatrimony: z.string().max(120).optional().nullable(),
   bemDescricao: z.string().max(255).optional().nullable(),

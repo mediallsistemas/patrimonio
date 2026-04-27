@@ -12,10 +12,10 @@ interface Props {
   errors: Record<string, string>
   atualizar: (parcial: Partial<DraftEstado>) => void
   validarAbastecimento: () => Record<string, string>
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  setFieldErrors: (e: Record<string, string>) => void
 }
 
-export default function GasesAbastecimentoDetalhe({ estado, errors, atualizar, validarAbastecimento, setErrors }: Props) {
+export default function GasesAbastecimentoDetalhe({ estado, errors, atualizar, validarAbastecimento, setFieldErrors }: Props) {
   return (
     <Card shadow="md">
       <div className="flex items-center gap-3 mb-5">
@@ -53,7 +53,7 @@ export default function GasesAbastecimentoDetalhe({ estado, errors, atualizar, v
         </Button>
         <Button onClick={() => {
           const e = validarAbastecimento()
-          if (Object.keys(e).length > 0) { setErrors(e); return }
+          if (Object.keys(e).length > 0) { setFieldErrors(e); return }
           atualizar({ etapa: 'ocorrencia_pergunta' })
         }} className="flex-1">
           Continuar <ChevronRight className="w-4 h-4" />

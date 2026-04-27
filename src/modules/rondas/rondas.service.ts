@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db'
-import { prismaAuth } from '@/lib/db-auth'
 import type { RegistroAmbienteInput } from './rondas.types'
 
 // Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
@@ -68,6 +67,14 @@ export async function buscarRonda(id: string, tenantId: string | null) {
 
 export async function criarRonda(tenantId: string, criadoPorId: string) {
   try {
+    const emAndamento = await prisma.rondaOcorrencia.findFirst({
+      where: { criadoPorId, finalizadoEm: null },
+      select: { id: true },
+    })
+    if (emAndamento) {
+      return { conflict: true, rondaId: emAndamento.id } as const
+    }
+
     return await prisma.rondaOcorrencia.create({
       data: { tenantId, criadoPorId },
       include: INCLUDE_AMBIENTES,
@@ -110,7 +117,7 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
           }
         : {}
 
-    return await prisma.registroAmbiente.create({
+    const registro = await prisma.registroAmbiente.create({
       data: {
         rondaId,
         ambiente: input.ambiente,
@@ -140,45 +147,62 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
         },
       },
     })
+
+    // Mantém atualizadoEm da ronda fresco para evitar expiração durante ronda ativa
+    await prisma.$executeRaw`UPDATE rondas_ocorrencias SET "atualizadoEm" = NOW() WHERE id = ${rondaId}`
+
+    return registro
   } catch (error) {
     console.error('[rondas.service] registrarAmbiente:', error)
     throw error
   }
 }
 
+const EXPIRACAO_RONDA_MS = 24 * 60 * 60 * 1000
+
+export async function expirarRondasAbertas(): Promise<{ expiradas: number }> {
+  try {
+    const limite = new Date(Date.now() - EXPIRACAO_RONDA_MS)
+    const result = await prisma.$executeRaw`
+      UPDATE rondas_ocorrencias
+      SET "finalizadoEm" = NOW()
+      WHERE "finalizadoEm" IS NULL
+        AND "atualizadoEm" < ${limite}
+    `
+    return { expiradas: result }
+  } catch (error) {
+    console.error('[rondas.service] expirarRondasAbertas:', error)
+    throw error
+  }
+}
+
 export async function listarRondasAdmin(limit = 100, tenantId?: string) {
   try {
-    const [rondas, tenants] = await Promise.all([
-      prisma.rondaOcorrencia.findMany({
-        where: tenantId ? { tenantId } : undefined,
-        orderBy: { iniciadoEm: 'desc' },
-        take: limit,
-        select: {
-          ...SELECT_RONDA_LIGHT,
-          criadoPor: { select: { id: true, nome: true } },
-          ambientes: {
-            orderBy: { concluidoEm: 'asc' as const },
-            select: {
-              id: true,
-              ambiente: true,
-              temOcorrencia: true,
-              concluidoEm: true,
-              ocorrencias: {
-                select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
-              },
+    return await prisma.rondaOcorrencia.findMany({
+      where: tenantId ? { tenantId } : undefined,
+      orderBy: { iniciadoEm: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        iniciadoEm: true,
+        finalizadoEm: true,
+        tenantId: true,
+        criadoPor: { select: { id: true, nome: true } },
+        tenant: { select: { id: true, nome: true, slug: true } },
+        ambientes: {
+          orderBy: { concluidoEm: 'asc' as const },
+          select: {
+            id: true,
+            ambiente: true,
+            temOcorrencia: true,
+            concluidoEm: true,
+            ocorrencias: {
+              select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
             },
           },
         },
-      }),
-      prismaAuth.tenant.findMany({ select: { id: true, nome: true, slug: true } }),
-    ])
-
-    const tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t]))
-
-    return rondas.map((r) => ({
-      ...r,
-      tenant: tenantMap[r.tenantId] ?? { id: r.tenantId, nome: 'Desconhecido', slug: '' },
-    }))
+      },
+    })
   } catch (error) {
     console.error('[rondas.service] listarRondasAdmin:', error)
     throw error

@@ -1,5 +1,5 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
-import { created, unauthorized, forbidden, badRequest, notFound, serverError } from '@/lib/api-response'
+import { created, unauthorized, forbidden, badRequest, notFound, conflict, serverError } from '@/lib/api-response'
 import { RegistroAmbienteSchema } from '@/modules/rondas/rondas.types'
 import { buscarRonda, registrarAmbiente } from '@/modules/rondas/rondas.service'
 
@@ -15,12 +15,13 @@ export async function POST(
   const tenantId = session.role === 'super_admin' ? null : session.tenantId!
 
   try {
-    // Verifica que a ronda existe e pertence ao tenant do usuário
+    // Verifica que a ronda existe, pertence ao tenant e ainda está aberta
     const ronda = await buscarRonda(rondaId, tenantId)
     if (!ronda) return notFound('Ronda')
+    if (ronda.finalizadoEm !== null) return conflict('Ronda já foi finalizada')
 
     const parsed = RegistroAmbienteSchema.safeParse(await req.json())
-    if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
+    if (!parsed.success) return badRequest(parsed.error.issues)
 
     const registro = await registrarAmbiente(rondaId, parsed.data)
     return created(registro)

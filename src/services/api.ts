@@ -1,3 +1,5 @@
+import { ApiError } from '@/lib/error-message'
+
 const API_BASE = '/api'
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -13,8 +15,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   })
 
   if (!response.ok) {
-    const json = await response.json().catch(() => ({ error: 'Erro na requisição' })) as Record<string, unknown>
-    throw new Error(String(json['error'] ?? json['message'] ?? `HTTP ${response.status}`))
+    const json = await response.json().catch(() => ({})) as Record<string, unknown>
+    const message = String(json['error'] ?? json['message'] ?? `HTTP ${response.status}`)
+    throw new ApiError(response.status, message)
   }
 
   return response.json() as Promise<T>

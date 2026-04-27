@@ -12,7 +12,7 @@ interface GasesMedicoesProps {
   errors: Record<string, string>
   atualizar: (parcial: Partial<DraftEstado>) => void
   validarMedicoes: () => Record<string, string>
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  setFieldErrors: (e: Record<string, string>) => void
 }
 
 export default function GasesMedicoes({
@@ -20,7 +20,7 @@ export default function GasesMedicoes({
   errors,
   atualizar,
   validarMedicoes,
-  setErrors,
+  setFieldErrors,
 }: GasesMedicoesProps) {
   return (
     <Card shadow="md">
@@ -82,7 +82,7 @@ export default function GasesMedicoes({
         <Button
           onClick={() => {
             const e = validarMedicoes()
-            if (Object.keys(e).length > 0) { setErrors(e); return }
+            if (Object.keys(e).length > 0) { setFieldErrors(e); return }
             atualizar({ etapa: 'gases_backup' })
           }}
           className="flex-1"

@@ -1,8 +1,6 @@
 import { getSession } from '@/lib/auth'
-import { ok, created, unauthorized, serverError } from '@/lib/api-response'
+import { ok, created, unauthorized, badRequest, serverError } from '@/lib/api-response'
 import { listarRodadas, criarRodada } from '@/modules/rodadas/rodadas.service'
-
-const SUPER_ADMIN_TENANT = '00000000-0000-0000-0000-000000000001'
 
 export async function GET(): Promise<Response> {
   const session = await getSession()
@@ -21,10 +19,12 @@ export async function POST(): Promise<Response> {
   const session = await getSession()
   if (!session) return unauthorized()
 
+  if (session.role === 'super_admin') {
+    return badRequest('super_admin não pode criar rodadas sem contexto de tenant')
+  }
+
   try {
-    const tenantId =
-      session.role === 'super_admin' ? SUPER_ADMIN_TENANT : session.tenantId!
-    const rodada = await criarRodada(tenantId, session.userId)
+    const rodada = await criarRodada(session.tenantId!, session.userId)
     return created(rodada)
   } catch {
     return serverError('criarRodada failed')

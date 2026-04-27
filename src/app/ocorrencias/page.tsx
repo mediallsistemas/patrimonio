@@ -121,7 +121,7 @@ export default function OcorrenciasPage() {
                   adicionarDetalhe={ronda.adicionarDetalhe}
                   removerDetalhe={ronda.removerDetalhe}
                   validarDetalhe={ronda.validarDetalhe}
-                  setErrors={ronda.setErrors}
+                  setFieldErrors={ronda.setFieldErrors}
                   handleFoto={ronda.handleFoto}
                   salvarLocal={ronda.salvarLocal}
                 />
@@ -133,7 +133,7 @@ export default function OcorrenciasPage() {
                   errors={ronda.errors}
                   atualizar={ronda.atualizar}
                   validarMedicoes={ronda.validarMedicoes}
-                  setErrors={ronda.setErrors}
+                  setFieldErrors={ronda.setFieldErrors}
                 />
               )}
 
@@ -151,7 +151,7 @@ export default function OcorrenciasPage() {
                   errors={ronda.errors}
                   atualizar={ronda.atualizar}
                   validarAbastecimento={ronda.validarAbastecimento}
-                  setErrors={ronda.setErrors}
+                  setFieldErrors={ronda.setFieldErrors}
                 />
               )}
 

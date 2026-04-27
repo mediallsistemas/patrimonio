@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { toUserMessage } from '@/lib/error-message'
+import * as rodadasService from '@/services/rodadas.service'
 import type { Etapa, Medicoes, DadosAbastecimento, DetalheAlteracao, ResumoInspecao, TipoAlteracao } from '@/app/[tenantSlug]/inspecao/inspecao.types'
 import { ETAPA_NUM, TOTAL_ETAPAS } from '@/app/[tenantSlug]/inspecao/inspecao.types'
 
@@ -85,37 +87,27 @@ export function useInspecao() {
   async function salvarAmbiente(temAlteracao: boolean, det?: DetalheAlteracao) {
     let id = rodadaId
     if (!id) {
-      const criada = await fetch('/api/rodadas', { method: 'POST' })
-      if (!criada.ok) throw new Error('Falha ao criar rodada')
-      const rodada = await criada.json()
-      id = rodada.id
+      const criada = await rodadasService.criar()
+      id = criada.id
       setRodadaId(id)
     }
     const temAbast = Boolean(abastecimento.quantidade && abastecimento.tamanho)
-    const res = await fetch(`/api/rodadas/${id}/ambientes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ambiente,
-        purezaO2: medicoes.purezaO2,
-        pressaoO2: medicoes.pressaoO2,
-        pressaoAr: medicoes.pressaoAr,
-        backupLigado,
-        temAbastecimento: temAbast,
-        abastecimento: temAbast ? { quantidade: abastecimento.quantidade, tamanho: abastecimento.tamanho } : undefined,
-        temAlteracao,
-        alteracao: temAlteracao && det ? { tipo: det.tipo, descricao: det.descricao, foto: det.foto, trilogoChamado: det.trilogoChamado } : undefined,
-      }),
+    await rodadasService.registrarAmbiente(id, {
+      ambiente,
+      purezaO2: Number(medicoes.purezaO2),
+      pressaoO2: Number(medicoes.pressaoO2),
+      pressaoAr: Number(medicoes.pressaoAr),
+      backupLigado,
+      temAbastecimento: temAbast,
+      abastecimento: temAbast ? { quantidade: Number(abastecimento.quantidade), tamanho: abastecimento.tamanho } : undefined,
+      temAlteracao,
+      alteracao: temAlteracao && det ? { tipo: det.tipo, descricao: det.descricao, foto: det.foto, trilogoChamado: det.trilogoChamado } : undefined,
     })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      throw new Error(data.error ?? `Erro ${res.status}`)
-    }
   }
 
   async function finalizarRodada(temAlteracao: boolean, tipo?: TipoAlteracao) {
     try {
-      await fetch(`/api/rodadas/${rodadaId}`, { method: 'PATCH' })
+      if (rodadaId) await rodadasService.finalizar(rodadaId)
     } catch { /* não crítico */ }
     const temAbast = Boolean(abastecimento.quantidade && abastecimento.tamanho)
     setResumo({
@@ -134,7 +126,7 @@ export function useInspecao() {
       await salvarAmbiente(false)
       await finalizarRodada(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
+      toast.error(toUserMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -148,7 +140,7 @@ export function useInspecao() {
       await salvarAmbiente(true, det)
       await finalizarRodada(true, det.tipo ?? undefined)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
+      toast.error(toUserMessage(err))
     } finally {
       setSubmitting(false)
     }
