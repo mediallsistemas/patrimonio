@@ -137,7 +137,6 @@ export interface RondaState {
   locaisFiltrados: AmbienteAPI[]
   setSearchBlocos: (v: string) => void
   setSearchLocais: (v: string) => void
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
   atualizar: (parcial: Partial<DraftEstado>) => void
   iniciar: () => void
   retomar: () => void
@@ -158,4 +157,5 @@ export interface RondaState {
   adicionarDetalhe: () => void
   removerDetalhe: (index: number) => void
   validarDetalhe: () => Record<string, string>
+  setFieldErrors: (e: Record<string, string>) => void
 }

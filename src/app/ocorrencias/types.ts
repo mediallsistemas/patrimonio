@@ -128,7 +128,6 @@ export interface OcorrenciaRondaState {
   locaisFiltrados: AmbienteAPI[]
   setSearchBlocos: (v: string) => void
   setSearchLocais: (v: string) => void
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
   atualizar: (parcial: Partial<DraftEstado>) => void
   iniciar: () => Promise<void>
   retomar: () => void
@@ -149,6 +148,7 @@ export interface OcorrenciaRondaState {
   removerDetalhe: (index: number) => void
   validarDetalhe: () => Record<string, string>
   selecionarBem: (bem: BemSelecionado) => void
+  setFieldErrors: (e: Record<string, string>) => void
 }
 
 export function estadoInicial(): DraftEstado {
