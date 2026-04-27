@@ -1,40 +1,243 @@
-# LinenSistem — Agent Instructions
+# Sistema Rondas + API Trilogo — Agent Instructions
 
-This is a multi-tenant platform built with **Next.js 14 (App Router) + Prisma + PostgreSQL**.
-It absorbs the backend of FeedbackForms (previously NestJS, now discarded). The FeedbackForms
-SPA (React + Vite) calls this project's API routes.
+Multi-tenant platform built with **Next.js 15 (App Router) + Prisma + PostgreSQL**.
+Combines LinenSistem (linen/hotelaria + incidents + gas inspection) with FeedbackForms
+(patient satisfaction surveys) and Trilogo ERP integration (asset sync).
 
-Read `INTEGRATION_PLAN.md` for full architectural context and the current migration status.
+---
+
+## What This System Does
+
+| Module | Description |
+|--------|-------------|
+| **Ronda de Ocorrências** | Security/incident rounds: operators walk through environments, register incidents with photos |
+| **Inspeção de Gases** | Gas inspection rounds: register O2 purity, pressure, supply events, alterations per environment |
+| **Hotelaria** | Face recognition-based linen entry/exit: register person → capture face → log movements |
+| **Patrimônio** | Trilogo ERP asset sync: search assets by patrimony code, maintenance scheduling, public QR links |
+| **FeedbackForms** | Patient satisfaction surveys: form templates, responses, analytics by sector/period |
+| **Admin** | Super admin panel: manage tenants, users, view cross-tenant rounds |
 
 ---
 
 ## Stack
 
-- **Framework:** Next.js 14, App Router
-- **ORM:** Prisma (PostgreSQL)
-- **Auth:** JWT (cookie `ls_session` + Bearer header)
-- **Styling:** Tailwind CSS
-- **Language:** TypeScript (strict — no `any`)
+- **Framework:** Next.js 15, App Router, React 19
+- **ORM:** Prisma 6 (PostgreSQL)
+- **Auth:** JWT via `jose` (cookie `ls_session` + Bearer header), bcryptjs for passwords
+- **Styling:** Tailwind CSS 4
+- **Validation:** Zod 4 (every API boundary)
+- **State/Data:** TanStack Query v5 for server state; `useState` for local UI state
+- **Charts:** Recharts
+- **Face Recognition:** face-api.js (TensorFlow-based, client-side)
+- **Language:** TypeScript strict — `any` is forbidden
 
 ---
 
-## Folder Responsibilities — One Rule Per Layer
+## Folder Structure & Responsibilities
 
 ```
-route.ts        → receive request, verify auth, call service, return response (NO business logic)
-modules/        → all business logic and Prisma queries (services + types per domain)
-components/     → dumb UI — props in, events out, NO fetch calls
-hooks/          → state + client-side service calls — pages and components consume hooks
-services/       → client-side fetch wrappers targeting /api/* routes
-lib/            → shared server utilities (db singleton, jwt helpers, api-response helpers)
+src/
+  app/
+    [tenantSlug]/          # Tenant-scoped pages (ronda, inspeção, hotelaria, etc.)
+    admin/                 # Super-admin pages (tenants, users, rounds dashboard)
+    api/                   # API routes — ONLY: auth → service → respond
+    bem/[token]/           # Public asset page (no auth, token-based)
+    login/                 # Login page
+    mudar-senha/           # Password change page
+    ocorrencias/           # Incident list/history pages
+    page.tsx               # Home with action cards
+  components/
+    ui/                    # Reusable UI primitives (Button, Card, Input, Text, Header)
+    ui/inspecao/           # Inspection-specific cards and lazy photos
+    ui/modal/              # All modals (ModalCriarTenant, ModalCriarUsuario, ModalConfirmarReset)
+    ui/patrimonio/         # Asset filter controls, maintenance ticket rows
+    ui/ronda/              # Incident round cards, environment groups, lazy photos
+    camera-view.tsx        # Camera feed for face capture
+    face-api-preloader.tsx # Preloads face-api.js models on mount
+  hooks/                   # Client state + data fetching — consumed by pages/components
+  lib/                     # Server-only utilities (never imported in components/hooks)
+  modules/                 # All business logic + Prisma queries (one folder per domain)
+  services/                # Client-side fetch wrappers calling /api/* routes
+  types/                   # Shared TypeScript interfaces (global, cross-domain)
+  utils/                   # Pure utility functions (CPF validation, date formatting)
+prisma/
+  schema.prisma            # Single source of truth for DB schema
+  migrations/              # Never delete. Never mix domains in one migration.
 ```
 
-Never cross these boundaries. A `route.ts` that contains a Prisma call is wrong.
-A component that calls `fetch` directly is wrong.
+### Layer Rules — Never Cross These Boundaries
+
+```
+route.ts    → auth check → parse body → call service → return response helper
+             NO Prisma, NO business logic, NO direct DB access
+
+modules/    → all Prisma queries + business logic
+             NO req/res, NO NextResponse, NO imports from app/ or components/
+
+components/ → props in, events out, NO fetch, NO hooks that hit the network
+             Exceptions: camera-view.tsx and face-api-preloader.tsx have WebRTC/ML side effects
+
+hooks/      → useState + calls to services/ — consumed by pages and components
+             NO direct fetch, NO Prisma, NO server-only imports
+
+services/   → client fetch wrappers calling /api/* — used only by hooks
+             NO business logic, only HTTP calls + response typing
+
+lib/        → server-only utilities (db.ts, auth.ts, api-response.ts)
+             NEVER imported in client components or hooks
+```
 
 ---
 
-## Import Order (always follow this)
+## Existing Components Catalog
+
+### `src/components/ui/` — Primitives
+
+| Component | Props / Usage |
+|-----------|--------------|
+| `Button.tsx` | `variant`, `size`, `loading`, `onClick` — wraps `<button>` with Tailwind variants |
+| `Card.tsx` | Generic card wrapper with optional title slot |
+| `Input.tsx` | Controlled text input with label and error state |
+| `Text.tsx` | Typography: `variant` = `heading-lg`, `heading-md`, `body-md`, `caption` |
+| `Header.tsx` | Page top bar with logo + user menu |
+| `LogoutButton.tsx` | Calls `POST /api/auth/logout`, redirects to `/login` |
+| `MudarSenhaBanner.tsx` | Banner shown when `mustChangePassword === true` in JWT |
+| `CheckFeedback.tsx` | Feedback check confirmation UI |
+
+### `src/components/ui/ronda/` — Incident Rounds
+
+| Component | Usage |
+|-----------|-------|
+| `RondaCard.tsx` | Summary card for one incident round (status, date, environment count) |
+| `OcorrenciaCard.tsx` | Card for a single incident inside a round |
+| `GrupoAmbientes.tsx` | Groups environments into blocks for the round form |
+| `FotoLazy.tsx` | Lazy-loads incident photo (base64) only when visible in viewport |
+
+### `src/components/ui/inspecao/` — Gas Inspection
+
+| Component | Usage |
+|-----------|-------|
+| `RodadaCard.tsx` | Summary card for one inspection round |
+| `AmbienteCard.tsx` | Card for one environment in inspection (O2 purity, pressure, backup status) |
+| `GrupoAmbientesInspecao.tsx` | Groups environments by block for inspection form |
+| `FotoLazyAmbiente.tsx` | Lazy-loads inspection alteration photo |
+
+### `src/components/ui/modal/` — Modals
+
+| Component | Usage |
+|-----------|-------|
+| `ModalCriarTenant.tsx` | Form to create a new tenant (super_admin only) |
+| `ModalCriarUsuario.tsx` | Form to create a user with role selection |
+| `ModalConfirmarReset.tsx` | Confirmation modal before resetting a user password |
+
+All modals: controlled by local `useState`, rendered via React Portal, never navigate to a route.
+
+### `src/components/ui/patrimonio/` — Assets
+
+| Component | Usage |
+|-----------|-------|
+| `FiltrosPatrimonio.tsx` | Filter bar for asset search (company, project, patrimony code) |
+| `TicketRow.tsx` | Single row in maintenance ticket list |
+
+---
+
+## Existing Hooks Catalog
+
+| Hook | Purpose |
+|------|---------|
+| `useAuth` | Fetches `/api/auth/me`, exposes `user`, `loading`, `logout()` |
+| `useLogin` | Login form state: credentials, loading, error, `submit()` |
+| `useRonda` | Incident round list + create + finalize operations |
+| `useRondaBase` | Shared base logic for both `useRonda` and `useInspecao` (draft save/restore, ambiente navigation) |
+| `useInspecao` | Gas inspection round state + per-ambiente data entry |
+| `useOcorrenciaRonda` | Incident detail creation and editing within a round |
+| `usePatrimonio` | Asset search, maintenance ticket CRUD, Trilogo sync |
+| `useAdminTenants` | Tenant CRUD for admin panel |
+| `useAdminUsuarios` | User CRUD + password reset for admin panel |
+
+When adding a new domain feature, create a dedicated hook. Do not add domain logic to `useAuth` or generic hooks.
+
+---
+
+## Existing Modules (Server-Side Services)
+
+| Module | Service files | Responsibility |
+|--------|--------------|----------------|
+| `auth` | `auth.service.ts`, `auth.guards.ts`, `tenant-resolver.ts` | JWT sign/verify, login, verifyAuth guard, assertTenant |
+| `rondas` | `rondas.service.ts`, `ronda-draft.service.ts` | Incident round CRUD + JSON draft persistence |
+| `rodadas` | `rodadas.service.ts` | Gas inspection round CRUD |
+| `ocorrencias` | `ocorrencias.service.ts` | Incident detail creation with photo |
+| `ambientes` | `ambientes.service.ts` | Environment list, photo upload |
+| `tenants` | `tenants.service.ts` | Tenant CRUD, slug resolution |
+| `usuarios` | `usuarios.service.ts` | User CRUD, password hashing, reset |
+| `dashboard` | `dashboard.service.ts` | Aggregated stats queries |
+| `feedback` | `form-response.service.ts`, `form-template.service.ts`, `analytics.service.ts` | Survey forms + response analytics |
+| `pessoas` | `pessoas.service.ts` | Person registration + face descriptor storage |
+| `movimentacoes` | `movimentacoes.service.ts` | Entry/exit logs (hotelaria) |
+| `face-match` | `face-match.service.ts` | Face descriptor comparison against DB |
+| `agendamentos` | `agendamentos.service.ts` | Maintenance schedule from Trilogo |
+| `links-publicos` | `links-publicos.service.ts` | Public token generation for asset QR links |
+
+---
+
+## Database Models Summary
+
+### Core
+
+| Model | Key fields |
+|-------|-----------|
+| `Tenant` | `id`, `slug (unique)`, `nome`, `ativo`, `trilogoCompanyId`, `trilogoProjectName`, `feedbackForms (bool)` |
+| `Usuario` | `id`, `email (unique)`, `username (unique)`, `senhaHash`, `role`, `tenantId`, `sistemas[]`, `mustChangePassword` |
+
+### Incident Rounds
+
+| Model | Key fields |
+|-------|-----------|
+| `RondaOcorrencia` | `id`, `tenantId`, `criadoPorId`, `iniciadoEm`, `finalizadoEm` |
+| `RegistroAmbiente` | `id`, `rondaId`, `ambiente`, `tipoRegistro (ocorrencia\|gases)`, `temOcorrencia`, `concluidoEm` |
+| `OcorrenciaDetalhe` | `id`, `registroId`, `tipo`, `descricao`, `foto (base64)`, `trilogoChamado`, `bemPatrimony` |
+| `RondaDraft` | `id`, `tenantId`, `criadoPorId`, `estado (JSON)`, `atualizadoEm` |
+
+### Gas Inspection
+
+| Model | Key fields |
+|-------|-----------|
+| `Rodada` | `id`, `tenantId`, `criadoPorId`, `iniciadoEm`, `finalizadoEm` |
+| `AmbienteInspecionado` | `id`, `rodadaId`, `ambiente`, `purezaO2`, `pressaoO2`, `pressaoAr`, `backupLigado`, `temAlteracao` |
+| `Abastecimento` | `id`, `ambienteInspecionadoId`, `quantidade`, `tamanho` |
+| `Alteracao` | `id`, `ambienteInspecionadoId`, `tipo`, `descricao`, `foto (base64)`, `trilogoChamado` |
+
+### Tenant Configuration
+
+| Model | Key fields |
+|-------|-----------|
+| `BlocoTenant` | `id`, `tenantId`, `nome`, `ordem`, `ativo` |
+| `AmbienteTenant` | `id`, `tenantId`, `blocoId`, `nome`, `tipo (ocorrencia\|gases)`, `ativo` |
+
+### Hotelaria / Face
+
+| Model | Key fields |
+|-------|-----------|
+| `Pessoa` | `id`, `tenantId`, `nome`, `cpf`, `faceDescriptor (JSON — 128-dim array)` |
+| `Movimentacao` | `id`, `tenantId`, `pessoaId`, `tipo (retirada\|devolucao)`, `dataHora` |
+
+### Patrimônio / Assets
+
+| Model | Key fields |
+|-------|-----------|
+| `AgendamentoManutencao` | `id`, `tenantId`, `trilogoAssetId`, `patrimony`, `status (pendente\|realizado\|cancelado)` |
+| `LinkPublicoBem` | `id`, `tenantId`, `companyId`, `projeto`, `ambiente` |
+
+### Feedback / Surveys
+
+| Model | Key fields |
+|-------|-----------|
+| `TemplateFormulario` | `id`, `tenantId`, `nome`, `campos (JSON)`, `ativo` |
+| `RespostaFormulario` | `id`, `tenantId`, `templateId`, `nomePaciente`, `cpf`, `setor`, `respostas (JSON)`, `deletadoEm` |
+
+---
+
+## Import Order (always follow)
 
 ```ts
 // 1. React / Next.js
@@ -50,7 +253,7 @@ import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, unauthorized } from '@/lib/api-response'
 
 // 4. Components
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 
 // 5. Types (import type)
 import type { JWTPayload } from '@/modules/auth/auth.types'
@@ -61,14 +264,14 @@ import type { JWTPayload } from '@/modules/auth/auth.types'
 ## Naming Conventions
 
 | Type | Convention | Example |
-|---|---|---|
-| React component | PascalCase | `ModalConfirm.tsx` |
-| Hook | camelCase + `use` prefix | `useFormResponse.ts` |
-| Server service | kebab-case + `.service.ts` | `feedback.service.ts` |
-| Client service | kebab-case + `.service.ts` | `form-response.service.ts` |
-| Types file | `.types.ts`, PascalCase interfaces | `feedback.types.ts` |
-| API route folder | plural noun (resource name) | `/api/feedback/form-responses/` |
-| DB table (Prisma `@@map`) | snake_case, plural | `respostas_formulario` |
+|------|-----------|---------|
+| React component | PascalCase | `OcorrenciaCard.tsx` |
+| Hook | camelCase + `use` prefix | `useRondaBase.ts` |
+| Server service | kebab-case + `.service.ts` | `rondas.service.ts` |
+| Client service | kebab-case + `.service.ts` | `rondas.service.ts` (in `src/services/`) |
+| Types file | `.types.ts`, PascalCase interfaces | `rondas.types.ts` |
+| API route folder | plural noun | `/api/rondas/`, `/api/rodadas/` |
+| DB table (`@@map`) | snake_case plural | `ronda_ocorrencias`, `registros_ambiente` |
 | DB column (`@map`) | snake_case | `tenant_id`, `criado_por_id` |
 
 ---
@@ -78,57 +281,56 @@ import type { JWTPayload } from '@/modules/auth/auth.types'
 ### Authentication on every protected route
 
 ```ts
-// app/api/resource/route.ts
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, unauthorized } from '@/lib/api-response'
 
 export async function GET(req: Request) {
-  const session = await verifyAuth(req, ['tenant_admin', 'super_admin'])
+  const session = await verifyAuth(req, ['tenant_admin', 'operator'])
   if (!session) return unauthorized()
   // proceed
 }
 ```
 
-`verifyAuth()` reads the Bearer header or `ls_session` cookie. Always pass the required roles.
+`verifyAuth()` reads Bearer header or `ls_session` cookie. Always pass the allowed roles array.
 
 ### Tenant isolation — mandatory on every Prisma query
 
 ```ts
 // CORRECT
-const items = await prisma.rodada.findMany({
+const rondas = await prisma.rondaOcorrencia.findMany({
   where: { tenantId: session.tenantId }
 })
 
-// WRONG — never query without tenant filter on multi-tenant tables
-const items = await prisma.rodada.findMany()
+// WRONG — never query multi-tenant tables without tenant filter
+const rondas = await prisma.rondaOcorrencia.findMany()
 ```
 
-Super admin has `tenantId: null`. For super admin queries, either omit the filter explicitly
-or pass an explicit tenantId when scoping to a single tenant.
+`super_admin` has `tenantId: null`. When scoping to a specific tenant, pass an explicit tenantId.
+When listing cross-tenant (admin only), skip the filter intentionally with a comment.
 
-### criadoPorId always comes from the JWT — never from the request body
+### criadoPorId always from the JWT — never from the request body
 
 ```ts
 // CORRECT
-await rodadaService.criar(session.tenantId!, session.sub)
+await rondasService.criar(session.tenantId!, session.sub)
 
 // WRONG
-const { criadoPorId } = await req.json()  // never trust client-supplied user IDs
+const { criadoPorId } = await req.json()  // never trust client-supplied IDs
 ```
 
-### Never expose internals to the client
+### Never expose internals
 
-- Catch all errors in services, log them server-side, return `serverError()` to the client.
-- Never send Prisma error messages, stack traces, or internal model details in responses.
+- Catch all errors server-side, return `serverError()` to the client.
+- Never send Prisma errors, stack traces, raw SQL, or internal model details in responses.
+- `senhaHash` must never appear in any service return value or API response.
 
 ---
 
 ## API Response Shape — Always Use the Helpers
 
-Every route.ts must use `lib/api-response.ts`. Never use `NextResponse.json()` directly.
+Every `route.ts` must use `lib/api-response.ts`. Never call `NextResponse.json()` directly.
 
 ```ts
-// lib/api-response.ts — helpers available
 ok(data, message?)       // 200
 created(data)            // 201
 badRequest(error)        // 400
@@ -140,11 +342,8 @@ serverError(error)       // 500
 
 Shape contract:
 ```ts
-// success
-{ data: T, message?: string }
-
-// error
-{ error: string, details?: unknown }
+{ data: T, message?: string }   // success
+{ error: string, details?: unknown }  // error
 ```
 
 ---
@@ -153,28 +352,104 @@ Shape contract:
 
 ```ts
 interface JWTPayload {
-  sub: string             // userId
+  sub: string               // userId
   email: string
   nome: string
-  role: 'super_admin' | 'tenant_admin' | 'viewer'
+  role: 'super_admin' | 'tenant_admin' | 'operator' | 'operator_patrimonio' | 'operator_forms' | 'viewer'
   tenantId: string | null   // null = super_admin
   tenantSlug: string | null
+  sistemas: string[]        // ['linensistem', 'feedbackforms']
+  mustChangePassword?: boolean
   iat?: number
   exp?: number
 }
 ```
 
-This contract is shared with the FeedbackForms SPA. Do not add or rename fields without
-updating both projects.
+Shared with FeedbackForms SPA. Do not add or rename fields without updating both projects.
+JWT expires in 4 hours. Signed with HS256, stored in httpOnly cookie `ls_session`.
+
+---
+
+## Role Access Matrix
+
+| Role | Reads | Writes | Scope |
+|------|-------|--------|-------|
+| `super_admin` | all | all | cross-tenant |
+| `tenant_admin` | own tenant | own tenant | single tenant |
+| `operator` | own tenant | rondas, inspeção, hotelaria | single tenant |
+| `operator_patrimonio` | own tenant | assets, maintenance | single tenant |
+| `operator_forms` | own tenant | feedback forms | single tenant |
+| `viewer` | own tenant | none | single tenant — read-only |
+
+`viewer` is always read-only — never allow writes even with a valid JWT.
+
+---
+
+## Input Validation — Zod at Every API Boundary
+
+```ts
+// modules/rondas/rondas.types.ts
+import { z } from 'zod'
+
+export const CriarRondaSchema = z.object({
+  ambientes: z.array(z.string().uuid()).min(1),
+})
+export type CriarRondaInput = z.infer<typeof CriarRondaSchema>
+```
+
+```ts
+// app/api/rondas/route.ts
+const parsed = CriarRondaSchema.safeParse(await req.json())
+if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
+await rondasService.criar(session.tenantId!, session.sub, parsed.data)
+```
+
+Rules:
+- Always `.safeParse()`, never `.parse()`.
+- Schemas live in `.types.ts` next to the service — never inside `route.ts`.
+- Zod strips unknown fields by default — rely on this.
+- Return `badRequest()` with field errors, never a 500 for invalid input.
+
+---
+
+## Error Handling Pattern
+
+```ts
+// modules/rondas/rondas.service.ts
+export async function listar(tenantId: string): Promise<RondaResumo[]> {
+  try {
+    return await prisma.rondaOcorrencia.findMany({
+      where: { tenantId },
+      select: { id: true, iniciadoEm: true, finalizadoEm: true },
+      orderBy: { iniciadoEm: 'desc' },
+    })
+  } catch (error) {
+    console.error('[rondas.service] listar:', error)
+    throw error
+  }
+}
+
+// app/api/rondas/route.ts
+export async function GET(req: Request) {
+  const session = await verifyAuth(req, ['tenant_admin', 'operator'])
+  if (!session) return unauthorized()
+  try {
+    const rondas = await rondasService.listar(session.tenantId!)
+    return ok(rondas)
+  } catch {
+    return serverError('listar rondas failed')
+  }
+}
+```
 
 ---
 
 ## Audit Fields — Required on User-Action Models
 
 | Situation | Required fields |
-|---|---|
-| Any creation by authenticated user | `criadoPorId String` + relation to `Usuario` + `criadoEm DateTime @default(now())` |
-| Mutable model (status, editable data) | + `atualizadoEm DateTime @updatedAt` + `atualizadoPorId String?` |
+|-----------|----------------|
+| Any creation by authenticated user | `criadoPorId String` + `criadoEm DateTime @default(now())` |
+| Mutable model | + `atualizadoEm DateTime @updatedAt` + `atualizadoPorId String?` |
 | Logical deletion | + `deletadoEm DateTime?` |
 | Public operation (no auth) | `criadoPorId String?` (nullable) |
 
@@ -182,127 +457,84 @@ updating both projects.
 
 ## Database Conventions
 
-- Primary key: always `id String @id @default(uuid())`
-- Indexes: every model with `tenantId` must have at minimum `@@index([tenantId])`
-- Add compound indexes for frequent query patterns: `@@index([tenantId, criadoEm])`, etc.
-- Migrations: one migration per feature domain. Never mix unrelated models in one migration.
-- Never use `prisma db push` on production. Always `prisma migrate deploy`.
-- Never delete old migration files.
+- Primary key: `id String @id @default(uuid())`
+- Every model with `tenantId` must have at minimum `@@index([tenantId])`
+- Add compound indexes for frequent patterns: `@@index([tenantId, criadoEm])`
+- One migration per feature domain — never mix unrelated models
+- Never `prisma db push` in production — always `prisma migrate deploy`
+- Never delete migration files
 
 ---
 
-## Error Handling Pattern
+## Draft / Auto-Recovery Pattern
+
+Incident rounds and inspection rounds support mid-session recovery via `RondaDraft`:
 
 ```ts
-// modules/domain/domain.service.ts
-export async function getItems(tenantId: string) {
-  try {
-    return await prisma.item.findMany({ where: { tenantId } })
-  } catch (error) {
-    console.error('[domain.service] getItems:', error)
-    throw error  // route.ts catches and returns serverError()
-  }
-}
+// Save draft (called on each environment completion)
+await rondaDraftService.salvar(tenantId, userId, estadoJSON)
 
-// app/api/domain/route.ts
-export async function GET(req: Request) {
-  const session = await verifyAuth(req, ['tenant_admin'])
-  if (!session) return unauthorized()
-  try {
-    const items = await domainService.getItems(session.tenantId!)
-    return ok(items)
-  } catch {
-    return serverError('getItems failed')
-  }
-}
+// Load draft on page mount
+const draft = await rondaDraftService.carregar(tenantId, userId)
+
+// Clear draft on finalization
+await rondaDraftService.limpar(tenantId, userId)
 ```
+
+The hook `useRondaBase` handles draft save/load lifecycle. Both `useRonda` and `useInspecao` extend it.
 
 ---
 
-## Environment Variables
+## Photo / File Handling
 
-- All variables documented in `.env.example`.
-- Server-only variables: no prefix.
-- Client-exposed variables: `NEXT_PUBLIC_` prefix.
-- Never hardcode secrets. Never commit `.env` or `.env.production`.
-- `JWT_SECRET` must be identical in LinenSistem and FeedbackForms.
-- `CORS_ORIGINS`: comma-separated list of allowed origins for the SPA.
+Photos are stored as base64 strings directly in PostgreSQL text fields (`foto` column).
+
+Rules:
+- Validate max size before decoding: Zod schema `z.string().max(2_000_000)` (~1.5MB)
+- Validate MIME type from actual bytes, not the `Content-Type` header
+- Lazy-load photos with `FotoLazy.tsx` or `FotoLazyAmbiente.tsx` (IntersectionObserver)
+- Never store file paths — always base64 in the DB for this system
+
+---
+
+## Trilogo ERP Integration
+
+Trilogo is an external asset management ERP. Integration points:
+
+- `Tenant.trilogoCompanyId` and `trilogoProjectName` configure which Trilogo project to sync
+- `AgendamentoManutencao.trilogoAssetId` links a maintenance ticket to a Trilogo asset
+- `OcorrenciaDetalhe.trilogoChamado` flags an incident as sent to Trilogo
+- Cron sync: `POST /api/cron/sync-trilogo` — syncs assets from Trilogo API
+- Public QR links (`LinkPublicoBem`) allow scanning without auth, resolving to asset info
+
+---
+
+## Face Recognition Pattern
+
+Face recognition is client-side only (face-api.js). The flow:
+
+1. `face-api-preloader.tsx` loads TensorFlow models on mount
+2. `camera-view.tsx` captures video feed and extracts 128-dim face descriptor
+3. Descriptor sent to `POST /api/hotelaria/[tenantSlug]/verificar-face`
+4. Server compares against stored descriptors in `Pessoa.faceDescriptor` via Euclidean distance
+5. `face-match.service.ts` handles comparison — threshold configurable
+
+Face descriptors are 128-dimensional float arrays stored as JSON. Never store raw face images.
 
 ---
 
 ## Modals
 
-- Always in `components/ui/modal/`.
-- Controlled by local state or React context.
-- Never navigate to a route to open a modal.
-- Use React Portal to render outside the main tree.
-
----
-
-## Input Validation — Required at Every API Boundary
-
-Never trust the request body. Validate shape and types before passing to a service.
-Use Zod for all validation. Define schemas in the service's `.types.ts` file.
-
-```ts
-// modules/feedback/feedback.types.ts
-import { z } from 'zod'
-
-export const CreateFormResponseSchema = z.object({
-  nomePaciente: z.string().min(2).max(120),
-  cpf: z.string().regex(/^\d{11}$/, 'CPF inválido'),
-  setor: z.string().min(1),
-  respostas: z.record(z.unknown()),
-})
-
-export type CreateFormResponseInput = z.infer<typeof CreateFormResponseSchema>
-```
-
-```ts
-// app/api/feedback/form-responses/route.ts
-const parsed = CreateFormResponseSchema.safeParse(await req.json())
-if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
-await formResponseService.create(parsed.data)
-```
-
-Rules:
-- Parse with `.safeParse()`, never `.parse()` (avoids unhandled throws in route.ts).
-- Return `badRequest()` with the Zod field errors — never a 500.
-- Schemas live next to their types, not inside route.ts.
-- Strip unknown fields: Zod does this by default (`.strip()`).
-
----
-
-## Authorization — Role + Ownership Checks
-
-Authentication (valid JWT) is not the same as authorization (allowed to do this).
-Always verify both.
-
-```ts
-// modules/auth/auth.guards.ts
-export function assertTenant(session: JWTPayload, tenantId: string) {
-  if (session.role === 'super_admin') return  // super admin bypasses
-  if (session.tenantId !== tenantId) throw new ForbiddenError()
-}
-```
-
-```ts
-// route.ts — before any service call that touches a specific tenant resource
-assertTenant(session, params.tenantId)
-```
-
-Rules:
-- `verifyAuth()` checks the JWT is valid and the role is in the allowed list.
-- `assertTenant()` / ownership checks happen after that, inside the route or service.
-- `super_admin` bypasses tenant isolation — verify this explicitly, do not assume.
-- `viewer` role is read-only: never allow write operations even if JWT is valid.
+- All modals live in `src/components/ui/modal/`
+- Controlled by local `useState` or React context — never route-based
+- Use React Portal to render outside the main tree
+- Never navigate to a separate route to open a modal
 
 ---
 
 ## HTTP Security Headers
 
-Next.js config must set these headers on every response. Already configured in
-`next.config.ts`. Do not remove them.
+Configured in `next.config.ts` — do not remove:
 
 ```
 X-Content-Type-Options: nosniff
@@ -312,171 +544,145 @@ Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
 
-For API routes that accept file uploads (e.g. `/api/*/foto`), validate:
-- MIME type from the actual file bytes, not the `Content-Type` header.
-- Max file size before reading the full stream.
+---
+
+## CORS
+
+Configured via `CORS_ORIGINS` env var (comma-separated). Never use `*`.
+Applied in middleware/next.config.ts — never inline in individual route files.
+FeedbackForms SPA origin must be in `CORS_ORIGINS`.
 
 ---
 
-## CORS — Explicit Allowlist Only
+## Rate Limiting
 
-CORS is configured via `CORS_ORIGINS` env var (comma-separated). Never use `*`.
-The middleware or next.config.ts applies these headers; do not add inline CORS
-headers in individual route.ts files.
+Public write endpoints must be rate-limited in the middleware layer:
 
-Public routes (no auth required, e.g. form-responses POST) still enforce CORS.
-CORS is not a substitute for auth.
+- `POST /api/auth/login` — 10 req/min per IP
+- `POST /api/feedback/form-responses` — 5 req/min per IP
 
----
-
-## Rate Limiting — Protect Public Endpoints
-
-Public routes that accept writes (form submit, login) must enforce rate limiting.
-Use the middleware layer — not inside individual route.ts files.
-
-Suggested limits:
-- `POST /api/auth/login` — 10 req / minute per IP
-- `POST /api/feedback/form-responses` — 5 req / minute per IP
-
-If a rate-limit library is not yet set up, add a TODO comment and open a task rather
-than skipping silently.
+If not yet set up: add a `// TODO: add rate limiting` comment and open a task.
 
 ---
 
-## Sensitive Data — Never Log or Return
+## Environment Variables
 
-- Never log passwords, tokens, CPF, or any PII.
-- Log errors with a correlation ID, not with the full request body.
-- Prisma query errors may contain raw SQL — catch and discard before returning.
-- CPF stored in DB must be validated (11 digits, Luhn check). Consider storing only
-  the last 4 digits for display and a hashed version for lookup.
+- Server-only: no prefix
+- Client-exposed: `NEXT_PUBLIC_` prefix
+- Never hardcode secrets. Never commit `.env` or `.env.production`
+- `JWT_SECRET` must be identical in LinenSistem and FeedbackForms
+- `CORS_ORIGINS`: comma-separated allowed origins
 
 ---
 
 ## Clean Architecture — Additional Rules
 
-### Services are pure functions over data
+### Services are pure over data
 
 Services receive plain arguments (IDs, validated DTOs). They never:
-- Read from `req` directly
+- Read from `req`
 - Call `NextResponse`
 - Import from `app/` or `components/`
 
 ### One responsibility per file
 
-A service file handles one domain concept. If a file grows beyond ~150 lines,
-split it by sub-concern (`rodada.service.ts` → `rodada-query.service.ts` +
-`rodada-command.service.ts`).
-
-### No barrel files (`index.ts`) unless the module has 4+ exports
-
-Barrel files hide real import paths and slow down tree-shaking. Only create
-`index.ts` when there are genuinely many public exports from a module.
+Split when a service file exceeds ~150 lines:
+`rondas.service.ts` → `rondas-query.service.ts` + `rondas-command.service.ts`
 
 ### Avoid prop drilling beyond 2 levels
 
-If a prop needs to pass through more than 2 component layers, lift it to a
-React context or move the logic to a hook. Do not thread the same prop through
-intermediate components that don't use it.
+Lift to React context or move to a hook.
 
 ### Keep pages thin
 
-Pages (`page.tsx`) should only:
-1. Read route params / search params
-2. Call one or more hooks
-3. Render layout + components
+`page.tsx` should only: read params → call hooks → render components.
+No business logic, no inline transforms, no direct service calls.
 
-No business logic, no inline data transformations, no direct service calls.
+### Co-locate styles
 
-### Co-locate component styles
+Tailwind on the JSX element. Only extract when the same combination appears in 3+ places.
 
-Tailwind classes belong on the JSX element. Do not extract single-use class
-strings into constants. Only extract when the same class combination is reused
-in 3+ places.
+### No barrel files unless 4+ exports
+
+Barrel files hide import paths. Create `index.ts` only when a module genuinely has many public exports.
 
 ---
 
 ## Prisma — Safe Query Patterns
 
 ```ts
-// Prefer select over findMany returning full rows
-const rodadas = await prisma.rodada.findMany({
+// Select only needed fields
+const rondas = await prisma.rondaOcorrencia.findMany({
   where: { tenantId },
-  select: { id: true, status: true, criadoEm: true },  // only what is needed
+  select: { id: true, iniciadoEm: true, finalizadoEm: true },
 })
 
-// Use transactions for multi-step writes
+// Atomic multi-step writes
 const result = await prisma.$transaction(async (tx) => {
-  const rodada = await tx.rodada.create({ data: { ... } })
-  await tx.ambiente.updateMany({ where: { rodadaId: rodada.id }, data: { ... } })
-  return rodada
+  const ronda = await tx.rondaOcorrencia.create({ data: { ... } })
+  await tx.registroAmbiente.createMany({ data: ambientes.map(a => ({ rondaId: ronda.id, ...a })) })
+  return ronda
 })
 
-// Soft delete: always filter out deleted records
-const itens = await prisma.respostaFormulario.findMany({
+// Soft delete — always filter
+const respostas = await prisma.respostaFormulario.findMany({
   where: { tenantId, deletadoEm: null },
 })
 ```
 
 Rules:
-- Always `select` only the fields the caller actually needs.
-- Never return password hashes or internal flags to route.ts.
-- Use `$transaction` for any operation that must be atomic.
-- Always filter `deletadoEm: null` when querying soft-deletable models.
-- Never expose Prisma `PrismaClientKnownRequestError` to the client.
+- Always `select` only what the caller needs
+- Never return `senhaHash` or internal flags
+- Use `$transaction` for atomic operations
+- Always filter `deletadoEm: null` on soft-deletable models
+- Never expose `PrismaClientKnownRequestError` to the client
 
 ---
 
 ## TypeScript — Strictness Rules
 
 ```ts
-// Use discriminated unions for state instead of boolean flags
-type RequestState =
+// Discriminated unions for state — never boolean flag soup
+type RondaState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; data: T }
+  | { status: 'success'; data: RondaResumo[] }
   | { status: 'error'; message: string }
 
-// Narrow unknown errors before using them
+// Narrow unknown errors
 function toMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   return 'Erro desconhecido'
 }
-
-// Prefer readonly for data that should not be mutated
-function renderList(items: readonly Item[]) { ... }
 ```
 
 Rules:
-- `tsconfig.json` must keep `"strict": true`. Never disable it.
-- No `as any` or `@ts-ignore`. Use `as unknown as T` only with a comment explaining why.
-- Prefer `type` over `interface` for union types; use `interface` for object shapes
-  that may be extended.
-- All async functions must have explicit return types: `Promise<User>`, not inferred.
+- `"strict": true` in tsconfig — never disable
+- No `as any` or `@ts-ignore`
+- `type` for unions; `interface` for extensible object shapes
+- All async functions must have explicit return types
+
+---
+
+## Sensitive Data — Never Log or Return
+
+- Never log passwords, tokens, CPF, or any PII
+- Log errors with context label `[module.service] functionName:` — never the full request body
+- Prisma errors may contain raw SQL — always catch before returning to client
+- CPF: validate 11 digits + Luhn check; consider storing only last 4 digits for display
 
 ---
 
 ## What NOT to Do
 
-- Do not add `any` types. If you need an escape hatch, use `unknown` + type guard.
-- Do not add business logic inside `route.ts` files.
-- Do not call `fetch` inside components — use hooks.
-- Do not write Prisma queries inside `route.ts` — use services.
-- Do not accept `criadoPorId`, `tenantId`, or `role` from request bodies.
-- Do not use `prisma db push` for schema changes.
-- Do not skip tenant isolation filters.
-- Do not expose error details to the client.
-- Do not commit `.env` files.
-- Do not create new abstractions or utilities for one-off use cases — keep it simple.
-
----
-
-## Current Project Status (as of 2026-03-19)
-
-See `INTEGRATION_PLAN.md` for full task breakdown. Summary:
-
-- Fase 1 (Schema): complete
-- Fase 2 (Architecture foundations: api-response, auth.guards, auth.types): complete
-- Fase 3 (Feedback API routes + modules): complete
-- Fase 4 (Unified auth + CORS): complete
-- Remaining: PM2 config, .env.example update, production build validation, FeedbackForms SPA pointing to new API
+- No `any` types — use `unknown` + type guard
+- No business logic in `route.ts`
+- No `fetch` inside components — use hooks
+- No Prisma queries in `route.ts` — use services
+- No `criadoPorId`, `tenantId`, or `role` from request bodies
+- No `prisma db push` for schema changes
+- No skipping tenant isolation filters
+- No exposing error details to the client
+- No committing `.env` files
+- No new abstractions for one-off cases — keep it simple
+- No `NextResponse.json()` in routes — always use `lib/api-response.ts` helpers

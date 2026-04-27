@@ -24,10 +24,11 @@ model Tenant {
   pessoas             Pessoa[]
   respostasFormulario RespostaFormulario[]
   rodadas             Rodada[]
-  rondasDraft         RondaDraft[]
-  rondasOcorrencias   RondaOcorrencia[]
-  templatesFormulario TemplateFormulario[]
-  usuarios            Usuario[]
+  agendamentosManutencao AgendamentoManutencao[]
+  rondasDraft            RondaDraft[]
+  rondasOcorrencias      RondaOcorrencia[]
+  templatesFormulario    TemplateFormulario[]
+  usuarios               Usuario[]
 
   @@map("tenants")
 }
@@ -40,6 +41,7 @@ model Usuario {
   senhaHash                  String
   nome                       String
   role                       String                  @default("tenant_admin")
+  sistemas                   String[]
   ativo                      Boolean                 @default(true)
   mustChangePassword         Boolean                 @default(false)
   criadoEm                   DateTime                @default(now())
@@ -147,6 +149,7 @@ model RondaOcorrencia {
   id           String             @id @default(uuid())
   iniciadoEm   DateTime           @default(now())
   finalizadoEm DateTime?
+  atualizadoEm DateTime           @updatedAt
   tenantId     String
   criadoPorId  String
   ambientes    RegistroAmbiente[]
@@ -155,6 +158,7 @@ model RondaOcorrencia {
 
   @@index([tenantId])
   @@index([tenantId, iniciadoEm])
+  @@index([finalizadoEm])
   @@map("rondas_ocorrencias")
 }
 
@@ -259,9 +263,13 @@ model AgendamentoManutencao {
   atualizadoEm    DateTime  @updatedAt
   atualizadoPorId String?
   dataRealizada   DateTime?
+  tenantId        String?
   atualizadoPor   Usuario?  @relation("AgendamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
   criadoPor       Usuario   @relation("AgendamentoCriadoPor", fields: [criadoPorId], references: [id])
+  tenant          Tenant?   @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([companyId])
   @@map("agendamentos_manutencao")
 }
 

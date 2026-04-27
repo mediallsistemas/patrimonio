@@ -36,8 +36,9 @@ const nextConfig: NextConfig = {
             value: 'strict-origin-when-cross-origin',
           },
           {
+            // camera=self permite uso da câmera na própria origem (necessário para capture="environment")
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(self), microphone=(), geolocation=()',
           },
           {
             // Only sent over HTTPS — safe to include in all envs
