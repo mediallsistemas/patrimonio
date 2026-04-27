@@ -72,7 +72,7 @@ function HistoricoAnual({ agendamentos }: { agendamentos: Agendamento[] }) {
   }, anoAtual)
 
   const anoMaximo = agendamentos.reduce((max, ag) => {
-    const ano = parseInt((ag.dataAgendada as string).slice(0, 4), 10)
+    const ano = parseInt(new Date(ag.dataAgendada).toISOString().slice(0, 4), 10)
     return Math.max(max, ano)
   }, anoAtual)
 
