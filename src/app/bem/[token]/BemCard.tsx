@@ -67,12 +67,13 @@ function HistoricoAnual({ agendamentos }: { agendamentos: Agendamento[] }) {
   const realizados = agendamentos.filter(ag => ag.status === 'realizado')
 
   const anoMinimo = realizados.reduce((min, ag) => {
-    const ano = parseInt((ag.dataRealizada ?? ag.dataAgendada as string).slice(0, 4), 10)
+    const data = ag.dataRealizada ?? ag.dataAgendada
+    const ano = parseInt(new Date(data).toISOString().slice(0, 4), 10)
     return Math.min(min, ano)
   }, anoAtual)
 
   const anoMaximo = agendamentos.reduce((max, ag) => {
-    const ano = parseInt((ag.dataAgendada as string).slice(0, 4), 10)
+    const ano = parseInt(new Date(ag.dataAgendada).toISOString().slice(0, 4), 10)
     return Math.max(max, ano)
   }, anoAtual)
 
