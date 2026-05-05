@@ -51,14 +51,15 @@ export async function POST(req: Request) {
     }
 
     const payload: SessionPayload = {
-      sub:        usuario.id,
-      userId:     usuario.id,
-      email:      usuario.email,
-      nome:       usuario.nome,
-      role:       usuario.role,
-      tenantId:   usuario.tenantId,
-      tenantSlug: usuario.tenantSlug,
-      sistemas:   usuario.sistemas,
+      sub:                usuario.id,
+      userId:             usuario.id,
+      email:              usuario.email,
+      nome:               usuario.nome,
+      role:               usuario.role,
+      tenantId:           usuario.tenantId,
+      tenantSlug:         usuario.tenantSlug,
+      sistemas:           usuario.sistemas,
+      mustChangePassword: usuario.mustChangePassword,
     }
 
     const accessToken = await setSessionCookie(payload)
