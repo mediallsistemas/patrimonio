@@ -15,16 +15,17 @@ async function fetchAllTrilogoAssets(): Promise<Record<string, unknown>[]> {
   const res = await fetch(`${TRILOGO_BASE}/asset`, {
     headers: { accept: 'application/json', token: TRILOGO_TOKEN },
   })
-  if (!res.ok) throw new Error('Trilogo assets error')
+  if (!res.ok) throw new Error(`Trilogo assets error: ${res.status}`)
 
   const data = (await res.json()) as Record<string, unknown>[]
-  assetsCache = { data, at: Date.now() }
+  // Só salva no cache se a API retornou dados — array vazio pode ser erro silencioso
+  if (data.length > 0) assetsCache = { data, at: Date.now() }
   return data
 }
 
 export async function sincronizarTenant(
   tenantId: string,
-): Promise<{ blocosCriados: number; ambientesCriados: number } | null> {
+): Promise<{ blocosCriados: number; ambientesCriados: number; ambientesRemovidos: number; blocosRemovidos: number } | null> {
   const tenant = await prismaAuth.tenant.findUnique({
     where: { id: tenantId },
     select: { trilogoCompanyId: true, trilogoProjectName: true },
@@ -96,12 +97,9 @@ export async function criarAmbiente(tenantId: string, input: CreateAmbienteInput
 }
 
 // ── Sincronização com Trilogo ─────────────────────────────────────────────────
-// Extrai blocos (seg[3]) e ambientes (seg[4]) dos assets do Trilogo e popula
-// a hierarquia BlocoTenant → AmbienteTenant para o tenant informado.
-// Assets com 4 segmentos (sem bloco explícito) são agrupados num bloco "Geral".
-// Assets com 5+ segmentos: seg[3]=bloco, seg[4]=ambiente.
-// Opera em modo "upsert": cria o que não existe, não deleta existentes.
-// Retorna { blocos, ambientes } com contagem do que foi criado.
+// Extrai blocos (seg[3]) e ambientes (seg[4]) dos assets do Trilogo e espelha
+// exatamente o que vier da API: cria novos, e remove os que não existem mais.
+// Rondas históricas não são afetadas — guardam nome como texto, sem FK.
 
 interface TrilogoAsset {
   departmentFullAddress?: string
@@ -118,8 +116,7 @@ export async function sincronizarAmbientesTrilogo(
   tenantId: string,
   assets: TrilogoAsset[],
   blocoFallback = 'Geral',
-): Promise<{ blocosCriados: number; ambientesCriados: number }> {
-  // Extrai pares únicos (bloco, ambiente) do Trilogo
+): Promise<{ blocosCriados: number; ambientesCriados: number; ambientesRemovidos: number; blocosRemovidos: number }> {
   type Pair = { bloco: string; ambiente: string; tipo: 'gases' | 'ocorrencia' }
   const pairsMap = new Map<string, Pair>()
 
@@ -133,11 +130,9 @@ export async function sincronizarAmbientesTrilogo(
     let ambiente: string
 
     if (segs.length >= 5) {
-      // Estrutura completa: EMPRESA > CIDADE > PROJETO > BLOCO > AMBIENTE
       bloco = segs[3]
       ambiente = segs[4]
     } else if (segs.length === 4) {
-      // Sem bloco explícito: EMPRESA > CIDADE > PROJETO > AMBIENTE
       bloco = blocoFallback
       ambiente = segs[3]
     } else {
@@ -147,16 +142,12 @@ export async function sincronizarAmbientesTrilogo(
     if (!bloco || !ambiente) continue
     const key = `${bloco}|${ambiente}`
     if (!pairsMap.has(key)) {
-      const tipo: 'gases' | 'ocorrencia' = isGasTipo(bloco) || isGasTipo(ambiente)
-        ? 'gases'
-        : 'ocorrencia'
+      const tipo: 'gases' | 'ocorrencia' = isGasTipo(bloco) || isGasTipo(ambiente) ? 'gases' : 'ocorrencia'
       pairsMap.set(key, { bloco, ambiente, tipo })
     }
   }
 
-  if (pairsMap.size === 0) return { blocosCriados: 0, ambientesCriados: 0 }
-
-  // Agrupar por bloco
+  // Agrupar pares por bloco
   const blocoMap = new Map<string, Pair[]>()
   for (const pair of pairsMap.values()) {
     const list = blocoMap.get(pair.bloco) ?? []
@@ -164,57 +155,81 @@ export async function sincronizarAmbientesTrilogo(
     blocoMap.set(pair.bloco, list)
   }
 
-  // Buscar blocos já existentes para o tenant
+  // Nomes de blocos que vieram da API (para deletar os que sumiram)
+  const nomesBlocksApi = new Set([...blocoMap.keys()].map((n) => n.toUpperCase()))
+
+  // Buscar estado atual do banco
   const blocosExistentes = await prisma.blocoTenant.findMany({
     where: { tenantId },
     select: { id: true, nome: true },
   })
   const blocoNomeToId = new Map(blocosExistentes.map((b) => [b.nome.toUpperCase(), b.id]))
 
-  // Buscar ambientes já existentes para o tenant
   const ambientesExistentes = await prisma.ambienteTenant.findMany({
     where: { tenantId },
-    select: { nome: true, blocoId: true },
+    select: { id: true, nome: true, blocoId: true },
   })
-  const ambienteKeys = new Set(
-    ambientesExistentes.map((a) => `${a.blocoId ?? ''}|${a.nome.toUpperCase()}`),
-  )
 
   let blocosCriados = 0
   let ambientesCriados = 0
-  let blocoOrdem = blocosExistentes.length
+  let ambientesRemovidos = 0
+  let blocosRemovidos = 0
+  let blocoOrdem = 0
 
+  // ── 1. Upsert: criar blocos e ambientes que vieram da API ──
   for (const [blocoNome, pairs] of blocoMap.entries()) {
-    // Upsert bloco
     let blocoId = blocoNomeToId.get(blocoNome.toUpperCase())
     if (!blocoId) {
       const novo = await prisma.blocoTenant.create({
-        data: { tenantId, nome: blocoNome, ordem: blocoOrdem++ },
+        data: { tenantId, nome: blocoNome, ordem: blocoOrdem },
         select: { id: true },
       })
       blocoId = novo.id
       blocoNomeToId.set(blocoNome.toUpperCase(), blocoId)
       blocosCriados++
     }
+    blocoOrdem++
 
-    // Upsert ambientes do bloco
-    let ambienteOrdem = ambientesExistentes.filter((a) => a.blocoId === blocoId).length
+    const ambientesDoBloco = ambientesExistentes.filter((a) => a.blocoId === blocoId)
+    const nomesAmbientesApi = new Set(pairs.map((p) => p.ambiente.toUpperCase()))
+
+    // Criar ambientes novos
+    const nomesExistentes = new Set(ambientesDoBloco.map((a) => a.nome.toUpperCase()))
+    let ambienteOrdem = ambientesDoBloco.length
     for (const pair of pairs) {
-      const key = `${blocoId}|${pair.ambiente.toUpperCase()}`
-      if (ambienteKeys.has(key)) continue
+      if (nomesExistentes.has(pair.ambiente.toUpperCase())) continue
       await prisma.ambienteTenant.create({
-        data: {
-          tenantId,
-          blocoId,
-          nome: pair.ambiente,
-          tipo: pair.tipo,
-          ordem: ambienteOrdem++,
-        },
+        data: { tenantId, blocoId, nome: pair.ambiente, tipo: pair.tipo, ordem: ambienteOrdem++ },
       })
-      ambienteKeys.add(key)
       ambientesCriados++
+    }
+
+    // Deletar ambientes que sumiram da API neste bloco
+    const ambientesParaDeletar = ambientesDoBloco.filter(
+      (a) => !nomesAmbientesApi.has(a.nome.toUpperCase()),
+    )
+    if (ambientesParaDeletar.length > 0) {
+      await prisma.ambienteTenant.deleteMany({
+        where: { id: { in: ambientesParaDeletar.map((a) => a.id) } },
+      })
+      ambientesRemovidos += ambientesParaDeletar.length
     }
   }
 
-  return { blocosCriados, ambientesCriados }
+  // ── 2. Deletar blocos que sumiram da API (e seus ambientes órfãos) ──
+  const blocosParaDeletar = blocosExistentes.filter(
+    (b) => !nomesBlocksApi.has(b.nome.toUpperCase()),
+  )
+  for (const bloco of blocosParaDeletar) {
+    // Deletar ambientes do bloco antes (FK constraint)
+    const orfaos = ambientesExistentes.filter((a) => a.blocoId === bloco.id)
+    if (orfaos.length > 0) {
+      await prisma.ambienteTenant.deleteMany({ where: { id: { in: orfaos.map((a) => a.id) } } })
+      ambientesRemovidos += orfaos.length
+    }
+    await prisma.blocoTenant.delete({ where: { id: bloco.id } })
+    blocosRemovidos++
+  }
+
+  return { blocosCriados, ambientesCriados, ambientesRemovidos, blocosRemovidos }
 }

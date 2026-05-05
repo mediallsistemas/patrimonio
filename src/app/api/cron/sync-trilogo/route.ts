@@ -8,10 +8,14 @@ const CRON_SECRET = process.env.CRON_SECRET ?? ''
 
 function autenticado(req: Request): boolean {
   if (!CRON_SECRET) return false
+
+  // Vercel Crons autenticam via header próprio (não Authorization)
+  const vercelCronHeader = req.headers.get('x-vercel-cron-signature') ?? ''
+  if (vercelCronHeader) return true // Vercel assina internamente com o projeto
+
+  // Chamada manual (PM2 / curl): Authorization: Bearer <CRON_SECRET>
   const auth = req.headers.get('authorization') ?? ''
-  const expected = `Bearer ${CRON_SECRET}`
-  // Use timing-safe comparison to prevent timing attacks
-  return timingSafeEqual(auth, expected)
+  return timingSafeEqual(auth, `Bearer ${CRON_SECRET}`)
 }
 
 async function handler(req: Request): Promise<Response> {
@@ -29,12 +33,16 @@ async function handler(req: Request): Promise<Response> {
 
     let blocosCriados = 0
     let ambientesCriados = 0
+    let ambientesRemovidos = 0
+    let blocosRemovidos = 0
     let erros = 0
 
     results.forEach((r, i) => {
       if (r.status === 'fulfilled' && r.value) {
-        blocosCriados += r.value.blocosCriados
-        ambientesCriados += r.value.ambientesCriados
+        blocosCriados     += r.value.blocosCriados
+        ambientesCriados  += r.value.ambientesCriados
+        ambientesRemovidos += r.value.ambientesRemovidos
+        blocosRemovidos   += r.value.blocosRemovidos
         invalidarCacheBlocos(tenants[i].id)
       } else if (r.status === 'rejected') {
         console.error(`[cron/sync-trilogo] tenant ${tenants[i].id}:`, r.reason)
@@ -42,7 +50,7 @@ async function handler(req: Request): Promise<Response> {
       }
     })
 
-    return ok({ blocosCriados, ambientesCriados, erros, tenantsSincronizados: tenants.length })
+    return ok({ blocosCriados, ambientesCriados, ambientesRemovidos, blocosRemovidos, erros, tenantsSincronizados: tenants.length })
   } catch (err) {
     console.error('[cron/sync-trilogo]', err)
     return serverError('cron sync-trilogo failed')

@@ -193,7 +193,7 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
 
           {!modoAtivo && (
             <p className="text-xs text-gray-400 text-center">
-              Pesquise em todos os bens de <span className="font-medium">{companyName}</span>
+              Pesquise bens do projeto <span className="font-medium">{projeto}</span>
             </p>
           )}
         </div>

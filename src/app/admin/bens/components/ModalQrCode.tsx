@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
-import { X, Copy, Check, ExternalLink, Printer, MapPin } from 'lucide-react'
+import { X, Copy, Check, ExternalLink, Printer } from 'lucide-react'
+
+// Card dimensions (px at 96dpi — scaled up for print)
+const CARD_W = 320
+const LOGO_H = 80      // logo area height
+const LABEL_H = 48     // ambiente name area height
+const QR_SIZE = 220
+const PAD = 20
+const CARD_H = PAD + LOGO_H + 16 + LABEL_H + 16 + QR_SIZE + PAD
 
 interface Props {
   companyId: number
@@ -12,7 +20,7 @@ interface Props {
 }
 
 export default function ModalQrCode({ companyId, projeto, ambiente, onClose }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const previewRef = useRef<HTMLCanvasElement>(null)
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -43,14 +51,76 @@ export default function ModalQrCode({ companyId, projeto, ambiente, onClose }: P
     return () => { cancelled = true }
   }, [companyId, projeto, ambiente])
 
+  // Compose the card onto previewRef once token is ready
   useEffect(() => {
-    if (!token || !canvasRef.current) return
-    QRCode.toCanvas(canvasRef.current, url, {
-      width: 220,
-      margin: 2,
-      color: { dark: '#1e1b4b', light: '#ffffff' },
-    }).catch(() => setError(true))
-  }, [token, url])
+    if (!token || !previewRef.current) return
+
+    const canvas = previewRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    canvas.width = CARD_W
+    canvas.height = CARD_H
+
+    async function draw() {
+      if (!ctx) return
+      // White background
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, CARD_W, CARD_H)
+
+      // --- Logo ---
+      const logo = new window.Image()
+      logo.src = '/Logo_mediall.png'
+      await new Promise<void>((resolve) => {
+        logo.onload = () => resolve()
+        logo.onerror = () => resolve() // skip logo on error
+      })
+      if (logo.complete && logo.naturalWidth > 0) {
+        const aspect = logo.naturalWidth / logo.naturalHeight
+        const lh = LOGO_H
+        const lw = lh * aspect
+        ctx.drawImage(logo, (CARD_W - lw) / 2, PAD, lw, lh)
+      }
+
+      // --- Ambiente name ---
+      const labelY = PAD + LOGO_H + 16
+      ctx.fillStyle = '#1e1b4b'
+      ctx.font = 'bold 18px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      // Wrap text if needed
+      const maxWidth = CARD_W - PAD * 2
+      const words = ambiente.split(' ')
+      const lines: string[] = []
+      let line = ''
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line)
+          line = word
+        } else {
+          line = test
+        }
+      }
+      lines.push(line)
+      const lineH = 22
+      const totalTextH = lines.length * lineH
+      const textStartY = labelY + (LABEL_H - totalTextH) / 2 + lineH / 2
+      lines.forEach((l, i) => ctx.fillText(l, CARD_W / 2, textStartY + i * lineH))
+
+      // --- QR code ---
+      const qrCanvas = document.createElement('canvas')
+      await QRCode.toCanvas(qrCanvas, url, {
+        width: QR_SIZE,
+        margin: 2,
+        color: { dark: '#1e1b4b', light: '#ffffff' },
+      })
+      const qrY = PAD + LOGO_H + 16 + LABEL_H + 16
+      ctx.drawImage(qrCanvas, (CARD_W - QR_SIZE) / 2, qrY)
+    }
+
+    draw().catch(() => setError(true))
+  }, [token, url, ambiente])
 
   function copiarLink() {
     navigator.clipboard.writeText(url).then(() => {
@@ -60,7 +130,7 @@ export default function ModalQrCode({ companyId, projeto, ambiente, onClose }: P
   }
 
   function imprimir() {
-    const canvas = canvasRef.current
+    const canvas = previewRef.current
     if (!canvas) return
     const img = canvas.toDataURL('image/png')
     const win = window.open('', '_blank')
@@ -72,23 +142,12 @@ export default function ModalQrCode({ companyId, projeto, ambiente, onClose }: P
           <title>QR Code — ${ambiente}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
-            .card { border: 2px solid #e5e7eb; border-radius: 16px; padding: 24px; max-width: 320px; width: 100%; text-align: center; }
-            img { width: 220px; height: 220px; margin: 0 auto 16px; display: block; }
-            h2 { font-size: 16px; font-weight: 700; color: #1e1b4b; margin-bottom: 4px; }
-            p.projeto { font-size: 12px; color: #7c3aed; font-weight: 600; margin-bottom: 8px; }
-            p.info { font-size: 11px; color: #6b7280; }
-            p.url { font-size: 9px; color: #9ca3af; margin-top: 12px; word-break: break-all; }
+            body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #fff; }
+            img { display: block; max-width: 100%; }
           </style>
         </head>
         <body>
-          <div class="card">
-            <img src="${img}" />
-            <h2>${ambiente}</h2>
-            <p class="projeto">${projeto}</p>
-            <p class="info">Escaneie para ver os bens patrimoniais e agendamentos deste ambiente</p>
-            <p class="url">${url}</p>
-          </div>
+          <img src="${img}" />
           <script>window.onload = () => { window.print(); window.close() }<\/script>
         </body>
       </html>
@@ -106,28 +165,23 @@ export default function ModalQrCode({ companyId, projeto, ambiente, onClose }: P
         </div>
 
         <div className="px-5 py-5 space-y-4">
-          {/* Info do ambiente */}
-          <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-0.5">
-            <div className="flex items-center gap-1.5">
-              <MapPin size={13} className="text-purple-500 shrink-0" />
-              <p className="text-sm font-semibold text-gray-800">{ambiente}</p>
-            </div>
-            <p className="text-xs text-purple-600 font-medium pl-5">{projeto}</p>
-          </div>
-
-          {/* QR */}
+          {/* Composed card preview */}
           <div className="flex flex-col items-center gap-3">
             {loading && (
-              <div className="w-[220px] h-[220px] bg-gray-100 rounded-xl animate-pulse flex items-center justify-center">
+              <div className="w-[320px] h-[404px] bg-gray-100 rounded-xl animate-pulse flex items-center justify-center">
                 <p className="text-xs text-gray-400">Gerando QR...</p>
               </div>
             )}
             {error && !loading && (
-              <div className="w-[220px] h-[220px] bg-red-50 rounded-xl flex items-center justify-center">
+              <div className="w-[320px] h-[404px] bg-red-50 rounded-xl flex items-center justify-center">
                 <p className="text-xs text-red-500">Erro ao gerar QR</p>
               </div>
             )}
-            <canvas ref={canvasRef} className={`rounded-xl ${!token || loading ? 'hidden' : 'block'}`} />
+            <canvas
+              ref={previewRef}
+              className={`rounded-xl border border-gray-100 shadow-sm ${!token || loading ? 'hidden' : 'block'}`}
+              style={{ width: CARD_W, height: CARD_H }}
+            />
             {token && (
               <p className="text-xs text-gray-400 text-center break-all px-2">{url}</p>
             )}
