@@ -5,7 +5,7 @@ export const CreateUsuarioSchema = z.object({
   nome: z.string().min(2).max(120),
   senha: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   role: z.enum(['super_admin', 'tenant_admin', 'operator']),
-  tenantId: z.string().uuid('tenantId inválido').nullable().optional(),
+  tenantId: z.string().min(1).nullable().optional(),
 })
 
 export const UpdateUsuarioSchema = z.object({
