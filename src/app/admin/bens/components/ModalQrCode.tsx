@@ -10,7 +10,9 @@ const LOGO_H = 80      // logo area height
 const LABEL_H = 48     // ambiente name area height
 const QR_SIZE = 220
 const PAD = 20
+const BORDER = 6
 const CARD_H = PAD + LOGO_H + 16 + LABEL_H + 16 + QR_SIZE + PAD
+const BORDER_COLOR = '#0097B2'
 
 interface Props {
   companyId: number
@@ -67,6 +69,23 @@ export default function ModalQrCode({ companyId, projeto, ambiente, onClose }: P
       // White background
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, CARD_W, CARD_H)
+
+      // --- Border ---
+      const r = 16 // corner radius
+      ctx.strokeStyle = BORDER_COLOR
+      ctx.lineWidth = BORDER
+      ctx.beginPath()
+      ctx.moveTo(r, BORDER / 2)
+      ctx.lineTo(CARD_W - r, BORDER / 2)
+      ctx.quadraticCurveTo(CARD_W - BORDER / 2, BORDER / 2, CARD_W - BORDER / 2, r)
+      ctx.lineTo(CARD_W - BORDER / 2, CARD_H - r)
+      ctx.quadraticCurveTo(CARD_W - BORDER / 2, CARD_H - BORDER / 2, CARD_W - r, CARD_H - BORDER / 2)
+      ctx.lineTo(r, CARD_H - BORDER / 2)
+      ctx.quadraticCurveTo(BORDER / 2, CARD_H - BORDER / 2, BORDER / 2, CARD_H - r)
+      ctx.lineTo(BORDER / 2, r)
+      ctx.quadraticCurveTo(BORDER / 2, BORDER / 2, r, BORDER / 2)
+      ctx.closePath()
+      ctx.stroke()
 
       // --- Logo ---
       const logo = new window.Image()
