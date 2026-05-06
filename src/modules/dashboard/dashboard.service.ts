@@ -1,6 +1,7 @@
 import { startOfDay, endOfDay } from 'date-fns'
 
 import { prisma } from '@/lib/db'
+import { tenantFilter } from '@/modules/auth/tenant-filter'
 import { movimentacoesPorDia } from '@/modules/movimentacoes/movimentacoes.service'
 import type { DashboardData } from './dashboard.types'
 
@@ -10,12 +11,12 @@ import type { DashboardData } from './dashboard.types'
  *
  * @param tenantId - null para visão global (super_admin)
  */
-export async function getDashboardData(tenantId: string | null): Promise<DashboardData> {
+export async function getDashboardData(tenantId: string | null, tenantIds?: string[]): Promise<DashboardData> {
   try {
     const hoje = new Date()
     const inicioDia = startOfDay(hoje)
     const fimDia = endOfDay(hoje)
-    const whereBase = tenantId ? { tenantId } : {}
+    const whereBase = tenantFilter({ tenantId, tenantIds })
 
     // 4 queries paralelas de contagem simples
     const [totalPessoas, retiradasHoje, devolucoesHoje, recentes] = await Promise.all([

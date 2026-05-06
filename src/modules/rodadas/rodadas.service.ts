@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { tenantFilter } from '@/modules/auth/tenant-filter'
 
 const INCLUDE_AMBIENTES = {
   ambientes: {
@@ -12,9 +13,9 @@ const INCLUDE_AMBIENTES = {
   },
 }
 
-export async function listarRodadas(tenantId: string | null, limit = 50) {
+export async function listarRodadas(tenantId: string | null, limit = 50, tenantIds?: string[]) {
   try {
-    const where = tenantId ? { tenantId } : {}
+    const where = tenantFilter({ tenantId, tenantIds })
     return await prisma.rodada.findMany({
       where,
       orderBy: { iniciadoEm: 'desc' },

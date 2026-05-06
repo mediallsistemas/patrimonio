@@ -73,7 +73,7 @@ async function fetchEmpresas(): Promise<{ id: number; nome: string }[]> {
 if (TOKEN) fetchAll().catch(() => { /* silencioso — próximo request tentará novamente */ })
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio', 'viewer'])
   if (!session) return forbidden()
 
   if (!TOKEN) return serverError('TRILOGO_TOKEN não configurado')
@@ -82,19 +82,19 @@ export async function GET(req: Request): Promise<Response> {
   const companyId = searchParams.get('companyId')
 
   try {
-    // tenant_admin só pode ver os bens da própria empresa no Trílogo
-    if (session.role === 'tenant_admin' || session.role === 'operator_patrimonio') {
+    // tenant_admin, operator_patrimonio e viewer: restritos à empresa do próprio tenant
+    if (session.role !== 'super_admin') {
+      if (!session.tenantId) return forbidden()
+
       const tenant = await prismaAuth.tenant.findUnique({
-        where: { id: session.tenantId! },
+        where: { id: session.tenantId },
         select: { trilogoCompanyId: true },
       })
       if (!tenant?.trilogoCompanyId) return forbidden()
 
       const allowedCompanyId = String(tenant.trilogoCompanyId)
 
-      // Bloqueia listagem geral de empresas
       if (searchParams.get('only') === 'empresas') return forbidden()
-
       if (!companyId) return badRequest('companyId obrigatório')
       if (companyId !== allowedCompanyId) return forbidden()
 

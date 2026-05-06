@@ -38,6 +38,7 @@ export async function verifyAuth(
     tenantSlug:         session.tenantSlug,
     sistemas:           session.sistemas ?? [],
     mustChangePassword: (session as { mustChangePassword?: boolean }).mustChangePassword ?? false,
+    tenantIds:          (session as { tenantIds?: string[] }).tenantIds,
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
@@ -76,6 +77,7 @@ export async function verifyAuthDetailed(
     tenantSlug:         session.tenantSlug,
     sistemas:           session.sistemas ?? [],
     mustChangePassword: (session as { mustChangePassword?: boolean }).mustChangePassword ?? false,
+    tenantIds:          (session as { tenantIds?: string[] }).tenantIds,
   }
 
   if (allowedRoles && allowedRoles.length > 0) {

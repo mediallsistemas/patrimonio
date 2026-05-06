@@ -13,6 +13,7 @@ interface UsuarioRow {
   mustChangePassword: boolean
   sistemas: string[]
   tenantSlug: string | null
+  tenantsExtras: string[]
 }
 
 export async function POST(req: Request) {
@@ -31,6 +32,7 @@ export async function POST(req: Request) {
       `SELECT u.id, u.email, u.nome, u."senhaHash", u.role, u."tenantId", u.ativo,
               COALESCE(u."mustChangePassword", false) AS "mustChangePassword",
               COALESCE(u.sistemas, ARRAY[]::text[]) AS sistemas,
+              COALESCE(u."tenantsExtras", ARRAY[]::text[]) AS "tenantsExtras",
               t.slug AS "tenantSlug"
        FROM usuarios u
        LEFT JOIN tenants t ON t.id = u."tenantId"
@@ -50,6 +52,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
     }
 
+    const tenantsExtras = usuario.tenantsExtras ?? []
+    const tenantIds = tenantsExtras.length > 0
+      ? [usuario.tenantId, ...tenantsExtras].filter((id): id is string => id !== null)
+      : undefined
+
     const payload: SessionPayload = {
       sub:                usuario.id,
       userId:             usuario.id,
@@ -60,6 +67,7 @@ export async function POST(req: Request) {
       tenantSlug:         usuario.tenantSlug,
       sistemas:           usuario.sistemas,
       mustChangePassword: usuario.mustChangePassword,
+      ...(tenantIds ? { tenantIds } : {}),
     }
 
     const accessToken = await setSessionCookie(payload)

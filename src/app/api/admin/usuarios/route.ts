@@ -4,14 +4,19 @@ import { CreateUsuarioSchema } from '@/modules/usuarios/usuarios.types'
 import * as usuariosService from '@/modules/usuarios/usuarios.service'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'viewer'])
   if (!session) return forbidden()
 
   try {
-    const usuarios = session.role === 'tenant_admin'
-      ? await usuariosService.listarUsuariosPorTenant(session.tenantId!)
-      : await usuariosService.listarUsuarios()
-    console.log('[admin/usuarios] retornando', usuarios.length, 'usuarios')
+    let usuarios
+    if (session.role === 'tenant_admin') {
+      usuarios = await usuariosService.listarUsuariosPorTenant(session.tenantId!)
+    } else if (session.role === 'viewer') {
+      const ids = session.tenantIds ?? (session.tenantId ? [session.tenantId] : [])
+      usuarios = await usuariosService.listarUsuariosPorTenants(ids)
+    } else {
+      usuarios = await usuariosService.listarUsuarios()
+    }
     return ok(usuarios)
   } catch (e) {
     console.error('[admin/usuarios] erro:', e)

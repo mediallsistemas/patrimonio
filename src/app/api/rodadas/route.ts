@@ -8,7 +8,7 @@ export async function GET(): Promise<Response> {
 
   try {
     const tenantId = session.role === 'super_admin' ? null : session.tenantId!
-    const rodadas = await listarRodadas(tenantId)
+    const rodadas = await listarRodadas(tenantId, 50, session.tenantIds)
     return ok(rodadas)
   } catch {
     return serverError('listarRodadas failed')

@@ -44,6 +44,7 @@ model Usuario {
   sistemas                   String[]
   ativo                      Boolean                 @default(true)
   mustChangePassword         Boolean                 @default(false)
+  tenantsExtras              String[]                @default([])
   criadoEm                   DateTime                @default(now())
   atualizadoEm               DateTime                @updatedAt
   agendamentosAtualizados    AgendamentoManutencao[] @relation("AgendamentoAtualizadoPor")

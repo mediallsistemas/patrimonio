@@ -14,7 +14,7 @@ export async function PATCH(
   const tenantId = session.role === 'super_admin' ? null : session.tenantId!
 
   try {
-    const ronda = await finalizarRonda(id, tenantId)
+    const ronda = await finalizarRonda(id, tenantId, session.tenantIds)
     if (!ronda) return notFound('Ronda')
     return ok(ronda)
   } catch {

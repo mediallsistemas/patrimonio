@@ -3,7 +3,7 @@ import { ok, forbidden, serverError } from '@/lib/api-response'
 import { prismaAuth } from '@/lib/db-auth'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['tenant_admin', 'super_admin'])
+  const session = await verifyAuth(req, ['tenant_admin', 'super_admin', 'viewer'])
   if (!session || !session.tenantId) return forbidden()
 
   try {

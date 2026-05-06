@@ -213,10 +213,19 @@ export async function middleware(req: NextRequest) {
     if (role === 'super_admin' || role === 'tenant_admin') {
       return NextResponse.redirect(new URL('/admin', req.url))
     }
+    if (role === 'viewer') {
+      return NextResponse.redirect(new URL('/viewer', req.url))
+    }
     if (MANUTENCAO_ROLES.has(role) && tenantSlug) {
       return NextResponse.redirect(new URL(`/${tenantSlug}/manutencao`, req.url))
     }
     return NextResponse.redirect(new URL('/login', req.url))
+  }
+
+  // ── /viewer/* — apenas viewer ─────────────────────────────────────────────
+  if (pathname.startsWith('/viewer')) {
+    if (role !== 'viewer') return NextResponse.redirect(new URL('/login', req.url))
+    return NextResponse.next()
   }
 
   // ── /admin/tenants/* — apenas super_admin ────────────────────────────────

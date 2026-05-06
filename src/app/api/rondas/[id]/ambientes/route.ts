@@ -16,7 +16,7 @@ export async function POST(
 
   try {
     // Verifica que a ronda existe, pertence ao tenant e ainda está aberta
-    const ronda = await buscarRonda(rondaId, tenantId)
+    const ronda = await buscarRonda(rondaId, tenantId, session.tenantIds)
     if (!ronda) return notFound('Ronda')
     if (ronda.finalizadoEm !== null) return conflict('Ronda já foi finalizada')
 

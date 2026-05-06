@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { tenantFilter } from '@/modules/auth/tenant-filter'
 import type { RegistroAmbienteInput } from './rondas.types'
 
 // Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
@@ -34,10 +35,10 @@ const SELECT_RONDA_LIGHT = {
   },
 } as const
 
-export async function listarRondas(tenantId: string | null, limit = 50, criadoPorId?: string) {
+export async function listarRondas(tenantId: string | null, limit = 50, criadoPorId?: string, tenantIds?: string[]) {
   try {
     const where = {
-      ...(tenantId ? { tenantId } : {}),
+      ...tenantFilter({ tenantId, tenantIds }),
       ...(criadoPorId ? { criadoPorId } : {}),
     }
     return await prisma.rondaOcorrencia.findMany({
@@ -52,9 +53,9 @@ export async function listarRondas(tenantId: string | null, limit = 50, criadoPo
   }
 }
 
-export async function buscarRonda(id: string, tenantId: string | null) {
+export async function buscarRonda(id: string, tenantId: string | null, tenantIds?: string[]) {
   try {
-    const where = tenantId ? { id, tenantId } : { id }
+    const where = { id, ...tenantFilter({ tenantId, tenantIds }) }
     return await prisma.rondaOcorrencia.findFirst({
       where,
       include: INCLUDE_AMBIENTES,
@@ -85,9 +86,9 @@ export async function criarRonda(tenantId: string, criadoPorId: string) {
   }
 }
 
-export async function finalizarRonda(id: string, tenantId: string | null) {
+export async function finalizarRonda(id: string, tenantId: string | null, tenantIds?: string[]) {
   try {
-    const where = tenantId ? { id, tenantId } : { id }
+    const where = { id, ...tenantFilter({ tenantId, tenantIds }) }
     const ronda = await prisma.rondaOcorrencia.findFirst({ where, select: { id: true } })
     if (!ronda) return null
 
@@ -176,10 +177,13 @@ export async function expirarRondasAbertas(): Promise<{ expiradas: number }> {
   }
 }
 
-export async function listarRondasAdmin(limit = 100, tenantId?: string) {
+export async function listarRondasAdmin(limit = 100, tenantId?: string, tenantIds?: string[]) {
   try {
+    const where = tenantIds && tenantIds.length > 1
+      ? { tenantId: { in: tenantIds } }
+      : tenantId ? { tenantId } : undefined
     return await prisma.rondaOcorrencia.findMany({
-      where: tenantId ? { tenantId } : undefined,
+      where,
       orderBy: { iniciadoEm: 'desc' },
       take: limit,
       select: {

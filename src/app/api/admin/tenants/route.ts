@@ -3,15 +3,24 @@ import { ok, created, badRequest, conflict, forbidden, serverError } from '@/lib
 import { CreateTenantSchema } from '@/modules/tenants/tenants.types'
 import * as tenantsService from '@/modules/tenants/tenants.service'
 import { sincronizarAmbientesTrilogo } from '@/modules/ambientes/ambientes.service'
+import { prisma } from '@/lib/db'
 
 const TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'viewer'])
   if (!session) return forbidden()
 
   try {
+    if (session.role === 'viewer') {
+      const ids = session.tenantIds ?? (session.tenantId ? [session.tenantId] : [])
+      const tenants = await prisma.tenant.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, slug: true, nome: true },
+      })
+      return ok(tenants)
+    }
     const tenants = await tenantsService.listarTenants()
     return ok(tenants)
   } catch {

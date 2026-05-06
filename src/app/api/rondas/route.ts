@@ -14,7 +14,7 @@ export async function GET(req: Request): Promise<Response> {
   try {
     // Fecha rondas abertas há mais de 24h antes de retornar a lista
     await expirarRondasAbertas().catch(() => {})
-    const rondas = await listarRondas(tenantId, 50, criadoPorId)
+    const rondas = await listarRondas(tenantId, 50, criadoPorId, session.tenantIds)
     return ok(rondas)
   } catch {
     return serverError('listarRondas failed')

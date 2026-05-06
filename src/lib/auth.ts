@@ -29,6 +29,7 @@ export interface SessionPayload {
   tenantSlug:         string | null
   sistemas:           string[]       // ["linensistem", "feedbackforms"]
   mustChangePassword?: boolean
+  tenantIds?: string[]  // preenchido apenas para viewer com múltiplos tenants
 }
 
 // ── JWT ───────────────────────────────────────────────────────────────────────

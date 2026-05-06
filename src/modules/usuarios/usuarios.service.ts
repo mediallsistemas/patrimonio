@@ -46,6 +46,20 @@ export async function listarUsuariosPorTenant(tenantId: string): Promise<Usuario
   }
 }
 
+export async function listarUsuariosPorTenants(tenantIds: string[]): Promise<UsuarioRow[]> {
+  try {
+    const placeholders = tenantIds.map((_, i) => `$${i + 1}`).join(', ')
+    const result = await authPool.query<UsuarioRow>(
+      `${USUARIO_SQL} AND u."tenantId" IN (${placeholders}) ORDER BY u."criadoEm" ASC`,
+      tenantIds,
+    )
+    return result.rows
+  } catch (error) {
+    console.error('[usuarios.service] listarUsuariosPorTenants:', error)
+    throw error
+  }
+}
+
 export async function buscarUsuario(id: string): Promise<UsuarioRow | null> {
   try {
     const result = await authPool.query<UsuarioRow>(
