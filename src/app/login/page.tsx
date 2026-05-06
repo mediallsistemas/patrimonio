@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn, Landmark } from 'lucide-react'
 import Text from '@/components/ui/Text'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') ?? '/'
 
@@ -16,7 +15,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [erro, setErro]     = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     setErro('')
     setLoading(true)
@@ -36,12 +35,23 @@ function LoginForm() {
       }
 
       const { usuario } = data
-      // Redireciona para o tenant do usuário ou para o destino original
-      const dest = from !== '/'
-        ? from
-        : usuario.role === 'super_admin'
+
+      const defaultDest =
+        usuario.role === 'super_admin' || usuario.role === 'tenant_admin'
           ? '/admin'
-          : `/${usuario.tenantSlug}`
+          : usuario.role === 'viewer'
+            ? '/viewer'
+            : `/${usuario.tenantSlug}/manutencao`
+
+      // Só respeita o `from` se for compatível com o role — evita redirecionar
+      // viewer para /admin ou operator para /viewer após expiração de cookie
+      const fromIsCompatible =
+        from === '/' ? false :
+        (usuario.role === 'super_admin' || usuario.role === 'tenant_admin') ? from.startsWith('/admin') :
+        usuario.role === 'viewer' ? from.startsWith('/viewer') :
+        from.startsWith(`/${usuario.tenantSlug}`)
+
+      const dest = fromIsCompatible ? from : defaultDest
 
       window.location.href = dest
     } catch {
@@ -97,11 +107,11 @@ function LoginForm() {
                 <input
                   type={show ? 'text' : 'password'}
                   autoComplete="current-password"
-                  placeholder="••••••••"
+                  placeholder="senha"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   required
-                  className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all placeholder:text-gray-300"
+                  className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all placeholder:text-gray-300 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                 />
                 <button
                   type="button"
