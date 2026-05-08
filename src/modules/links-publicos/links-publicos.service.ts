@@ -8,19 +8,21 @@ export interface CriarLinkAmbienteInput {
 }
 
 export async function criarOuBuscarLinkAmbiente(input: CriarLinkAmbienteInput): Promise<string> {
+  const where = { companyId_projeto_ambiente: { companyId: input.companyId, projeto: input.projeto, ambiente: input.ambiente } }
   try {
-    const existente = await prisma.linkPublicoBem.findUnique({
-      where: { companyId_projeto_ambiente: { companyId: input.companyId, projeto: input.projeto, ambiente: input.ambiente } },
+    const result = await prisma.linkPublicoBem.upsert({
+      where,
+      update: {},
+      create: { companyId: input.companyId, projeto: input.projeto, ambiente: input.ambiente, tenantId: input.tenantId },
       select: { id: true },
     })
-    if (existente) return existente.id
-
-    const novo = await prisma.linkPublicoBem.create({
-      data: { companyId: input.companyId, projeto: input.projeto, ambiente: input.ambiente, tenantId: input.tenantId },
-      select: { id: true },
-    })
-    return novo.id
-  } catch (error) {
+    return result.id
+  } catch (error: unknown) {
+    // P2002 = unique constraint violation (race condition): o registro foi criado por outra requisição simultânea
+    if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2002') {
+      const existente = await prisma.linkPublicoBem.findUnique({ where, select: { id: true } })
+      if (existente) return existente.id
+    }
     console.error('[links-publicos.service] criarOuBuscarLinkAmbiente:', error)
     throw error
   }

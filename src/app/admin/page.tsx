@@ -58,6 +58,7 @@ const ALL_ACTIONS = [
 export default async function AdminPage() {
   const session = await getSession()
   const isSuperAdmin = session?.role === 'super_admin'
+  const isViewer = session?.role === 'viewer'
   const actions = ALL_ACTIONS.filter((a) => !a.superAdminOnly || isSuperAdmin)
 
   return (
@@ -71,7 +72,7 @@ export default async function AdminPage() {
               <ShieldCheck className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-semibold font-sans text-gray-400 uppercase tracking-wide">
-              {isSuperAdmin ? 'Super Admin' : 'Admin'}
+              {isSuperAdmin ? 'Super Admin' : isViewer ? 'Admin Regional' : 'Admin'}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -89,7 +90,11 @@ export default async function AdminPage() {
             Painel de Administração
           </Text>
           <Text variant="body-md" className="text-gray-300">
-            {isSuperAdmin ? 'Gerencie o sistema, unidades e usuários' : 'Gerencie usuários e monitore sua unidade'}
+            {isSuperAdmin
+              ? 'Gerencie o sistema, unidades e usuários'
+              : isViewer
+                ? 'Gerencie usuários e monitore as unidades vinculadas'
+                : 'Gerencie usuários e monitore sua unidade'}
           </Text>
         </div>
 

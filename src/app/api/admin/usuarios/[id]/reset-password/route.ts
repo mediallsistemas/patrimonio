@@ -6,13 +6,21 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'viewer'])
   if (!session) return forbidden()
 
   const { id } = await params
+
+  if (session.role === 'viewer') {
+    const alvo = await usuariosService.buscarUsuario(id)
+    if (!alvo) return notFound('Usuário')
+    const viewerTenantIds = session.tenantIds ?? (session.tenantId ? [session.tenantId] : [])
+    if (!usuariosService.viewerOwnsUser(viewerTenantIds, alvo.tenantId)) return forbidden()
+  }
+
   try {
-    const usuario = await usuariosService.resetSenhaUsuario(id)
-    return ok(usuario)
+    const resultado = await usuariosService.resetSenhaUsuario(id)
+    return ok(resultado)
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : ''
     if (msg.includes('Record to update not found')) return notFound('Usuário')

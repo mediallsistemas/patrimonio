@@ -16,15 +16,6 @@ export async function listarAgendamentos(tenantId: string | null) {
   }
 }
 
-export async function buscarAgendamento(id: string) {
-  try {
-    return await prisma.agendamentoManutencao.findUnique({ where: { id } })
-  } catch (error) {
-    console.error('[agendamentos.service] buscarAgendamento:', error)
-    throw error
-  }
-}
-
 export async function criarAgendamento(input: CreateAgendamentoInput, criadoPorId: string, tenantId: string | null) {
   try {
     return await prisma.agendamentoManutencao.create({

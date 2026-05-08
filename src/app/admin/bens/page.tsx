@@ -14,12 +14,14 @@ import BemRow from './components/BemRow'
 import ModalAgendamento from './components/ModalAgendamento'
 import ModalQrCode from './components/ModalQrCode'
 import { useAuth } from '@/hooks/useAuth'
+import type { MyTenant } from '@/services/me.service'
 
 const PAGE_SIZE = 50
 
 export default function BensPage() {
   const { user, isLoading: authLoading } = useAuth()
   const isSuperAdmin = user?.role === 'super_admin'
+  const isViewer = user?.role === 'viewer'
 
   const [empresaSel, setEmpresaSel] = useState<Empresa | null>(null)
   const [search,     setSearch]     = useState('')
@@ -47,7 +49,7 @@ export default function BensPage() {
     return map
   }, [agendamentos])
 
-  // super_admin carrega lista de empresas para o seletor
+  // super_admin carrega lista de todas as empresas do Trilogo
   const { data: empresas = [], isLoading: loadEmpresas } = useQuery<Empresa[]>({
     queryKey: ['trilogo-empresas'],
     queryFn: () => trilogoService.buscarEmpresas(),
@@ -55,21 +57,40 @@ export default function BensPage() {
     staleTime: 30 * 60 * 1000,
   })
 
-  // tenant_admin carrega o trilogoCompanyId do próprio tenant
-  const { data: myTenant } = useQuery<{ trilogoCompanyId: number | null; trilogoProjectName: string | null; nome: string }>({
-    queryKey: ['me-tenant'],
-    queryFn: () => meService.buscarMeuTenant(),
-    enabled: !isSuperAdmin && !authLoading,
+  // viewer carrega apenas os seus tenants (multi-tenant)
+  const { data: meusTenants = [], isLoading: loadMeusTenants } = useQuery<MyTenant[]>({
+    queryKey: ['me-tenants'],
+    queryFn: () => meService.buscarMeusTenants(),
+    enabled: isViewer && !authLoading,
     staleTime: 60 * 60 * 1000,
   })
 
-  // companyId efetivo: seletor para super_admin, fixo para tenant_admin
+  // tenant_admin carrega o trilogoCompanyId do próprio tenant
+  const { data: myTenant } = useQuery<MyTenant>({
+    queryKey: ['me-tenant'],
+    queryFn: () => meService.buscarMeuTenant(),
+    enabled: !isSuperAdmin && !isViewer && !authLoading,
+    staleTime: 60 * 60 * 1000,
+  })
+
+  // Para viewer: converte tenants em lista de Empresa para o seletor
+  const empresasViewer = meusTenants
+    .filter((t) => t.trilogoCompanyId !== null)
+    .map((t) => ({ id: t.trilogoCompanyId!, nome: t.nome }))
+
+  // Auto-seleciona se viewer tem apenas 1 tenant com trilogoCompanyId
+  const viewerAutoEmpresa = empresasViewer.length === 1 ? empresasViewer[0] : null
+
+  // companyId efetivo
   const effectiveCompanyId = isSuperAdmin
     ? (empresaSel?.id ?? null)
-    : (myTenant?.trilogoCompanyId ?? null)
+    : isViewer
+      ? ((empresaSel ?? viewerAutoEmpresa)?.id ?? null)
+      : (myTenant?.trilogoCompanyId ?? null)
 
-  // projectName: só aplicado para tenant_admin — filtra bens do projeto específico
-  const effectiveProjectName = isSuperAdmin ? null : (myTenant?.trilogoProjectName ?? null)
+  // projectName: aplicado para tenant_admin — filtra bens do projeto específico
+  // viewer não filtra por projeto (vê tudo da empresa selecionada)
+  const effectiveProjectName = (!isSuperAdmin && !isViewer) ? (myTenant?.trilogoProjectName ?? null) : null
 
   const { data: bensRaw = [], isLoading: loadBens } = useQuery({
     queryKey: ['trilogo-assets', effectiveCompanyId],
@@ -160,26 +181,28 @@ export default function BensPage() {
         {/* Filters */}
         <Card padding="sm">
           <div className="space-y-3">
-            {/* Linha 1: unidade (super_admin) */}
-            {isSuperAdmin && (
-              <div className="w-full max-w-xs">
-                <label className="block text-xs text-gray-500 mb-1">Selecione a unidade *</label>
-                <select value={empresaSel?.id ?? ''}
+            {/* Filtros */}
+            <div className="flex flex-wrap gap-2 items-center">
+              {/* Seletor de unidade — super_admin ou viewer com >1 empresa */}
+              {(isSuperAdmin || (isViewer && empresasViewer.length > 1)) && (
+                <select
+                  value={(empresaSel ?? viewerAutoEmpresa)?.id ?? ''}
                   onChange={e => {
-                    setEmpresaSel(empresas.find(x => x.id === Number(e.target.value)) ?? null)
+                    const lista = isSuperAdmin ? empresas : empresasViewer
+                    setEmpresaSel(lista.find(x => x.id === Number(e.target.value)) ?? null)
                     setProjeto(''); setAmbiente(''); setTipo(''); setSearch(''); setStatusFiltro(''); setVisiveis(PAGE_SIZE)
                   }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
-                  disabled={loadEmpresas}>
-                  <option value="">{loadEmpresas ? 'Carregando...' : 'Escolha uma unidade'}</option>
-                  {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
+                  disabled={isSuperAdmin ? loadEmpresas : loadMeusTenants}
+                >
+                  <option value="">{(isSuperAdmin ? loadEmpresas : loadMeusTenants) ? 'Carregando...' : 'Selecione a unidade'}</option>
+                  {(isSuperAdmin ? empresas : empresasViewer).map(e => (
+                    <option key={e.id} value={e.id}>{e.nome}</option>
+                  ))}
                 </select>
-              </div>
-            )}
-
-            {/* Linha 2: filtros de busca */}
-            {!!effectiveCompanyId && !loadBens && (
-              <div className="flex flex-wrap gap-2 items-center">
+              )}
+              {!!effectiveCompanyId && !loadBens && (
+                <>
                 <div className="relative min-w-48 flex-1">
                   <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="text" placeholder="Descrição, patrimônio..." value={search}
@@ -224,12 +247,13 @@ export default function BensPage() {
                     <X size={14} /> Limpar
                   </button>
                 )}
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </Card>
 
-        {!effectiveCompanyId && isSuperAdmin && (
+        {!effectiveCompanyId && (isSuperAdmin || isViewer) && (
           <div className="text-center py-20 text-gray-400">
             <Package size={40} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">Selecione uma unidade para ver os bens patrimoniais</p>

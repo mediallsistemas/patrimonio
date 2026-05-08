@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Users, ArrowLeft, Plus, KeyRound } from 'lucide-react'
 import Text from '@/components/ui/Text'
@@ -54,9 +54,11 @@ export default function UsuariosPage() {
   const { usuarios, loading, reload } = useUsuarios()
   const isTenantAdmin = user?.role === 'tenant_admin'
   const isSuperAdmin = user?.role === 'super_admin'
+  const isViewer = user?.role === 'viewer'
   const fixedTenantId = isTenantAdmin && user?.tenantId ? user.tenantId : undefined
 
-  const { tenants } = useTenants(isSuperAdmin)
+  // super_admin vê todos os tenants; viewer vê apenas os seus (API já filtra)
+  const { tenants } = useTenants(isSuperAdmin || isViewer)
 
   const filtered = useMemo(() => {
     return usuarios.filter((u) => {
@@ -119,13 +121,13 @@ export default function UsuariosPage() {
 
         {/* Filtros */}
         <div className="flex flex-wrap gap-3 mb-5">
-          {isSuperAdmin && tenants.length > 0 && (
+          {(isSuperAdmin || isViewer) && tenants.length > 0 && (
             <select
               value={filterTenant}
               onChange={(e) => setFilterTenant(e.target.value)}
               className="text-sm font-sans border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-dark focus:outline-none focus:ring-2 focus:ring-blue-dark"
             >
-              <option value="">Todos os projetos</option>
+              <option value="">Todas as unidades</option>
               {tenants.map((t) => (
                 <option key={t.id} value={t.id}>{t.nome}</option>
               ))}
@@ -155,6 +157,7 @@ export default function UsuariosPage() {
           onCreated={reload}
         />
 
+
         {loading ? (
           <Text variant="body-sm" className="text-gray-300 text-center block py-10">Carregando...</Text>
         ) : (
@@ -180,7 +183,7 @@ export default function UsuariosPage() {
                       </span>
                     </div>
                   </div>
-                  {isSuperAdmin && (
+                  {(isSuperAdmin || isViewer) && (
                     <button
                       title="Resetar senha"
                       onClick={() => setResetState({ status: 'confirming', id: u.id, nome: u.nome })}

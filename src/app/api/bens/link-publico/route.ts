@@ -10,7 +10,7 @@ const BodySchema = z.object({
 })
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio', 'viewer'])
   if (!session) return unauthorized()
 
   const parsed = BodySchema.safeParse(await req.json())
@@ -22,7 +22,8 @@ export async function POST(req: Request): Promise<Response> {
       tenantId: session.tenantId ?? 'super_admin',
     })
     return ok({ token: id })
-  } catch {
+  } catch (e) {
+    console.error('[link-publico] POST error:', e)
     return serverError('link-publico POST failed')
   }
 }

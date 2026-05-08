@@ -82,7 +82,31 @@ export async function GET(req: Request): Promise<Response> {
   const companyId = searchParams.get('companyId')
 
   try {
-    // tenant_admin, operator_patrimonio e viewer: restritos à empresa do próprio tenant
+    // viewer: pode ter múltiplos tenants — valida que o companyId pedido está entre os seus
+    if (session.role === 'viewer') {
+      const tenantIds = session.tenantIds && session.tenantIds.length > 0
+        ? session.tenantIds
+        : session.tenantId ? [session.tenantId] : []
+      if (tenantIds.length === 0) return forbidden()
+
+      const tenants = await prismaAuth.tenant.findMany({
+        where: { id: { in: tenantIds } },
+        select: { trilogoCompanyId: true },
+      })
+      const allowedCompanyIds = tenants
+        .filter((t) => t.trilogoCompanyId !== null)
+        .map((t) => String(t.trilogoCompanyId))
+
+      if (allowedCompanyIds.length === 0) return forbidden()
+      if (searchParams.get('only') === 'empresas') return forbidden()
+      if (!companyId) return badRequest('companyId obrigatório')
+      if (!allowedCompanyIds.includes(companyId)) return forbidden()
+
+      const all = await fetchAll()
+      return ok(all.filter((a) => String(a['companyId']) === companyId))
+    }
+
+    // tenant_admin e operator_patrimonio: restritos à empresa do próprio tenant
     if (session.role !== 'super_admin') {
       if (!session.tenantId) return forbidden()
 

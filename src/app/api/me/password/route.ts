@@ -1,5 +1,5 @@
 import { badRequest, ok, serverError, unauthorized } from '@/lib/api-response'
-import { comparePassword, hashPassword, setSessionCookie } from '@/lib/auth'
+import { hashPassword, setSessionCookie } from '@/lib/auth'
 import type { SessionPayload } from '@/lib/auth'
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { authPool } from '@/lib/db-auth'
@@ -21,10 +21,10 @@ export async function POST(req: Request): Promise<Response> {
     if (!payload) return unauthorized()
 
     const body = await req.json()
-    const { senhaAtual, novaSenha } = body as { senhaAtual?: string; novaSenha?: string }
+    const { novaSenha } = body as { novaSenha?: string }
 
-    if (!senhaAtual || !novaSenha) {
-      return badRequest('senhaAtual e novaSenha são obrigatórios')
+    if (!novaSenha) {
+      return badRequest('novaSenha é obrigatória')
     }
     if (novaSenha.length < 6) {
       return badRequest('A nova senha deve ter pelo menos 6 caracteres')
@@ -41,9 +41,6 @@ export async function POST(req: Request): Promise<Response> {
     )
     const usuario = result.rows[0] ?? null
     if (!usuario) return unauthorized()
-
-    const senhaValida = await comparePassword(senhaAtual, usuario.senhaHash)
-    if (!senhaValida) return badRequest('Senha atual incorreta')
 
     const novoHash = await hashPassword(novaSenha)
     await authPool.query(
@@ -68,6 +65,6 @@ export async function POST(req: Request): Promise<Response> {
     return ok(null, 'Senha alterada com sucesso')
   } catch (error) {
     console.error('[me/password] erro:', error)
-    return serverError(error)
+    return serverError('me/password POST failed')
   }
 }

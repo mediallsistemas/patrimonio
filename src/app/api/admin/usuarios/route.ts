@@ -25,18 +25,29 @@ export async function GET(req: Request): Promise<Response> {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'viewer'])
   if (!session) return forbidden()
 
   const body = await req.json()
-  const data = session.role === 'tenant_admin'
-    ? { ...body, tenantId: session.tenantId }
-    : body
+
+  let data: typeof body
+  if (session.role === 'tenant_admin') {
+    data = { ...body, tenantId: session.tenantId }
+  } else if (session.role === 'viewer') {
+    // viewer só pode criar usuários em tenants que gerencia
+    const viewerTenantIds = session.tenantIds ?? (session.tenantId ? [session.tenantId] : [])
+    const targetTenantId = body.tenantId as string | undefined
+    if (!targetTenantId || !viewerTenantIds.includes(targetTenantId)) return forbidden()
+    data = body
+  } else {
+    data = body
+  }
 
   const parsed = CreateUsuarioSchema.safeParse(data)
   if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))
 
-  if (session.role === 'tenant_admin' && parsed.data.role === 'super_admin') return forbidden()
+  // tenant_admin e viewer não podem criar super_admin
+  if ((session.role === 'tenant_admin' || session.role === 'viewer') && parsed.data.role === 'super_admin') return forbidden()
 
   try {
     const usuario = await usuariosService.criarUsuario(parsed.data)

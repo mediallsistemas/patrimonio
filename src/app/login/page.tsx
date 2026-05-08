@@ -36,19 +36,20 @@ function LoginForm() {
 
       const { usuario } = data
 
-      const defaultDest =
-        usuario.role === 'super_admin' || usuario.role === 'tenant_admin'
-          ? '/admin'
-          : usuario.role === 'viewer'
-            ? '/viewer'
-            : `/${usuario.tenantSlug}/manutencao`
+      if (usuario.mustChangePassword) {
+        window.location.href = '/mudar-senha'
+        return
+      }
 
-      // Só respeita o `from` se for compatível com o role — evita redirecionar
-      // viewer para /admin ou operator para /viewer após expiração de cookie
+      const defaultDest =
+        usuario.role === 'super_admin' || usuario.role === 'tenant_admin' || usuario.role === 'viewer'
+          ? '/admin'
+          : `/${usuario.tenantSlug}/manutencao`
+
+      // Só respeita o `from` se for compatível com o role
       const fromIsCompatible =
         from === '/' ? false :
-        (usuario.role === 'super_admin' || usuario.role === 'tenant_admin') ? from.startsWith('/admin') :
-        usuario.role === 'viewer' ? from.startsWith('/viewer') :
+        (usuario.role === 'super_admin' || usuario.role === 'tenant_admin' || usuario.role === 'viewer') ? from.startsWith('/admin') :
         from.startsWith(`/${usuario.tenantSlug}`)
 
       const dest = fromIsCompatible ? from : defaultDest

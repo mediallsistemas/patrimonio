@@ -119,6 +119,11 @@ export async function atualizarUsuario(id: string, input: UpdateUsuarioInput): P
   }
 }
 
+export function viewerOwnsUser(viewerTenantIds: string[], userTenantId: string | null): boolean {
+  if (!userTenantId) return false
+  return viewerTenantIds.includes(userTenantId)
+}
+
 export async function deletarUsuario(id: string): Promise<void> {
   try {
     await authPool.query(`DELETE FROM usuarios WHERE id = $1`, [id])

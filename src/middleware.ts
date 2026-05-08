@@ -193,7 +193,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  let payload: { role?: string; tenantSlug?: string | null }
+  let payload: { role?: string; tenantSlug?: string | null; mustChangePassword?: boolean }
   try {
     const { payload: p } = await jwtVerify(token, JWT_SECRET)
     payload = p as typeof payload
@@ -205,16 +205,18 @@ export async function middleware(req: NextRequest) {
     return res
   }
 
+  // Força troca de senha antes de acessar qualquer rota protegida
+  if (payload.mustChangePassword && pathname !== '/mudar-senha') {
+    return NextResponse.redirect(new URL('/mudar-senha', req.url))
+  }
+
   const role = payload.role ?? ''
   const tenantSlug = payload.tenantSlug ?? null
 
   // ── Rota raiz "/" ─────────────────────────────────────────────────────────
   if (pathname === '/') {
-    if (role === 'super_admin' || role === 'tenant_admin') {
+    if (role === 'super_admin' || role === 'tenant_admin' || role === 'viewer') {
       return NextResponse.redirect(new URL('/admin', req.url))
-    }
-    if (role === 'viewer') {
-      return NextResponse.redirect(new URL('/viewer', req.url))
     }
     if (MANUTENCAO_ROLES.has(role) && tenantSlug) {
       return NextResponse.redirect(new URL(`/${tenantSlug}/manutencao`, req.url))
@@ -222,23 +224,17 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // ── /viewer/* — apenas viewer ─────────────────────────────────────────────
-  if (pathname.startsWith('/viewer')) {
-    if (role !== 'viewer') return NextResponse.redirect(new URL('/login', req.url))
-    return NextResponse.next()
-  }
-
   // ── /admin/tenants/* — apenas super_admin ────────────────────────────────
   if (pathname.startsWith('/admin/tenants')) {
     if (role !== 'super_admin') {
-      return NextResponse.redirect(new URL('/login', req.url))
+      return NextResponse.redirect(new URL('/admin', req.url))
     }
     return NextResponse.next()
   }
 
-  // ── /admin/* — super_admin e tenant_admin ─────────────────────────────────
+  // ── /admin/* — super_admin, tenant_admin e viewer ─────────────────────────
   if (pathname.startsWith('/admin')) {
-    if (role !== 'super_admin' && role !== 'tenant_admin') {
+    if (role !== 'super_admin' && role !== 'tenant_admin' && role !== 'viewer') {
       return NextResponse.redirect(new URL('/login', req.url))
     }
     return NextResponse.next()

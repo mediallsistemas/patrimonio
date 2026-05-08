@@ -1,15 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, KeyRound, Landmark, X } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, Landmark } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { api } from '@/services/api'
 
 export default function MudarSenhaPage() {
-  const [senhaAtual, setSenhaAtual] = useState('')
   const [novaSenha, setNovaSenha] = useState('')
   const [confirmar, setConfirmar] = useState('')
-  const [showAtual, setShowAtual] = useState(false)
   const [showNova, setShowNova] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState('')
@@ -30,9 +28,7 @@ export default function MudarSenhaPage() {
 
     setIsPending(true)
     try {
-      await api.post('me/password', { senhaAtual, novaSenha })
-      // Clear the "must change password" reminder cookie
-      document.cookie = 'ls_pwd_warning=; path=/; max-age=0'
+      await api.post('me/password', { novaSenha })
       setSuccess(true)
       setTimeout(() => { window.location.href = '/' }, 1500)
     } catch (err) {
@@ -40,12 +36,6 @@ export default function MudarSenhaPage() {
     } finally {
       setIsPending(false)
     }
-  }
-
-  function handleIgnorar() {
-    // Set a cookie so the banner stays visible across pages (expires in 30 days)
-    document.cookie = 'ls_pwd_warning=1; path=/; max-age=2592000'
-    window.location.href = '/'
   }
 
   return (
@@ -77,26 +67,6 @@ export default function MudarSenhaPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
 
-              {/* Senha atual */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-gray-400 font-sans">Senha atual</label>
-                <div className="relative">
-                  <input
-                    type={showAtual ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    placeholder="••••••••"
-                    value={senhaAtual}
-                    onChange={(e) => setSenhaAtual(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all placeholder:text-gray-300"
-                  />
-                  <button type="button" onClick={() => setShowAtual(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-400 transition-colors">
-                    {showAtual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
               {/* Nova senha */}
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-gray-400 font-sans">Nova senha</label>
@@ -108,7 +78,9 @@ export default function MudarSenhaPage() {
                     value={novaSenha}
                     onChange={(e) => setNovaSenha(e.target.value)}
                     required
-                    className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all placeholder:text-gray-300"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all placeholder:text-gray-300 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                   />
                   <button type="button" onClick={() => setShowNova(v => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-400 transition-colors">
@@ -147,15 +119,6 @@ export default function MudarSenhaPage() {
                 {isPending ? 'Alterando...' : 'Alterar senha'}
               </button>
 
-              {/* Ignorar */}
-              <button
-                type="button"
-                onClick={handleIgnorar}
-                className="w-full flex items-center justify-center gap-1.5 py-2 text-gray-300 hover:text-gray-400 font-sans text-sm transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-                Ignorar por agora
-              </button>
 
             </form>
           )}
