@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Package, ChevronDown, ChevronUp, AlertCircle, CalendarPlus, CheckCircle2, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { ManutencaoRealizadaResumo } from '@/services/manutencoes.service'
 
 interface Agendamento {
   id: string
@@ -13,6 +14,12 @@ interface Agendamento {
   status: string
   ambiente: string
 }
+
+// Item unificado para o calendário mensal (mesma ideia do ModalAgendamento admin):
+// pode ser um agendamento ou uma manutenção realizada pelo operador.
+type ItemMes =
+  | { kind: 'agendamento'; ag: Agendamento }
+  | { kind: 'realizada'; m: ManutencaoRealizadaResumo }
 
 interface Asset {
   id: number
@@ -29,8 +36,10 @@ interface Asset {
 interface Props {
   bem: Asset
   agendamentos: Agendamento[]
+  realizadas: ManutencaoRealizadaResumo[]
   logado: boolean
   onPedirLogin: () => void
+  onAbrirRealizada: (id: string) => void
 }
 
 const STATUS_LABEL: Record<number, { label: string; color: string }> = {
@@ -49,42 +58,52 @@ function isoParaChaveMes(iso: string): string {
   return iso.slice(0, 7)
 }
 
-function mapearPorMes(lista: Agendamento[]): Map<string, Agendamento[]> {
-  const map = new Map<string, Agendamento[]>()
-  lista.forEach(ag => {
-    const iso = ag.status === 'realizado'
-      ? ((ag.dataRealizada ?? ag.dataAgendada) as string)
-      : (ag.dataAgendada as string)
-    const key = isoParaChaveMes(iso)
+function isoDoItem(item: ItemMes): string {
+  if (item.kind === 'agendamento') {
+    return item.ag.status === 'realizado'
+      ? (item.ag.dataRealizada ?? item.ag.dataAgendada) as string
+      : item.ag.dataAgendada as string
+  }
+  return item.m.finalizadaEm ?? item.m.iniciadaEm
+}
+
+function ehRealizado(item: ItemMes): boolean {
+  return item.kind === 'realizada' || item.ag.status === 'realizado'
+}
+
+function mapearPorMes(itens: ItemMes[]): Map<string, ItemMes[]> {
+  const map = new Map<string, ItemMes[]>()
+  itens.forEach(it => {
+    const key = isoParaChaveMes(isoDoItem(it))
     if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(ag)
+    map.get(key)!.push(it)
   })
   return map
 }
 
-function HistoricoAnual({ agendamentos }: { agendamentos: Agendamento[] }) {
+function HistoricoAnual({
+  itens,
+  onAbrirRealizada,
+}: {
+  itens: ItemMes[]
+  onAbrirRealizada: (id: string) => void
+}) {
   const anoAtual = new Date().getFullYear()
-  const realizados = agendamentos.filter(ag => ag.status === 'realizado')
 
-  const anoMinimo = realizados.reduce((min, ag) => {
-    const ano = parseInt((String(ag.dataRealizada ?? ag.dataAgendada)).slice(0, 4), 10)
-    return Math.min(min, ano)
+  const anoMinimo = itens.reduce((min, it) => {
+    if (!ehRealizado(it)) return min
+    return Math.min(min, parseInt(isoDoItem(it).slice(0, 4), 10))
   }, anoAtual)
 
-  const anoMaximo = agendamentos.reduce((max, ag) => {
-    const ano = parseInt(new Date(ag.dataAgendada).toISOString().slice(0, 4), 10)
-    return Math.max(max, ano)
+  const anoMaximo = itens.reduce((max, it) => {
+    const iso = it.kind === 'agendamento' ? (it.ag.dataAgendada as string) : isoDoItem(it)
+    return Math.max(max, parseInt(iso.slice(0, 4), 10))
   }, anoAtual)
 
   const [anoSelecionado, setAnoSelecionado] = useState(anoAtual)
 
-  const noAno = agendamentos.filter(ag => {
-    const iso = ag.status === 'realizado'
-      ? ((ag.dataRealizada ?? ag.dataAgendada) as string)
-      : (ag.dataAgendada as string)
-    return parseInt(iso.slice(0, 4), 10) === anoSelecionado
-  })
-  const realizadosNoAno = noAno.filter(ag => ag.status === 'realizado')
+  const noAno = itens.filter(it => parseInt(isoDoItem(it).slice(0, 4), 10) === anoSelecionado)
+  const realizadosNoAno = noAno.filter(ehRealizado)
   const porMes = mapearPorMes(noAno)
 
   return (
@@ -122,26 +141,44 @@ function HistoricoAnual({ agendamentos }: { agendamentos: Agendamento[] }) {
       <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         {Array.from({ length: 12 }, (_, i) => {
           const chave = `${anoSelecionado}-${String(i + 1).padStart(2, '0')}`
-          const ags = porMes.get(chave) ?? []
-          const temRealizados = ags.some(ag => ag.status === 'realizado')
-          const temPendentes  = ags.some(ag => ag.status === 'pendente')
+          const itensMes = porMes.get(chave) ?? []
+          const temRealizados = itensMes.some(ehRealizado)
+          const temPendentes  = itensMes.some(it => it.kind === 'agendamento' && it.ag.status === 'pendente')
           const labelColor = temRealizados ? 'text-emerald-600' : temPendentes ? 'text-purple-600' : 'text-gray-400'
+          const qtdRealizados = itensMes.filter(ehRealizado).length
           return (
             <div key={chave} className="shrink-0 w-24 rounded-xl p-2 border border-gray-100 bg-white">
               <div className="flex items-center justify-between mb-1">
                 <p className={`text-xs font-bold ${labelColor}`}>{MESES[i]}</p>
                 {temRealizados && (
                   <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                    {ags.filter(ag => ag.status === 'realizado').length}
+                    {qtdRealizados}
                   </span>
                 )}
               </div>
-              {ags.length > 0 ? (
+              {itensMes.length > 0 ? (
                 <div className="space-y-1">
-                  {ags.map(ag => {
+                  {itensMes.map((it) => {
+                    if (it.kind === 'realizada') {
+                      const m = it.m
+                      const titulo = m.subtipoPatrimonio ?? 'Manutenção'
+                      const dataIso = m.finalizadaEm ?? m.iniciadaEm
+                      return (
+                        <button
+                          key={`m-${m.id}`}
+                          type="button"
+                          onClick={() => onAbrirRealizada(m.id)}
+                          className="w-full text-left rounded-lg px-1.5 py-1 border bg-emerald-50 border-emerald-200 hover:bg-emerald-100 transition-colors"
+                        >
+                          <p className="text-xs font-medium leading-tight line-clamp-2 text-emerald-800">{titulo}</p>
+                          <p className="text-xs mt-0.5 text-emerald-600">{formatDate(dataIso)}</p>
+                        </button>
+                      )
+                    }
+                    const ag = it.ag
                     const realizado = ag.status === 'realizado'
                     return (
-                      <div key={ag.id} className={`rounded-lg px-1.5 py-1 border ${realizado ? 'bg-white border-emerald-200' : 'bg-purple-50 border-purple-200'}`}>
+                      <div key={`a-${ag.id}`} className={`rounded-lg px-1.5 py-1 border ${realizado ? 'bg-white border-emerald-200' : 'bg-purple-50 border-purple-200'}`}>
                         <p className={`text-xs font-medium leading-tight line-clamp-2 ${realizado ? 'text-gray-700' : 'text-purple-800'}`}>{ag.titulo}</p>
                         <p className={`text-xs mt-0.5 ${realizado ? 'text-emerald-600' : 'text-purple-500'}`}>{formatDate(ag.dataRealizada ?? ag.dataAgendada)}</p>
                       </div>
@@ -159,7 +196,7 @@ function HistoricoAnual({ agendamentos }: { agendamentos: Agendamento[] }) {
   )
 }
 
-export default function BemCard({ bem, agendamentos, logado, onPedirLogin }: Props) {
+export default function BemCard({ bem, agendamentos, realizadas, logado, onPedirLogin, onAbrirRealizada }: Props) {
   const [expandido, setExpandido] = useState(false)
 
   const st = STATUS_LABEL[bem.status] ?? { label: String(bem.status), color: 'bg-gray-100 text-gray-500' }
@@ -169,6 +206,12 @@ export default function BemCard({ bem, agendamentos, logado, onPedirLogin }: Pro
     new Date(ag.dataAgendada as string).toISOString().slice(0, 10) < hojeStr,
   )
   const temAgendamento = logado && pendentes.length > 0
+  const temHistorico = logado && (agendamentos.length > 0 || realizadas.length > 0)
+
+  const itensCalendario: ItemMes[] = [
+    ...agendamentos.map((ag) => ({ kind: 'agendamento' as const, ag })),
+    ...realizadas.map((m) => ({ kind: 'realizada' as const, m })),
+  ]
 
   const borderColor = atrasado
     ? 'border-red-200'
@@ -249,8 +292,8 @@ export default function BemCard({ bem, agendamentos, logado, onPedirLogin }: Pro
             </button>
           ) : (
             <>
-              {agendamentos.length > 0 && (
-                <HistoricoAnual agendamentos={agendamentos} />
+              {temHistorico && (
+                <HistoricoAnual itens={itensCalendario} onAbrirRealizada={onAbrirRealizada} />
               )}
 
               {pendentes.length > 0 && (

@@ -25,6 +25,7 @@ model Tenant {
   respostasFormulario RespostaFormulario[]
   rodadas             Rodada[]
   agendamentosManutencao AgendamentoManutencao[]
+  manutencoesRealizadas  ManutencaoRealizada[]
   rondasDraft            RondaDraft[]
   rondasOcorrencias      RondaOcorrencia[]
   templatesFormulario    TemplateFormulario[]
@@ -49,6 +50,7 @@ model Usuario {
   atualizadoEm               DateTime                @updatedAt
   agendamentosAtualizados    AgendamentoManutencao[] @relation("AgendamentoAtualizadoPor")
   agendamentosCriados        AgendamentoManutencao[] @relation("AgendamentoCriadoPor")
+  manutencoesRealizadas      ManutencaoRealizada[]   @relation("ManutencaoCriadaPor")
   respostasFormularioCriadas RespostaFormulario[]    @relation("RespostaCriadaPor")
   rodadasCriadas             Rodada[]                @relation("RodadaCriadaPor")
   draftsOcorrencias          RondaDraft[]            @relation("DraftCriadoPor")
@@ -228,6 +230,7 @@ model AmbienteTenant {
   tipo     String      @default("ocorrencia")
   bloco    BlocoTenant? @relation(fields: [blocoId], references: [id])
   tenant   Tenant      @relation(fields: [tenantId], references: [id])
+  manutencoes ManutencaoRealizada[]
 
   @@index([tenantId])
   @@index([blocoId])
@@ -272,6 +275,48 @@ model AgendamentoManutencao {
   @@index([tenantId])
   @@index([companyId])
   @@map("agendamentos_manutencao")
+}
+
+// Manutenção realizada pelo operador (elétrica, hidráulica ou patrimônio).
+// Para elétrica/hidráulica: vinculada a um ambiente. Para patrimônio: vinculada a um bem do Trilogo.
+// Snapshots de nome/descrição preservam histórico mesmo se o ambiente/bem for removido.
+model ManutencaoRealizada {
+  id                    String    @id @default(uuid())
+  tenantId              String
+  criadoPorId           String
+  // 'eletrica' | 'hidraulica' | 'patrimonio'
+  tipo                  String
+  status                String    @default("em_andamento") // 'em_andamento' | 'concluida'
+
+  // Ambiente (apenas para eletrica/hidraulica)
+  ambienteId            String?
+  ambienteNomeSnapshot  String?
+  blocoNomeSnapshot     String?
+
+  // Bem do Trilogo (apenas para patrimonio)
+  trilogoAssetId        Int?
+  patrimony             String?
+  descricaoBemSnapshot  String?
+  // Subtipo de manutenção do bem (apenas para patrimonio) — mesma lista do dropdown de agendamento
+  subtipoPatrimonio     String?
+
+  descricao             String
+  observacaoFinal       String?
+  fotoAntes             String    // base64 obrigatória ao iniciar
+  fotoDepois            String?   // base64 preenchida ao finalizar
+
+  iniciadaEm            DateTime  @default(now())
+  finalizadaEm          DateTime?
+  atualizadoEm          DateTime  @updatedAt
+
+  ambiente              AmbienteTenant? @relation(fields: [ambienteId], references: [id], onDelete: SetNull)
+  criadoPor             Usuario   @relation("ManutencaoCriadaPor", fields: [criadoPorId], references: [id])
+  tenant                Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, tipo, iniciadaEm])
+  @@index([criadoPorId, status])
+  @@map("manutencoes_realizadas")
 }
 
 model LinkPublicoBem {

@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Upload, X, Plus, Trash2, Package } from 'luc
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
-import PatrimonioBemSelector from './PatrimonioBemSelector'
+import BemSelector from '@/components/ui/patrimonio/BemSelector'
 import { TIPOS_OCORRENCIA, type DraftEstado, type DetalheOcorrencia } from '@/app/ocorrencias/types'
 
 interface OcorrenciaDetalheProps {
@@ -270,7 +270,7 @@ export default function OcorrenciaDetalhe({
 
       {/* Modal de seleção de bem (portal) */}
       {bemModalIdx >= 0 && (
-        <PatrimonioBemSelector
+        <BemSelector
           ambienteNome={estado.localSelecionado?.nome ?? ''}
           blocoNome={estado.blocoSelecionado ?? ''}
           onSelecionar={onSelecionarBem}

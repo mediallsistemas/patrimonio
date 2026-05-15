@@ -4,6 +4,13 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X, Package, ChevronDown, MapPin } from 'lucide-react'
 
+export interface BemSelecionado {
+  id: number
+  patrimony: string
+  descricao: string
+  assetTypeName: string
+}
+
 interface Bem {
   id: number
   patrimony: string
@@ -12,23 +19,31 @@ interface Bem {
   assetTypeName: string
 }
 
-interface PatrimonioBemSelectorProps {
-  ambienteNome: string
-  blocoNome: string
-  onSelecionar: (bem: { id: number; patrimony: string; descricao: string } | null) => void
+interface BemSelectorProps {
+  // Quando informados, abre filtrado pelo ambiente atual com botão "Outro setor".
+  // Quando ausentes (ou ambos vazios), abre em modo "todos os setores" sem o filtro.
+  ambienteNome?: string
+  blocoNome?: string
+  onSelecionar: (bem: BemSelecionado | null) => void
   onFechar: () => void
+  // Permite ocultar o botão "Continuar sem selecionar bem" em fluxos onde o
+  // bem é obrigatório (ex.: manutenção de patrimônio).
+  permitirSemSelecao?: boolean
 }
 
-export default function PatrimonioBemSelector({
+export default function BemSelector({
   ambienteNome,
   blocoNome,
   onSelecionar,
   onFechar,
-}: PatrimonioBemSelectorProps) {
+  permitirSemSelecao = true,
+}: BemSelectorProps) {
+  const temContextoAmbiente = Boolean(ambienteNome || blocoNome)
   const [bens, setBens] = useState<Bem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [verOutros, setVerOutros] = useState(false)
+  // Se não há contexto de ambiente, já começa mostrando todos.
+  const [verOutros, setVerOutros] = useState(!temContextoAmbiente)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -98,7 +113,7 @@ export default function PatrimonioBemSelector({
         </div>
 
         {/* Ambiente atual */}
-        {!verOutros && (
+        {temContextoAmbiente && !verOutros && (
           <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-purple-50 border border-purple-200 flex items-center gap-2 shrink-0">
             <MapPin className="w-3.5 h-3.5 text-purple-500 shrink-0" />
             <p className="text-xs font-sans text-purple-700 flex-1 truncate">
@@ -113,7 +128,7 @@ export default function PatrimonioBemSelector({
           </div>
         )}
 
-        {verOutros && (
+        {temContextoAmbiente && verOutros && (
           <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2 shrink-0">
             <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <p className="text-xs font-sans text-amber-700 flex-1">Mostrando todos os setores</p>
@@ -165,7 +180,7 @@ export default function PatrimonioBemSelector({
                 <button
                   key={bem.id}
                   type="button"
-                  onClick={() => onSelecionar({ id: bem.id, patrimony: bem.patrimony, descricao: bem.description })}
+                  onClick={() => onSelecionar({ id: bem.id, patrimony: bem.patrimony, descricao: bem.description, assetTypeName: bem.assetTypeName })}
                   className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 text-left transition-all active:scale-[0.98]"
                 >
                   <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -183,14 +198,16 @@ export default function PatrimonioBemSelector({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-gray-100 shrink-0">
-          <button
-            onClick={() => onSelecionar(null)}
-            className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-400 font-sans font-semibold text-sm hover:border-gray-300 hover:text-gray-500 transition-all"
-          >
-            Continuar sem selecionar bem
-          </button>
-        </div>
+        {permitirSemSelecao && (
+          <div className="px-5 py-4 border-t border-gray-100 shrink-0">
+            <button
+              onClick={() => onSelecionar(null)}
+              className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-400 font-sans font-semibold text-sm hover:border-gray-300 hover:text-gray-500 transition-all"
+            >
+              Continuar sem selecionar bem
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

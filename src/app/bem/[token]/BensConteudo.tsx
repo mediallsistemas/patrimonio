@@ -4,6 +4,9 @@ import { useState, useRef, useCallback } from 'react'
 import { Search, X, LogOut, Loader2, Package } from 'lucide-react'
 import BemCard from './BemCard'
 import ModalLoginBem from './ModalLoginBem'
+import * as manutencoesService from '@/services/manutencoes.service'
+import type { ManutencaoRealizadaResumo } from '@/services/manutencoes.service'
+import ModalManutencaoRealizadaDetalhe from '@/app/admin/bens/components/ModalManutencaoRealizadaDetalhe'
 
 interface Asset {
   id: number
@@ -39,7 +42,13 @@ interface Props {
 type BuscaState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; bens: Asset[]; agendamentos: Map<number, Agendamento[]>; query: string }
+  | {
+      status: 'success'
+      bens: Asset[]
+      agendamentos: Map<number, Agendamento[]>
+      realizadas: Map<number, ManutencaoRealizadaResumo[]>
+      query: string
+    }
   | { status: 'error'; message: string }
 
 async function fetchAgendamentos(ids: number[]): Promise<Map<number, Agendamento[]>> {
@@ -59,6 +68,19 @@ async function fetchAgendamentos(ids: number[]): Promise<Map<number, Agendamento
   return map
 }
 
+async function fetchRealizadas(ids: number[]): Promise<Map<number, ManutencaoRealizadaResumo[]>> {
+  const map = new Map<number, ManutencaoRealizadaResumo[]>()
+  if (ids.length === 0) return map
+  try {
+    const lista = await manutencoesService.listarRealizadasPorAssets(ids)
+    lista.forEach((m) => {
+      if (!map.has(m.trilogoAssetId)) map.set(m.trilogoAssetId, [])
+      map.get(m.trilogoAssetId)!.push(m)
+    })
+  } catch { /* não crítico */ }
+  return map
+}
+
 export default function BensConteudo({ bens, companyId, companyName, projeto }: Props) {
   const [logado, setLogado] = useState(false)
   const [nomeUsuario, setNomeUsuario] = useState('')
@@ -66,6 +88,9 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
 
   // agendamentos dos bens do ambiente (carregados ao fazer login)
   const [agAmbiente, setAgAmbiente] = useState<Map<number, Agendamento[]>>(new Map())
+  // manutenções realizadas pelo operador (com fotos antes/depois)
+  const [realizadasAmbiente, setRealizadasAmbiente] = useState<Map<number, ManutencaoRealizadaResumo[]>>(new Map())
+  const [detalheManutencaoId, setDetalheManutencaoId] = useState<string | null>(null)
 
   // busca por patrimônio
   const [inputValor, setInputValor] = useState('')
@@ -84,9 +109,14 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
       }
     } catch { /* não crítico */ }
     setLogado(true)
-    // carrega agendamentos dos bens do ambiente
-    const agMap = await fetchAgendamentos(bens.map(b => b.id))
+    // carrega agendamentos e manutenções realizadas dos bens do ambiente
+    const ids = bens.map(b => b.id)
+    const [agMap, realizadasMap] = await Promise.all([
+      fetchAgendamentos(ids),
+      fetchRealizadas(ids),
+    ])
     setAgAmbiente(agMap)
+    setRealizadasAmbiente(realizadasMap)
     setTimeout(() => inputRef.current?.focus(), 100)
   }, [bens])
 
@@ -99,6 +129,7 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
     setInputValor('')
     setBusca({ status: 'idle' })
     setAgAmbiente(new Map())
+    setRealizadasAmbiente(new Map())
   }
 
   async function buscarPorPatrimonio(patrimony: string) {
@@ -116,8 +147,12 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
       }
       const jsonBens = await resBens.json() as { data: Asset[] }
       const encontrados = jsonBens.data ?? []
-      const agMap = await fetchAgendamentos(encontrados.map(b => b.id))
-      setBusca({ status: 'success', bens: encontrados, agendamentos: agMap, query: q })
+      const ids = encontrados.map(b => b.id)
+      const [agMap, realizadasMap] = await Promise.all([
+        fetchAgendamentos(ids),
+        fetchRealizadas(ids),
+      ])
+      setBusca({ status: 'success', bens: encontrados, agendamentos: agMap, realizadas: realizadasMap, query: q })
     } catch {
       setBusca({ status: 'error', message: 'Erro ao buscar bens.' })
     }
@@ -231,8 +266,10 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
                 key={bem.id}
                 bem={bem}
                 agendamentos={busca.agendamentos.get(bem.id) ?? []}
+                realizadas={busca.realizadas.get(bem.id) ?? []}
                 logado={logado}
                 onPedirLogin={() => setAbrirModal(true)}
+                onAbrirRealizada={setDetalheManutencaoId}
               />
             ))
           )}
@@ -247,8 +284,10 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
               key={bem.id}
               bem={bem}
               agendamentos={agAmbiente.get(bem.id) ?? []}
+              realizadas={realizadasAmbiente.get(bem.id) ?? []}
               logado={logado}
               onPedirLogin={() => setAbrirModal(true)}
+              onAbrirRealizada={setDetalheManutencaoId}
             />
           ))}
         </div>
@@ -258,6 +297,13 @@ export default function BensConteudo({ bens, companyId, companyName, projeto }: 
         <ModalLoginBem
           onSuccess={handleLoginSucesso}
           onClose={() => setAbrirModal(false)}
+        />
+      )}
+
+      {detalheManutencaoId && (
+        <ModalManutencaoRealizadaDetalhe
+          id={detalheManutencaoId}
+          onClose={() => setDetalheManutencaoId(null)}
         />
       )}
     </div>

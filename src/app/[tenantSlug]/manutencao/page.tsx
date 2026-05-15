@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardList, Activity, Users } from 'lucide-react'
+import { ClipboardList, Activity, Users, Wrench } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
@@ -17,6 +17,13 @@ export default async function ManutencaoHomePage({
   const isTenantAdmin = session.role === 'tenant_admin'
 
   const operatorActions = [
+    {
+      href: `/${tenantSlug}/manutencao/realizar`,
+      icon: Wrench,
+      title: 'Realizar Manutenção',
+      description: 'Elétrica, hidráulica ou patrimônio — com foto antes e depois',
+      color: '#f59e0b',
+    },
     {
       href: `/${tenantSlug}/ronda`,
       icon: ClipboardList,
@@ -92,7 +99,7 @@ export default async function ManutencaoHomePage({
         </div>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className={`grid grid-cols-1 gap-5 ${isTenantAdmin ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'}`}>
           {actions.map(({ href, icon: Icon, title, description, color }) => (
             <Link key={href} href={href} className="group">
               <div

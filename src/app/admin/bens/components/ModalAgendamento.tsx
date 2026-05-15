@@ -1,10 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
 import { X, CheckCircle2, XCircle, CalendarCheck, ChevronLeft, ChevronRight, Repeat2 } from 'lucide-react'
 import type { Asset, Agendamento } from '../bens.types'
 import { parseEndereco, getSugestoes } from '../bens.types'
+import * as manutencoesService from '@/services/manutencoes.service'
+import type { ManutencaoRealizadaResumo } from '@/services/manutencoes.service'
+import ModalManutencaoRealizadaDetalhe from './ModalManutencaoRealizadaDetalhe'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,13 +56,31 @@ function isoParaChaveMes(iso: string): string {
   return iso.slice(0, 7)
 }
 
-function mapearPorMes(lista: Agendamento[]): Map<string, Agendamento[]> {
-  const map = new Map<string, Agendamento[]>()
-  lista.forEach(ag => {
-    const iso = ag.status === 'realizado' ? (ag.dataRealizada ?? ag.dataAgendada) : ag.dataAgendada
-    const key = isoParaChaveMes(iso)
+// Item que aparece no calendário mensal. Pode vir de um agendamento (pendente/realizado)
+// ou de uma manutenção executada pelo operador (sempre concluída, com foto antes/depois).
+type ItemMes =
+  | { kind: 'agendamento'; ag: Agendamento }
+  | { kind: 'realizada'; m: ManutencaoRealizadaResumo }
+
+function isoDoItem(item: ItemMes): string {
+  if (item.kind === 'agendamento') {
+    return item.ag.status === 'realizado'
+      ? (item.ag.dataRealizada ?? item.ag.dataAgendada)
+      : item.ag.dataAgendada
+  }
+  return item.m.finalizadaEm ?? item.m.iniciadaEm
+}
+
+function ehRealizado(item: ItemMes): boolean {
+  return item.kind === 'realizada' || item.ag.status === 'realizado'
+}
+
+function mapearPorMes(itens: ItemMes[]): Map<string, ItemMes[]> {
+  const map = new Map<string, ItemMes[]>()
+  itens.forEach(it => {
+    const key = isoParaChaveMes(isoDoItem(it))
     if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(ag)
+    map.get(key)!.push(it)
   })
   return map
 }
@@ -99,8 +120,47 @@ function gerarDatasRecorrencia(dataInicio: string, recorrencia: Recorrencia, ate
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function DetalheCard({ ag }: { ag: Agendamento }) {
+function DetalheCard({ item, onAbrirRealizada }: { item: ItemMes; onAbrirRealizada?: (id: string) => void }) {
   const [hover, setHover] = useState(false)
+
+  if (item.kind === 'realizada') {
+    const m = item.m
+    const titulo = m.subtipoPatrimonio ?? 'Manutenção'
+    const dataIso = m.finalizadaEm ?? m.iniciadaEm
+    return (
+      <button
+        type="button"
+        onClick={() => onAbrirRealizada?.(m.id)}
+        className="relative w-full text-left rounded-lg px-2 py-1.5 border bg-emerald-50 border-emerald-200 hover:bg-emerald-100 transition-colors"
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
+        <p className="text-xs font-medium leading-tight line-clamp-2 text-emerald-800">{titulo}</p>
+        <p className="text-xs mt-0.5 text-emerald-600">{formatDate(dataIso)}</p>
+
+        {hover && (
+          <div className="fixed z-9999 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3 pointer-events-none overflow-hidden">
+            <p className="text-sm font-semibold text-gray-800 wrap-break-word">{titulo}</p>
+            {m.descricao && (
+              <p className="text-sm text-gray-500 leading-relaxed wrap-break-word">{m.descricao}</p>
+            )}
+            <div className="border-t border-gray-100 pt-3 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">Realizada</span>
+                <span className="text-emerald-600 font-medium">{formatDate(dataIso)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">Por</span>
+                <span className="text-gray-700 font-medium">{m.criadoPor.nome}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </button>
+    )
+  }
+
+  const ag = item.ag
   const realizado = ag.status === 'realizado'
 
   return (
@@ -170,6 +230,14 @@ export default function ModalAgendamento({ asset, agendamentos, onClose }: Props
   const [confirmandoId,       setConfirmandoId]       = useState<string | null>(null)
   const [dataRealizadaInput,  setDataRealizadaInput]  = useState('')
 
+  // — Manutenções realizadas (operador, com foto antes/depois) —
+  const { data: realizadasOperador = [] } = useQuery<ManutencaoRealizadaResumo[]>({
+    queryKey: ['manutencoes-realizadas', asset.id],
+    queryFn: () => manutencoesService.listarRealizadasPorAssets([asset.id]),
+    staleTime: 60 * 1000,
+  })
+  const [detalheManutencaoId, setDetalheManutencaoId] = useState<string | null>(null)
+
   // — Calendário —
   const scrollRef   = useRef<HTMLDivElement>(null)
   const isDragging  = useRef(false)
@@ -185,19 +253,30 @@ export default function ModalAgendamento({ asset, agendamentos, onClose }: Props
   const pendentes  = agendamentos.filter(ag => ag.status === 'pendente')
   const realizados = agendamentos.filter(ag => ag.status === 'realizado')
 
-  const anoMinimo = realizados.reduce((min, ag) => {
-    return Math.min(min, parseInt((ag.dataRealizada ?? ag.dataAgendada).slice(0, 4), 10))
+  // Itens unificados (agendamentos + manutenções realizadas pelo operador)
+  // alimentam o mesmo calendário horizontal.
+  const itensCalendario: ItemMes[] = [
+    ...agendamentos.map((ag) => ({ kind: 'agendamento' as const, ag })),
+    ...realizadasOperador.map((m) => ({ kind: 'realizada' as const, m })),
+  ]
+
+  const anoMinimo = itensCalendario.reduce((min, it) => {
+    if (it.kind === 'realizada') {
+      return Math.min(min, parseInt((it.m.finalizadaEm ?? it.m.iniciadaEm).slice(0, 4), 10))
+    }
+    if (it.ag.status === 'realizado') {
+      return Math.min(min, parseInt((it.ag.dataRealizada ?? it.ag.dataAgendada).slice(0, 4), 10))
+    }
+    return min
   }, anoAtual)
 
-  const anoMaximo = agendamentos.reduce((max, ag) => {
-    return Math.max(max, parseInt(ag.dataAgendada.slice(0, 4), 10))
+  const anoMaximo = itensCalendario.reduce((max, it) => {
+    const iso = it.kind === 'realizada' ? (it.m.finalizadaEm ?? it.m.iniciadaEm) : it.ag.dataAgendada
+    return Math.max(max, parseInt(iso.slice(0, 4), 10))
   }, anoAtual)
 
-  const noAno = agendamentos.filter(ag => {
-    const iso = ag.status === 'realizado' ? (ag.dataRealizada ?? ag.dataAgendada) : ag.dataAgendada
-    return parseInt(iso.slice(0, 4), 10) === anoSelecionado
-  })
-  const realizadosNoAno = noAno.filter(ag => ag.status === 'realizado')
+  const noAno = itensCalendario.filter(it => parseInt(isoDoItem(it).slice(0, 4), 10) === anoSelecionado)
+  const realizadosNoAno = noAno.filter(ehRealizado)
   const porMes          = mapearPorMes(noAno)
   const mesesDoAno      = Array.from({ length: 12 }, (_, i) =>
     `${anoSelecionado}-${String(i + 1).padStart(2, '0')}`,
@@ -351,23 +430,30 @@ export default function ModalAgendamento({ asset, agendamentos, onClose }: Props
               onMouseLeave={onMouseUp}
             >
               {mesesDoAno.map((chave, idx) => {
-                const ags           = porMes.get(chave) ?? []
-                const temRealizados = ags.some(ag => ag.status === 'realizado')
-                const temPendentes  = ags.some(ag => ag.status === 'pendente')
+                const itens         = porMes.get(chave) ?? []
+                const temRealizados = itens.some(ehRealizado)
+                const temPendentes  = itens.some(it => it.kind === 'agendamento' && it.ag.status === 'pendente')
                 const labelColor    = temRealizados ? 'text-emerald-600' : temPendentes ? 'text-purple-600' : 'text-gray-400'
+                const qtdRealizados = itens.filter(ehRealizado).length
                 return (
                   <div key={chave} className="shrink-0 w-28 rounded-xl p-2.5 border border-gray-100 bg-white">
                     <div className="flex items-center justify-between mb-1.5">
                       <p className={`text-xs font-bold ${labelColor}`}>{MESES[idx]}</p>
                       {temRealizados && (
                         <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                          {ags.filter(ag => ag.status === 'realizado').length}
+                          {qtdRealizados}
                         </span>
                       )}
                     </div>
-                    {ags.length > 0 ? (
+                    {itens.length > 0 ? (
                       <div className="space-y-1">
-                        {ags.map(ag => <DetalheCard key={ag.id} ag={ag} />)}
+                        {itens.map(it => (
+                          <DetalheCard
+                            key={it.kind === 'agendamento' ? it.ag.id : it.m.id}
+                            item={it}
+                            onAbrirRealizada={setDetalheManutencaoId}
+                          />
+                        ))}
                       </div>
                     ) : (
                       <p className="text-xs text-gray-300">—</p>
@@ -571,6 +657,13 @@ export default function ModalAgendamento({ asset, agendamentos, onClose }: Props
           </button>
         </div>
       </div>
+
+      {detalheManutencaoId && (
+        <ModalManutencaoRealizadaDetalhe
+          id={detalheManutencaoId}
+          onClose={() => setDetalheManutencaoId(null)}
+        />
+      )}
     </div>
   )
 }
