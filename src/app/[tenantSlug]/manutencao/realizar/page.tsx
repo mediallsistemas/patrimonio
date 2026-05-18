@@ -13,7 +13,7 @@ import Text from '@/components/ui/Text'
 import FotoCapture from '@/components/ui/FotoCapture'
 import BemSelector from '@/components/ui/patrimonio/BemSelector'
 import LogoutButton from '@/components/ui/LogoutButton'
-import { useManutencao, type TipoManutencao, type BemBuscado } from '@/hooks/useManutencao'
+import { useManutencao, type TipoManutencao } from '@/hooks/useManutencao'
 import { getSugestoes } from '@/app/admin/bens/bens.types'
 
 // ── Tipos do fluxo ──────────────────────────────────────────────────────────
@@ -33,20 +33,19 @@ type BemSelecionadoEstado = {
 }
 
 type Etapa =
-  | { etapa: 'categoria' }
-  | { etapa: 'ambientes'; tipo: 'eletrica' | 'hidraulica' }
-  | { etapa: 'patrimonio_busca' }
+  | { etapa: 'ambientes' }
+  | { etapa: 'tipo'; ambiente: AmbienteSelecionado }
   | {
       etapa: 'iniciar'
       tipo: TipoManutencao
-      ambiente?: AmbienteSelecionado
+      ambiente: AmbienteSelecionado
       bem?: BemSelecionadoEstado
     }
   | {
       etapa: 'finalizar'
       tipo: TipoManutencao
       manutencaoId: string
-      ambiente?: AmbienteSelecionado
+      ambiente: AmbienteSelecionado
       bem?: BemSelecionadoEstado
     }
   | { etapa: 'concluida'; tipo: TipoManutencao }
@@ -66,7 +65,7 @@ export default function RealizarManutencaoPage({
   const router = useRouter()
   const manutencao = useManutencao()
 
-  const [estado, setEstado] = useState<Etapa>({ etapa: 'categoria' })
+  const [estado, setEstado] = useState<Etapa>({ etapa: 'ambientes' })
   const [descricao, setDescricao] = useState('')
   const [subtipoPatrimonio, setSubtipoPatrimonio] = useState('')
   const [subtipoCustom, setSubtipoCustom] = useState('')
@@ -75,7 +74,6 @@ export default function RealizarManutencaoPage({
   const [observacaoFinal, setObservacaoFinal] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [searchAmbiente, setSearchAmbiente] = useState('')
-  const [searchBem, setSearchBem] = useState('')
   const [abrirBemSelector, setAbrirBemSelector] = useState(false)
 
   function resetCampos() {
@@ -87,13 +85,11 @@ export default function RealizarManutencaoPage({
     setObservacaoFinal('')
     setErro(null)
     setSearchAmbiente('')
-    setSearchBem('')
-    manutencao.setPatrimonyQuery('')
   }
 
   function voltarAoInicio() {
     resetCampos()
-    setEstado({ etapa: 'categoria' })
+    setEstado({ etapa: 'ambientes' })
   }
 
   async function handleIniciar() {
@@ -116,7 +112,7 @@ export default function RealizarManutencaoPage({
           descricao,
           fotoAntes,
         })
-        setEstado({ etapa: 'finalizar', tipo: 'patrimonio', manutencaoId: r.id, bem: estado.bem })
+        setEstado({ etapa: 'finalizar', tipo: 'patrimonio', manutencaoId: r.id, ambiente: estado.ambiente, bem: estado.bem })
       } else {
         if (!estado.ambiente) { setErro('Selecione o ambiente'); return }
         const r = await manutencao.iniciar.mutateAsync({
@@ -160,15 +156,15 @@ export default function RealizarManutencaoPage({
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => {
-              if (estado.etapa === 'categoria' || estado.etapa === 'concluida') {
+              if (estado.etapa === 'ambientes' || estado.etapa === 'concluida') {
                 router.push(`/${tenantSlug}/manutencao`)
+              } else if (estado.etapa === 'tipo') {
+                setEstado({ etapa: 'ambientes' })
               } else if (estado.etapa === 'iniciar' || estado.etapa === 'finalizar') {
                 // Em iniciar/finalizar, voltar exige confirmação para evitar perder progresso
                 if (confirm('Voltar agora descartará a foto e a descrição. Continuar?')) {
                   voltarAoInicio()
                 }
-              } else {
-                setEstado({ etapa: 'categoria' })
               }
             }}
             className="flex items-center gap-2 text-gray-400 hover:text-dark transition-colors"
@@ -180,48 +176,29 @@ export default function RealizarManutencaoPage({
         </div>
 
         {/* Conteúdo */}
-        {estado.etapa === 'categoria' && (
-          <TelaCategoria
-            onEscolher={(tipo) => {
-              resetCampos()
-              if (tipo === 'patrimonio') setEstado({ etapa: 'patrimonio_busca' })
-              else setEstado({ etapa: 'ambientes', tipo })
-            }}
-          />
-        )}
-
         {estado.etapa === 'ambientes' && (
           <TelaAmbientes
-            tipo={estado.tipo}
             search={searchAmbiente}
             setSearch={setSearchAmbiente}
             blocos={manutencao.blocosManutencao}
             carregando={manutencao.blocosCarregando}
-            onSelecionar={(ambiente) =>
-              setEstado({ etapa: 'iniciar', tipo: estado.tipo, ambiente })
-            }
+            onSelecionar={(ambiente) => {
+              resetCampos()
+              setEstado({ etapa: 'tipo', ambiente })
+            }}
           />
         )}
 
-        {estado.etapa === 'patrimonio_busca' && (
-          <TelaPatrimonioBusca
-            search={searchBem}
-            setSearch={(v) => { setSearchBem(v); manutencao.setPatrimonyQuery(v) }}
-            bens={manutencao.bensEncontrados}
-            buscando={manutencao.buscandoBem}
-            onVerLista={() => setAbrirBemSelector(true)}
-            onSelecionar={(bem) =>
-              setEstado({
-                etapa: 'iniciar',
-                tipo: 'patrimonio',
-                bem: {
-                  trilogoAssetId: bem.id,
-                  patrimony: bem.patrimony,
-                  descricaoBem: bem.description,
-                  assetTypeName: bem.assetTypeName,
-                },
-              })
-            }
+        {estado.etapa === 'tipo' && (
+          <TelaTipo
+            ambiente={estado.ambiente}
+            onEscolher={(tipo) => {
+              if (tipo === 'patrimonio') {
+                setAbrirBemSelector(true)
+              } else {
+                setEstado({ etapa: 'iniciar', tipo, ambiente: estado.ambiente })
+              }
+            }}
           />
         )}
 
@@ -268,22 +245,29 @@ export default function RealizarManutencaoPage({
         )}
       </div>
 
-      {abrirBemSelector && (
+      {abrirBemSelector && estado.etapa === 'tipo' && (
         <BemSelector
+          ambienteNome={estado.ambiente.nome}
+          blocoNome={estado.ambiente.blocoNome}
           onFechar={() => setAbrirBemSelector(false)}
           permitirSemSelecao={false}
           onSelecionar={(bem) => {
             setAbrirBemSelector(false)
             if (!bem) return
-            setEstado({
-              etapa: 'iniciar',
-              tipo: 'patrimonio',
-              bem: {
-                trilogoAssetId: bem.id,
-                patrimony: bem.patrimony,
-                descricaoBem: bem.descricao,
-                assetTypeName: bem.assetTypeName,
-              },
+            // Re-checa o estado para garantir o ambiente (caso o usuário tenha voltado)
+            setEstado((prev) => {
+              if (prev.etapa !== 'tipo') return prev
+              return {
+                etapa: 'iniciar',
+                tipo: 'patrimonio',
+                ambiente: prev.ambiente,
+                bem: {
+                  trilogoAssetId: bem.id,
+                  patrimony: bem.patrimony,
+                  descricaoBem: bem.descricao,
+                  assetTypeName: bem.assetTypeName,
+                },
+              }
             })
           }}
         />
@@ -294,24 +278,126 @@ export default function RealizarManutencaoPage({
 
 // ── Telas ───────────────────────────────────────────────────────────────────
 
-function TelaCategoria({ onEscolher }: { onEscolher: (tipo: TipoManutencao) => void }) {
+function TelaAmbientes({
+  search, setSearch, blocos, carregando, onSelecionar,
+}: {
+  search: string
+  setSearch: (v: string) => void
+  blocos: { id: string; nome: string; ambientes: { id: string; nome: string }[] }[]
+  carregando: boolean
+  onSelecionar: (a: AmbienteSelecionado) => void
+}) {
+  const q = search.trim().toLowerCase()
+  const blocosFiltrados = blocos
+    .map((b) => ({
+      ...b,
+      ambientes: q
+        ? b.ambientes.filter((amb) => amb.nome.toLowerCase().includes(q))
+        : b.ambientes,
+    }))
+    .filter((b) => b.ambientes.length > 0)
+
+  return (
+    <>
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-dark mb-4">
+          <Wrench className="w-8 h-8 text-white" />
+        </div>
+        <Text as="h1" variant="heading-lg" className="text-dark mb-1 block">
+          Realizar Manutenção
+        </Text>
+        <Text variant="body-md" className="text-gray-300">
+          Selecione o ambiente
+        </Text>
+      </div>
+
+      <Card shadow="md">
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+          <input
+            type="text"
+            placeholder="Pesquisar ambiente..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-sans text-dark focus:outline-none focus:ring-2 focus:ring-red-base bg-white placeholder:text-gray-300"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-y-auto max-h-[60vh] space-y-4 pr-1 -mr-1">
+          {carregando ? (
+            <p className="text-center py-6 text-sm text-gray-300 font-sans">Carregando ambientes...</p>
+          ) : blocosFiltrados.length === 0 ? (
+            <p className="text-center py-6 text-sm text-gray-300 font-sans">
+              {q ? 'Nenhum ambiente encontrado' : 'Nenhum ambiente cadastrado'}
+            </p>
+          ) : (
+            blocosFiltrados.map((b) => (
+              <div key={b.id}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-3.5 h-3.5 text-gray-300" />
+                  <Text variant="caption" className="text-gray-400 uppercase tracking-wide font-semibold block">
+                    {b.nome}
+                  </Text>
+                </div>
+                <div className="space-y-1.5">
+                  {b.ambientes.map((amb) => (
+                    <button
+                      key={amb.id}
+                      onClick={() => onSelecionar({ id: amb.id, nome: amb.nome, blocoNome: b.nome })}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-gray-200 bg-white hover:border-red-base hover:bg-red-light text-left font-sans transition-all active:scale-[0.98]"
+                    >
+                      <MapPin className="w-4 h-4 text-gray-300 shrink-0" />
+                      <span className="text-sm font-semibold text-dark flex-1 truncate">{amb.nome}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
+    </>
+  )
+}
+
+function TelaTipo({
+  ambiente, onEscolher,
+}: {
+  ambiente: AmbienteSelecionado
+  onEscolher: (tipo: TipoManutencao) => void
+}) {
   const opcoes: { tipo: TipoManutencao; descricao: string }[] = [
     { tipo: 'eletrica',   descricao: 'Manutenção em pontos elétricos do ambiente' },
     { tipo: 'hidraulica', descricao: 'Manutenção em pontos hidráulicos do ambiente' },
-    { tipo: 'patrimonio', descricao: 'Manutenção em bem patrimoniado' },
+    { tipo: 'patrimonio', descricao: 'Manutenção em bem patrimoniado deste ambiente' },
   ]
 
   return (
     <>
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0f766e] mb-5">
-          <Wrench className="w-8 h-8 text-white" />
-        </div>
-        <Text as="h1" variant="heading-lg" className="text-dark mb-2 block">
-          Realizar Manutenção
+      <div className="mb-6 px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm">
+        <Text variant="caption" className="text-gray-300 uppercase tracking-wide font-semibold block">
+          Ambiente selecionado
         </Text>
-        <Text variant="body-md" className="text-gray-300">
-          Selecione o tipo de manutenção que será realizada
+        <Text variant="body-md" className="text-dark block">
+          {ambiente.nome}
+          <span className="text-gray-300"> · {ambiente.blocoNome}</span>
+        </Text>
+      </div>
+
+      <div className="text-center mb-6">
+        <Text as="h2" variant="heading-md" className="text-dark mb-1 block">
+          Tipo de manutenção
+        </Text>
+        <Text variant="body-sm" className="text-gray-300">
+          O que será feito neste ambiente?
         </Text>
       </div>
 
@@ -338,178 +424,6 @@ function TelaCategoria({ onEscolher }: { onEscolher: (tipo: TipoManutencao) => v
         })}
       </div>
     </>
-  )
-}
-
-function TelaAmbientes({
-  tipo, search, setSearch, blocos, carregando, onSelecionar,
-}: {
-  tipo: 'eletrica' | 'hidraulica'
-  search: string
-  setSearch: (v: string) => void
-  blocos: { id: string; nome: string; ambientes: { id: string; nome: string }[] }[]
-  carregando: boolean
-  onSelecionar: (a: AmbienteSelecionado) => void
-}) {
-  const a = ACCENT[tipo]
-  const q = search.trim().toLowerCase()
-  const blocosFiltrados = blocos
-    .map((b) => ({
-      ...b,
-      ambientes: q
-        ? b.ambientes.filter((amb) => amb.nome.toLowerCase().includes(q))
-        : b.ambientes,
-    }))
-    .filter((b) => b.ambientes.length > 0)
-
-  return (
-    <Card shadow="md">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ backgroundColor: a.bg }}>
-          <a.Icon className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <Text as="h2" variant="heading-sm" className="text-dark block">{a.nome}</Text>
-          <Text variant="body-sm" className="text-gray-300 block">Selecione o ambiente</Text>
-        </div>
-      </div>
-
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-        <input
-          type="text"
-          placeholder="Pesquisar ambiente..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-sans text-dark focus:outline-none focus:ring-2 focus:ring-red-base bg-white placeholder:text-gray-300"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      <div className="overflow-y-auto max-h-[55vh] space-y-4 pr-1 -mr-1">
-        {carregando ? (
-          <p className="text-center py-6 text-sm text-gray-300 font-sans">Carregando ambientes...</p>
-        ) : blocosFiltrados.length === 0 ? (
-          <p className="text-center py-6 text-sm text-gray-300 font-sans">
-            {q ? 'Nenhum ambiente encontrado' : 'Nenhum ambiente cadastrado'}
-          </p>
-        ) : (
-          blocosFiltrados.map((b) => (
-            <div key={b.id}>
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="w-3.5 h-3.5 text-gray-300" />
-                <Text variant="caption" className="text-gray-400 uppercase tracking-wide font-semibold block">
-                  {b.nome}
-                </Text>
-              </div>
-              <div className="space-y-1.5">
-                {b.ambientes.map((amb) => (
-                  <button
-                    key={amb.id}
-                    onClick={() => onSelecionar({ id: amb.id, nome: amb.nome, blocoNome: b.nome })}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-gray-200 bg-white hover:border-red-base hover:bg-red-light text-left font-sans transition-all active:scale-[0.98]"
-                  >
-                    <MapPin className="w-4 h-4 text-gray-300 shrink-0" />
-                    <span className="text-sm font-semibold text-dark flex-1 truncate">{amb.nome}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </Card>
-  )
-}
-
-function TelaPatrimonioBusca({
-  search, setSearch, bens, buscando, onVerLista, onSelecionar,
-}: {
-  search: string
-  setSearch: (v: string) => void
-  bens: BemBuscado[]
-  buscando: boolean
-  onVerLista: () => void
-  onSelecionar: (b: BemBuscado) => void
-}) {
-  return (
-    <Card shadow="md">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center shrink-0">
-          <Package className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <Text as="h2" variant="heading-sm" className="text-dark block">Patrimônio</Text>
-          <Text variant="body-sm" className="text-gray-300 block">
-            Digite o código do bem
-          </Text>
-        </div>
-      </div>
-
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-        <input
-          type="text"
-          autoFocus
-          placeholder="Ex.: 12345"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-sans text-dark focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white placeholder:text-gray-300"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-2 max-h-[45vh] overflow-y-auto">
-        {search.trim() === '' ? (
-          <p className="text-center py-4 text-sm text-gray-300 font-sans">
-            Digite o número do bem para buscar
-          </p>
-        ) : buscando ? (
-          <p className="text-center py-4 text-sm text-gray-300 font-sans">Buscando...</p>
-        ) : bens.length === 0 ? (
-          <p className="text-center py-4 text-sm text-gray-300 font-sans">
-            Nenhum bem encontrado com este código.
-          </p>
-        ) : (
-          bens.map((b) => (
-            <button
-              key={b.id}
-              onClick={() => onSelecionar(b)}
-              className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-gray-200 hover:border-purple-400 hover:bg-purple-50 text-left transition-all active:scale-[0.98]"
-            >
-              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Package className="w-4 h-4 text-purple-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-mono font-semibold text-purple-700 truncate">{b.patrimony}</p>
-                <p className="text-sm font-sans text-dark truncate">{b.description}</p>
-              </div>
-            </button>
-          ))
-        )}
-      </div>
-
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <Button onClick={onVerLista} variant="outline" className="w-full">
-          Ver lista completa de bens do projeto
-        </Button>
-      </div>
-    </Card>
   )
 }
 
