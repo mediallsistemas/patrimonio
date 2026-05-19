@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { authPool } from '@/lib/db-auth'
+import { prisma } from '@/lib/db'
 import { comparePassword, setSessionCookie, SessionPayload } from '@/lib/auth'
 
 interface UsuarioRow {
@@ -71,6 +72,21 @@ export async function POST(req: Request) {
     }
 
     const accessToken = await setSessionCookie(payload)
+
+    // Sync user into linensistemDB so FK constraints (rondas, manutencoes, etc.) are satisfied
+    prisma.usuario.upsert({
+      where: { id: usuario.id },
+      update: { nome: usuario.nome, role: usuario.role, tenantId: usuario.tenantId },
+      create: {
+        id: usuario.id,
+        email: `${usuario.id}@auth.sync`,
+        nome: usuario.nome,
+        role: usuario.role,
+        tenantId: usuario.tenantId,
+        senhaHash: '',
+        sistemas: usuario.sistemas ?? [],
+      },
+    }).catch(() => {})
 
     return NextResponse.json({
       accessToken,
