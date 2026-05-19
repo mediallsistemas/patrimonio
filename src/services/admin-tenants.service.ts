@@ -6,7 +6,7 @@ export interface Tenant {
   nome: string
   ativo?: boolean
   criadoEm?: string
-  feedbackForms?: boolean
+  linensistem?: boolean
   _count?: { usuarios: number; pessoas: number }
 }
 

@@ -16,7 +16,7 @@ export const UpdateTenantSchema = z.object({
   ativo: z.boolean().optional(),
   trilogoCompanyId: z.number().int().positive().optional().nullable(),
   trilogoProjectName: z.string().min(1).max(120).optional().nullable(),
-  feedbackForms: z.boolean().optional(),
+  linensistem: z.boolean().optional(),
 })
 
 export type CreateTenantInput = z.infer<typeof CreateTenantSchema>

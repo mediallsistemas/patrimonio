@@ -69,7 +69,7 @@ export async function buscarRonda(id: string, tenantId: string | null, tenantIds
 export async function criarRonda(tenantId: string, criadoPorId: string) {
   try {
     const emAndamento = await prisma.rondaOcorrencia.findFirst({
-      where: { criadoPorId, finalizadoEm: null },
+      where: { criadoPorId, tenantId, finalizadoEm: null },
       select: { id: true },
     })
     if (emAndamento) {
