@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardList, Activity, Users, Wrench } from 'lucide-react'
+import { ClipboardList, Activity, Users, Wrench, FileText } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
@@ -38,6 +38,13 @@ export default async function ManutencaoHomePage({
       description: 'Visualize o histórico das suas rondas realizadas',
       color: '#059669',
     },
+    {
+      href: `/${tenantSlug}/manutencao/historico`,
+      icon: FileText,
+      title: 'Relatório de Manutenções',
+      description: 'Histórico de manutenções realizadas, com fotos antes e depois',
+      color: '#f59e0b',
+    },
   ]
 
   const adminActions = [
@@ -47,6 +54,13 @@ export default async function ManutencaoHomePage({
       title: 'Monitoramento de Rondas',
       description: 'Visualize histórico de inspeções e ocorrências da unidade',
       color: '#059669',
+    },
+    {
+      href: `/${tenantSlug}/manutencao/historico`,
+      icon: FileText,
+      title: 'Relatório de Manutenções',
+      description: 'Histórico de manutenções realizadas na unidade',
+      color: '#f59e0b',
     },
     {
       href: '/admin/usuarios',

@@ -89,6 +89,10 @@ export interface ManutencaoRealizadaResumo {
 }
 
 export interface ManutencaoRealizadaDetalhe extends ManutencaoRealizadaResumo {
+  tipo: TipoManutencao
+  status: string
+  ambienteNomeSnapshot: string | null
+  blocoNomeSnapshot: string | null
   fotoAntes: string
   fotoDepois: string | null
 }
@@ -105,5 +109,26 @@ export async function buscarRealizadaDetalhe(id: string): Promise<ManutencaoReal
   const res = await api.get<{ data: ManutencaoRealizadaDetalhe }>(
     `manutencoes/realizadas/${id}`,
   )
+  return unwrap(res)
+}
+
+export interface ManutencaoHistoricoItem {
+  id: string
+  tipo: TipoManutencao
+  status: 'em_andamento' | 'concluida'
+  ambienteNomeSnapshot: string | null
+  blocoNomeSnapshot: string | null
+  patrimony: string | null
+  descricaoBemSnapshot: string | null
+  subtipoPatrimonio: string | null
+  descricao: string
+  observacaoFinal: string | null
+  iniciadaEm: string
+  finalizadaEm: string | null
+  criadoPor: { nome: string }
+}
+
+export async function listarHistorico(): Promise<ManutencaoHistoricoItem[]> {
+  const res = await api.get<{ data: ManutencaoHistoricoItem[] }>('manutencoes/historico')
   return unwrap(res)
 }
