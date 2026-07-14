@@ -24,5 +24,21 @@ module.exports = {
       restart_delay: 2000,
       max_restarts: 10,
     },
+    {
+      // Fecha rondas abertas há mais de 24h, independente de algum
+      // usuário ter acessado o sistema (substitui o cron do Vercel)
+      name: 'linensistem-expirar-rondas',
+      script: 'node_modules/ts-node/dist/bin.js',
+      args: ['--compiler-options', '{"module":"CommonJS"}', 'prisma/scripts/expirar-rondas.ts'],
+      instances: 1,
+      exec_mode: 'fork',
+      watch: false,
+      autorestart: false,
+      cron_restart: '0 * * * *',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      error_file: 'logs/expirar-rondas-err.log',
+      out_file: 'logs/expirar-rondas-out.log',
+      merge_logs: true,
+    },
   ],
 }

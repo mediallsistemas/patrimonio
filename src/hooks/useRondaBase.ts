@@ -256,7 +256,7 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
       setEstado(novoEstado)
       salvarDraft(novoEstado)
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
         toast.error('Esta ronda expirou. Inicie uma nova ronda.')
         await rondasService.descartarDraftAPI().catch(() => {})
         setRondaIniciada(false)

@@ -68,6 +68,10 @@ export async function buscarRonda(id: string, tenantId: string | null, tenantIds
 
 export async function criarRonda(tenantId: string, criadoPorId: string) {
   try {
+    // Fecha rondas abertas há mais de 24h antes de checar conflito, evitando
+    // bloquear o início de uma nova ronda por uma anterior já expirada
+    await expirarRondasAbertas().catch(() => {})
+
     const emAndamento = await prisma.rondaOcorrencia.findFirst({
       where: { criadoPorId, tenantId, finalizadoEm: null },
       select: { id: true },

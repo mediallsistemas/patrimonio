@@ -1,10 +1,30 @@
 import { prisma } from '@/lib/db'
+import { expirarRondasAbertas } from '@/modules/rondas/rondas.service'
 
 export async function buscarDraft(tenantId: string, userId: string) {
   try {
-    return await prisma.rondaDraft.findUnique({
+    // Fecha rondas abertas há mais de 24h antes de devolver o draft, para não
+    // oferecer "continuar ronda" de uma ronda já expirada
+    await expirarRondasAbertas().catch(() => {})
+
+    const draft = await prisma.rondaDraft.findUnique({
       where: { tenantId_criadoPorId: { tenantId, criadoPorId: userId } },
     })
+    if (!draft) return null
+
+    const estado = draft.estado as { rondaId?: string } | null
+    if (estado?.rondaId) {
+      const ronda = await prisma.rondaOcorrencia.findUnique({
+        where: { id: estado.rondaId },
+        select: { finalizadoEm: true },
+      })
+      if (!ronda || ronda.finalizadoEm !== null) {
+        await prisma.rondaDraft.deleteMany({ where: { tenantId, criadoPorId: userId } })
+        return null
+      }
+    }
+
+    return draft
   } catch (error) {
     console.error('[ronda-draft.service] buscarDraft:', error)
     throw error
