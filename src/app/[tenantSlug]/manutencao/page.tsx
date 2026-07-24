@@ -18,6 +18,13 @@ export default async function ManutencaoHomePage({
 
   const operatorActions = [
     {
+      href: `/${tenantSlug}/chamados`,
+      icon: ClipboardList,
+      title: 'Painel de Chamados',
+      description: 'Veja os chamados em aberto, assuma e finalize',
+      color: '#7c3aed',
+    },
+    {
       href: `/${tenantSlug}/manutencao/realizar`,
       icon: Wrench,
       title: 'Realizar Manutenção',
@@ -48,6 +55,13 @@ export default async function ManutencaoHomePage({
   ]
 
   const adminActions = [
+    {
+      href: `/${tenantSlug}/chamados`,
+      icon: ClipboardList,
+      title: 'Painel de Chamados',
+      description: 'Assuma, atribua e finalize chamados; edite dados fiscais',
+      color: '#7c3aed',
+    },
     {
       href: '/admin/rondas',
       icon: Activity,

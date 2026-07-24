@@ -1,0 +1,35 @@
+import { redirect } from 'next/navigation'
+
+import { getSession } from '@/lib/auth'
+
+const CHAMADOS_ROLES = new Set([
+  'super_admin',
+  'tenant_admin',
+  'operator',
+  'operator_patrimonio',
+  'viewer',
+])
+
+export default async function ChamadosLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ tenantSlug: string }>
+}) {
+  const { tenantSlug } = await params
+  const session = await getSession()
+
+  if (!session) redirect('/login')
+
+  if (!CHAMADOS_ROLES.has(session.role)) {
+    redirect('/login')
+  }
+
+  // super_admin pode acessar qualquer tenant
+  if (session.role !== 'super_admin' && session.tenantSlug !== tenantSlug) {
+    redirect(session.tenantSlug ? `/${session.tenantSlug}/chamados` : '/login')
+  }
+
+  return <>{children}</>
+}
