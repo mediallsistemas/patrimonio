@@ -13,6 +13,7 @@ const AUTH = (nome: string) => path.join(__dirname, '.auth', nome)
 
 // Título único por execução para não colidir com dados de runs anteriores
 const TITULO = `Chamado E2E ${Date.now()}`
+const TITULO_CANCELAR = `Chamado E2E Cancelar ${Date.now()}`
 
 test.describe.configure({ mode: 'serial' })
 
@@ -92,5 +93,29 @@ test.describe('admin', () => {
     // e o dropdown de usuários (admin) fazem chamadas próprias, compiladas
     // sob demanda no dev server — timeout maior para a primeira renderização
     await expect(page.getByRole('button', { name: new RegExp(TITULO) })).toBeVisible({ timeout: 20_000 })
+  })
+
+  test('abre um chamado direto (sem Assumir) e cancela com motivo', async ({ page }) => {
+    await page.goto(`/${FIXTURE_SLUG}/chamados/novo`)
+    await page.getByRole('button', { name: FIXTURE_AMBIENTE }).click()
+    await page.getByPlaceholder(/descarga do banheiro/i).fill(TITULO_CANCELAR)
+    await page.getByPlaceholder(/descreva o problema/i).fill('Chamado para testar cancelamento')
+    const amanha = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    await page.locator('input[type="date"]').fill(amanha)
+    await page.getByRole('button', { name: /abrir chamado/i }).click()
+    await expect(page.getByText(/chamado #\d+ aberto/i)).toBeVisible({ timeout: 20_000 })
+
+    await page.goto(`/${FIXTURE_SLUG}/chamados`)
+    await page.getByRole('button', { name: new RegExp(TITULO_CANCELAR) }).click()
+
+    // Admin não usa Assumir — só Atribuir/Finalizar/Cancelar
+    await expect(page.getByRole('button', { name: 'Assumir', exact: true })).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
+    await page.getByPlaceholder(/por que este chamado/i).fill('Motivo de teste E2E')
+    await page.getByRole('button', { name: /^cancelar chamado$/i }).click()
+
+    await expect(page.getByText(/motivo do cancelamento/i)).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Motivo de teste E2E')).toBeVisible()
   })
 })

@@ -365,6 +365,9 @@ model Chamado {
   finalizadoEm         DateTime?
   finalizadoPorId      String?
 
+  // Cancelamento (admin) — motivo opcional
+  motivoCancelamento   String?
+
   // Campos fiscais — SOMENTE admin escreve/lê (sanitizados para outros roles)
   fornecedor           String?
   numeroOrdemCompra    String?

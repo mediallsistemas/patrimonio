@@ -4,13 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { format, subMonths } from 'date-fns'
 import {
-  ArrowLeft, Ticket, CheckCircle, Loader2, AlertTriangle, Wallet, PlayCircle,
+  ArrowLeft, Inbox, CheckCircle, Loader2, AlertTriangle, Wallet, PlayCircle,
 } from 'lucide-react'
 
 import Card from '@/components/ui/Card'
 import Text from '@/components/ui/Text'
 import ChamadoCard from '@/components/ui/chamados/ChamadoCard'
 import ModalFinalizarChamado from '@/components/ui/modal/ModalFinalizarChamado'
+import ModalCancelarChamado from '@/components/ui/modal/ModalCancelarChamado'
 import { useAuth } from '@/hooks/useAuth'
 import { useChamados, useDashboardChamados } from '@/hooks/useChamados'
 import { STATUS_BAR_COLOR, PRIORIDADE_BAR_COLOR } from '@/components/ui/chamados/ChamadoBadges'
@@ -95,11 +96,13 @@ export default function DashboardChamadosPage() {
   const chamadosHook = useChamados({ ehAdmin: true })
   const {
     chamados, carregando: carregandoLista, filtros, setFiltros, usuarios,
-    finalizar, busyIds, handleAssumir, handleAtribuir, handleCancelar, handleSalvarFiscal,
+    finalizar, cancelar, busyIds, handleAssumir, handleAtribuir, handleSalvarFiscal,
   } = chamadosHook
 
   const [finalizando, setFinalizando] = useState<ChamadoResumo | null>(null)
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
+  const [cancelando, setCancelando] = useState<ChamadoResumo | null>(null)
+  const [erroCancelar, setErroCancelar] = useState<string | null>(null)
 
   function handleFinalizarConfirmar(input: { descricaoExecucao: string; fotoExecucao: string | null }) {
     if (!finalizando) return
@@ -109,6 +112,18 @@ export default function DashboardChamadosPage() {
       {
         onSuccess: () => setFinalizando(null),
         onError: () => setErroFinalizar('Falha ao finalizar. Tente novamente.'),
+      },
+    )
+  }
+
+  function handleCancelarConfirmar(motivo?: string) {
+    if (!cancelando) return
+    setErroCancelar(null)
+    cancelar.mutate(
+      { id: cancelando.id, motivo },
+      {
+        onSuccess: () => setCancelando(null),
+        onError: () => setErroCancelar('Falha ao cancelar. Tente novamente.'),
       },
     )
   }
@@ -126,7 +141,7 @@ export default function DashboardChamadosPage() {
 
   const tiles = data
     ? [
-        { label: 'Total de chamados', valor: String(data.total), icon: Ticket, cor: 'bg-purple-100 text-purple-600' },
+        { label: 'Total de chamados', valor: String(data.total), icon: Inbox, cor: 'bg-purple-100 text-purple-600' },
         { label: 'Finalizados', valor: String(data.finalizados), icon: CheckCircle, cor: 'bg-emerald-100 text-emerald-600' },
         { label: 'Em execução', valor: String(data.emExecucao), icon: PlayCircle, cor: 'bg-blue-100 text-blue-600' },
         { label: 'Atrasados', valor: String(data.atrasados), icon: AlertTriangle, cor: 'bg-red-100 text-red-600' },
@@ -298,7 +313,7 @@ export default function DashboardChamadosPage() {
                   onAssumir={handleAssumir}
                   onAtribuir={handleAtribuir}
                   onFinalizar={(chamado) => { setErroFinalizar(null); setFinalizando(chamado) }}
-                  onCancelar={handleCancelar}
+                  onCancelar={(chamado) => { setErroCancelar(null); setCancelando(chamado) }}
                   onSalvarFiscal={handleSalvarFiscal}
                 />
               ))}
@@ -313,6 +328,13 @@ export default function DashboardChamadosPage() {
         erro={erroFinalizar}
         onConfirmar={handleFinalizarConfirmar}
         onClose={() => setFinalizando(null)}
+      />
+      <ModalCancelarChamado
+        chamado={cancelando}
+        loading={chamadosHook.cancelar.isPending}
+        erro={erroCancelar}
+        onConfirmar={handleCancelarConfirmar}
+        onClose={() => setCancelando(null)}
       />
     </div>
   )

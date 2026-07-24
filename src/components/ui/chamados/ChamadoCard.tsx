@@ -35,7 +35,7 @@ interface ChamadoCardProps {
   onAssumir: (id: string, prioridade?: PrioridadeChamado) => void
   onAtribuir: (id: string, responsavelId: string) => void
   onFinalizar: (chamado: ChamadoResumo) => void
-  onCancelar: (id: string) => void
+  onCancelar: (chamado: ChamadoResumo) => void
   onSalvarFiscal: (
     id: string,
     input: { fornecedor: string | null; numeroOrdemCompra: string | null; valorGastoCentavos: number | null },
@@ -185,12 +185,25 @@ function ChamadoCardBase({
             </div>
           )}
 
+          {c.status === 'cancelado' && (
+            <div className="px-4 py-3 rounded-xl bg-gray-50 border border-gray-200">
+              <Text variant="caption" className="text-gray-500 uppercase tracking-wide font-semibold block mb-1">
+                Motivo do cancelamento
+              </Text>
+              <Text variant="body-sm" className="text-dark block whitespace-pre-wrap">
+                {c.motivoCancelamento ?? 'Não informado'}
+              </Text>
+            </div>
+          )}
+
           <FotoLazyChamado chamadoId={c.id} />
 
           {/* ── Ações ─────────────────────────────────────────────────── */}
           {podeEscrever && vivo && (
             <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-gray-100">
-              {c.status === 'aberto' && (
+              {/* Admin usa Atribuir para se designar (ou designar outro);
+                  Assumir só faz sentido para quem não tem Atribuir */}
+              {!ehAdmin && c.status === 'aberto' && (
                 <div className="flex items-end gap-2">
                   <div>
                     <label className="block text-xs text-gray-400 font-sans mb-1">Prioridade</label>
@@ -242,7 +255,7 @@ function ChamadoCardBase({
               </Button>
 
               {ehAdmin && (
-                <Button size="sm" variant="secondary" disabled={busy} onClick={() => onCancelar(c.id)}>
+                <Button size="sm" variant="secondary" disabled={busy} onClick={() => onCancelar(c)}>
                   <Ban className="w-3.5 h-3.5" />
                   Cancelar
                 </Button>

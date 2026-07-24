@@ -35,6 +35,7 @@ const SELECT_LISTA = {
   finalizadoEm: true,
   criadoEm: true,
   descricaoExecucao: true,
+  motivoCancelamento: true,
   criadoPor: { select: { id: true, nome: true } },
   responsavel: { select: { id: true, nome: true } },
   // Id/nome/slug do tenant — usado pelo admin (cross-tenant) para identificar

@@ -86,6 +86,11 @@ export const FinalizarChamadoSchema = z.object({
 })
 export type FinalizarChamadoInput = z.infer<typeof FinalizarChamadoSchema>
 
+export const CancelarChamadoSchema = z.object({
+  motivo: z.string().trim().max(2000).optional(),
+})
+export type CancelarChamadoInput = z.infer<typeof CancelarChamadoSchema>
+
 // Campos fiscais — somente admin (a rota valida o role antes do parse)
 export const EditarFiscalSchema = z.object({
   fornecedor: z.string().trim().max(200).optional().nullable(),
@@ -143,6 +148,7 @@ export interface ChamadoListaItem {
   finalizadoEm: Date | null
   criadoEm: Date
   descricaoExecucao: string | null
+  motivoCancelamento: string | null
   criadoPor: { id: string; nome: string }
   responsavel: { id: string; nome: string } | null
   tenant: { id: string; nome: string; slug: string }

@@ -142,8 +142,10 @@ describe('assumir', () => {
 
 describe('finalizar', () => {
   it('aceita aberto e em_execucao como origem; finalizadoPorId do argumento', async () => {
+    mocks.findFirst
+      .mockResolvedValueOnce({ responsavelId: 'resp-1' } as never) // checagem inicial
+      .mockResolvedValueOnce({ id: CHAMADO } as never) // retorno final
     mocks.updateMany.mockResolvedValue({ count: 1 } as never)
-    mocks.findFirst.mockResolvedValue({ id: CHAMADO } as never)
 
     await commands.finalizar(CHAMADO, { tenantId: TENANT }, USER, {
       descricaoExecucao: 'Consertado o vazamento',
@@ -158,12 +160,43 @@ describe('finalizar', () => {
     expect(call.data).toMatchObject({ status: 'finalizado', finalizadoPorId: USER })
   })
 
-  it('não finaliza chamado já finalizado/cancelado', async () => {
-    mocks.updateMany.mockResolvedValue({ count: 0 } as never)
+  it('não finaliza chamado já finalizado/cancelado (nem chega a chamar updateMany)', async () => {
+    mocks.findFirst.mockResolvedValue(null as never)
     const r = await commands.finalizar(CHAMADO, { tenantId: TENANT }, USER, {
       descricaoExecucao: 'tentativa',
     })
     expect(r).toBeNull()
+    expect(mocks.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('sem responsável ainda definido, finalizar torna quem finalizou o responsável', async () => {
+    mocks.findFirst
+      .mockResolvedValueOnce({ responsavelId: null } as never)
+      .mockResolvedValueOnce({ id: CHAMADO } as never)
+    mocks.updateMany.mockResolvedValue({ count: 1 } as never)
+
+    await commands.finalizar(CHAMADO, { tenantId: TENANT }, USER, {
+      descricaoExecucao: 'Feito sem ninguém ter assumido antes',
+    })
+
+    const data = mocks.updateMany.mock.calls[0][0].data as Record<string, unknown>
+    expect(data.responsavelId).toBe(USER)
+    expect(data.assumidoEm).toBeInstanceOf(Date)
+  })
+
+  it('com responsável já definido, finalizar NÃO sobrescreve quem já estava designado', async () => {
+    mocks.findFirst
+      .mockResolvedValueOnce({ responsavelId: 'resp-original' } as never)
+      .mockResolvedValueOnce({ id: CHAMADO } as never)
+    mocks.updateMany.mockResolvedValue({ count: 1 } as never)
+
+    await commands.finalizar(CHAMADO, { tenantId: TENANT }, 'admin-que-finalizou', {
+      descricaoExecucao: 'Finalizado por outro admin',
+    })
+
+    const data = mocks.updateMany.mock.calls[0][0].data as Record<string, unknown>
+    expect(data).not.toHaveProperty('responsavelId')
+    expect(data).not.toHaveProperty('assumidoEm')
   })
 })
 

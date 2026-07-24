@@ -160,6 +160,9 @@ export async function atribuir(
 }
 
 // Finalizar: qualquer usuário com escrita, a partir de 'aberto' ou 'em_execucao'.
+// Sem "Assumir" na tela de admin, um chamado pode chegar aqui sem responsável
+// (nunca assumido/atribuído) — finalizar sem dono vira dono: registra quem
+// finalizou como responsável, para nunca fechar um chamado sem accountability.
 export async function finalizar(
   id: string,
   escopo: EscopoTenant,
@@ -167,6 +170,12 @@ export async function finalizar(
   input: FinalizarChamadoInput,
 ): Promise<ChamadoOperado | null> {
   try {
+    const atual = await prisma.chamado.findFirst({
+      where: { id, status: { in: [...STATUS_ABERTOS] }, ...tenantFilter(escopo) },
+      select: { responsavelId: true },
+    })
+    if (!atual) return null
+
     const { count } = await prisma.chamado.updateMany({
       where: { id, status: { in: [...STATUS_ABERTOS] }, ...tenantFilter(escopo) },
       data: {
@@ -176,6 +185,7 @@ export async function finalizar(
         finalizadoEm: new Date(),
         finalizadoPorId: userId,
         atualizadoPorId: userId,
+        ...(atual.responsavelId ? {} : { responsavelId: userId, assumidoEm: new Date() }),
       },
     })
     if (count === 0) return null
@@ -190,16 +200,17 @@ export async function finalizar(
   }
 }
 
-// Cancelar (admin): a partir de qualquer status vivo.
+// Cancelar (admin): a partir de qualquer status vivo. Motivo é opcional.
 export async function cancelar(
   id: string,
   escopo: EscopoTenant,
   adminId: string,
+  motivo?: string,
 ): Promise<ChamadoOperado | null> {
   try {
     const { count } = await prisma.chamado.updateMany({
       where: { id, status: { in: [...STATUS_ABERTOS] }, ...tenantFilter(escopo) },
-      data: { status: 'cancelado', atualizadoPorId: adminId },
+      data: { status: 'cancelado', atualizadoPorId: adminId, motivoCancelamento: motivo ?? null },
     })
     if (count === 0) return null
 

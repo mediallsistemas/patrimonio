@@ -92,8 +92,11 @@ export function useChamados(opts: { ehAdmin?: boolean; comBlocos?: boolean } = {
     onSuccess: invalidar,
   })
 
+  // Sem busy/toast próprios: cancelar é sempre confirmado via
+  // ModalCancelarChamado (mesmo padrão de finalizar) — a exclusividade do
+  // modal já impede cliques concorrentes, dispensando o Set de busyIds.
   const cancelar = useMutation({
-    mutationFn: (id: string) => chamadosService.cancelar(id),
+    mutationFn: ({ id, motivo }: { id: string; motivo?: string }) => chamadosService.cancelar(id, motivo),
     onSuccess: invalidar,
   })
 
@@ -146,19 +149,6 @@ export function useChamados(opts: { ehAdmin?: boolean; comBlocos?: boolean } = {
     [atribuir.mutateAsync, marcarBusy, desmarcarBusy],
   )
 
-  const handleCancelar = useCallback(
-    (id: string) => {
-      if (!confirm('Cancelar este chamado? Esta ação não pode ser desfeita.')) return
-      marcarBusy(id)
-      cancelar
-        .mutateAsync(id)
-        .then(() => toast.success('Chamado cancelado'))
-        .catch(() => toast.error('Não foi possível cancelar'))
-        .finally(() => desmarcarBusy(id))
-    },
-    [cancelar.mutateAsync, marcarBusy, desmarcarBusy],
-  )
-
   const handleSalvarFiscal = useCallback(
     (
       id: string,
@@ -191,7 +181,6 @@ export function useChamados(opts: { ehAdmin?: boolean; comBlocos?: boolean } = {
     busyIds,
     handleAssumir,
     handleAtribuir,
-    handleCancelar,
     handleSalvarFiscal,
   }
 }

@@ -4,13 +4,14 @@ import { useState, useMemo, useCallback, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { ChevronLeft, Ticket, Plus } from 'lucide-react'
+import { ChevronLeft, Inbox, Plus } from 'lucide-react'
 
 import Text from '@/components/ui/Text'
 import Button from '@/components/ui/Button'
 import LogoutButton from '@/components/ui/LogoutButton'
 import ChamadoCard from '@/components/ui/chamados/ChamadoCard'
 import ModalFinalizarChamado from '@/components/ui/modal/ModalFinalizarChamado'
+import ModalCancelarChamado from '@/components/ui/modal/ModalCancelarChamado'
 import { useAuth } from '@/hooks/useAuth'
 import { useChamados } from '@/hooks/useChamados'
 import {
@@ -44,15 +45,22 @@ export default function PainelChamadosPage({
   const chamadosHook = useChamados({ ehAdmin })
   const {
     chamados, carregando, filtros, setFiltros, usuarios,
-    finalizar, busyIds, handleAssumir, handleAtribuir, handleCancelar, handleSalvarFiscal,
+    finalizar, cancelar, busyIds, handleAssumir, handleAtribuir, handleSalvarFiscal,
   } = chamadosHook
 
   const [finalizando, setFinalizando] = useState<ChamadoResumo | null>(null)
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
+  const [cancelando, setCancelando] = useState<ChamadoResumo | null>(null)
+  const [erroCancelar, setErroCancelar] = useState<string | null>(null)
 
   const handleAbrirFinalizar = useCallback((chamado: ChamadoResumo) => {
     setErroFinalizar(null)
     setFinalizando(chamado)
+  }, [])
+
+  const handleAbrirCancelar = useCallback((chamado: ChamadoResumo) => {
+    setErroCancelar(null)
+    setCancelando(chamado)
   }, [])
 
   function handleFinalizarConfirmar(input: {
@@ -69,6 +77,21 @@ export default function PainelChamadosPage({
           toast.success('Chamado finalizado')
         },
         onError: () => setErroFinalizar('Falha ao finalizar. Tente novamente.'),
+      },
+    )
+  }
+
+  function handleCancelarConfirmar(motivo?: string) {
+    if (!cancelando) return
+    setErroCancelar(null)
+    cancelar.mutate(
+      { id: cancelando.id, motivo },
+      {
+        onSuccess: () => {
+          setCancelando(null)
+          toast.success('Chamado cancelado')
+        },
+        onError: () => setErroCancelar('Falha ao cancelar. Tente novamente.'),
       },
     )
   }
@@ -101,7 +124,7 @@ export default function PainelChamadosPage({
         {/* Título */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-dark mb-4">
-            <Ticket className="w-8 h-8 text-white" />
+            <Inbox className="w-8 h-8 text-white" />
           </div>
           <Text as="h1" variant="heading-lg" className="text-dark mb-1 block">
             Painel de Chamados
@@ -179,7 +202,7 @@ export default function PainelChamadosPage({
                 onAssumir={handleAssumir}
                 onAtribuir={handleAtribuir}
                 onFinalizar={handleAbrirFinalizar}
-                onCancelar={handleCancelar}
+                onCancelar={handleAbrirCancelar}
                 onSalvarFiscal={handleSalvarFiscal}
               />
             ))}
@@ -193,6 +216,13 @@ export default function PainelChamadosPage({
         erro={erroFinalizar}
         onConfirmar={handleFinalizarConfirmar}
         onClose={() => setFinalizando(null)}
+      />
+      <ModalCancelarChamado
+        chamado={cancelando}
+        loading={chamadosHook.cancelar.isPending}
+        erro={erroCancelar}
+        onConfirmar={handleCancelarConfirmar}
+        onClose={() => setCancelando(null)}
       />
     </div>
   )

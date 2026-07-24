@@ -30,6 +30,7 @@ export interface ChamadoResumo {
   finalizadoEm: string | null
   criadoEm: string
   descricaoExecucao: string | null
+  motivoCancelamento: string | null
   criadoPor: { id: string; nome: string }
   responsavel: { id: string; nome: string } | null
   tenant: { id: string; nome: string; slug: string }
@@ -132,9 +133,12 @@ export async function finalizar(
   )
 }
 
-export async function cancelar(id: string): Promise<{ id: string; status: StatusChamado }> {
+export async function cancelar(
+  id: string,
+  motivo?: string,
+): Promise<{ id: string; status: StatusChamado }> {
   return unwrap(
-    await api.post<{ data: { id: string; status: StatusChamado } }>(`chamados/${id}/cancelar`, {}),
+    await api.post<{ data: { id: string; status: StatusChamado } }>(`chamados/${id}/cancelar`, { motivo }),
   )
 }
 
