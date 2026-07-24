@@ -1,32 +1,16 @@
 import { api } from '@/services/api'
 
 // Wrappers fetch do domínio de chamados — usados apenas pelos hooks.
-// Tipos espelham as respostas da API (fiscais só chegam para admin).
+// Tipos de domínio vêm de modules/chamados/chamados.types (client-safe) —
+// nunca redigitar as unions aqui.
+import type {
+  TipoChamado,
+  PrioridadeChamado,
+  StatusChamado,
+  DashboardChamados,
+} from '@/modules/chamados/chamados.types'
 
-export type TipoChamado =
-  | 'civil'
-  | 'eletrica'
-  | 'hidraulica'
-  | 'climatizacao'
-  | 'gases_medicinais'
-  | 'geradores'
-  | 'obras_reformas'
-  | 'pintura'
-  | 'marcenaria'
-  | 'serralheria'
-  | 'drywall_forros'
-  | 'cobertura'
-  | 'impermeabilizacao'
-  | 'rede_logica_ti'
-  | 'seguranca_eletronica'
-  | 'jardinagem'
-  | 'limpeza_tecnica'
-  | 'dedetizacao'
-  | 'elevadores'
-  | 'outros'
-
-export type PrioridadeChamado = 'baixa' | 'media' | 'alta' | 'urgente'
-export type StatusChamado = 'aberto' | 'em_execucao' | 'finalizado' | 'cancelado'
+export type { TipoChamado, PrioridadeChamado, StatusChamado, DashboardChamados }
 
 export interface ChamadoResumo {
   id: string
@@ -87,19 +71,6 @@ export interface FiltrosChamados {
   tipo?: TipoChamado
   responsavelId?: string
   atrasados?: boolean
-}
-
-export interface DashboardChamados {
-  total: number
-  finalizados: number
-  emExecucao: number
-  abertos: number
-  atrasados: number
-  valorGastoCentavos: number
-  porStatus: { status: string; qtde: number }[]
-  porPrioridade: { prioridade: string; qtde: number }[]
-  porTipo: { tipo: string; qtde: number }[]
-  porResponsavel: { responsavelId: string | null; nome: string; qtde: number }[]
 }
 
 function unwrap<T>(res: { data: T }): T {
@@ -168,11 +139,23 @@ export async function cancelar(id: string): Promise<{ id: string; status: Status
   )
 }
 
+// O servidor retorna só o resumo + campos fiscais (não o ChamadoResumo completo)
+export interface ChamadoFiscalAtualizado {
+  id: string
+  numero: number
+  status: StatusChamado
+  prioridade: PrioridadeChamado
+  criadoEm: string
+  fornecedor: string | null
+  numeroOrdemCompra: string | null
+  valorGastoCentavos: number | null
+}
+
 export async function editarFiscal(
   id: string,
   input: EditarFiscalInput,
-): Promise<ChamadoResumo> {
-  return unwrap(await api.patch<{ data: ChamadoResumo }>(`chamados/${id}`, input))
+): Promise<ChamadoFiscalAtualizado> {
+  return unwrap(await api.patch<{ data: ChamadoFiscalAtualizado }>(`chamados/${id}`, input))
 }
 
 export async function buscarFotos(

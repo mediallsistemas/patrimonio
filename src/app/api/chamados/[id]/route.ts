@@ -1,4 +1,5 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { escopoSessao } from '@/modules/auth/tenant-filter'
 import { ok, badRequest, unauthorized, forbidden, notFound, serverError } from '@/lib/api-response'
 import * as chamadosQuery from '@/modules/chamados/chamados-query.service'
 import * as chamadosCommand from '@/modules/chamados/chamados-command.service'
@@ -7,13 +8,6 @@ import {
   ROLES_LEITURA_CHAMADOS,
   ROLES_ADMIN_CHAMADOS,
 } from '@/modules/chamados/chamados.rules'
-
-function escopo(session: { role: string; tenantId: string | null; tenantIds?: string[] }) {
-  return {
-    tenantId: session.role === 'super_admin' ? null : session.tenantId,
-    tenantIds: session.tenantIds,
-  }
-}
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
   const auth = await verifyAuthDetailed(req, ROLES_LEITURA_CHAMADOS)
@@ -24,7 +18,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const { id } = await ctx.params
 
   try {
-    const chamado = await chamadosQuery.buscar(id, escopo(session), session.role)
+    const chamado = await chamadosQuery.buscar(id, escopoSessao(session), session.role)
     if (!chamado) return notFound('chamado')
     return ok(chamado)
   } catch {
@@ -38,6 +32,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const auth = await verifyAuthDetailed(req, ROLES_ADMIN_CHAMADOS)
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
   const session = auth.session
+  if (session.role !== 'super_admin' && !session.tenantId) return forbidden()
 
   const { id } = await ctx.params
 
@@ -45,7 +40,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
 
   try {
-    const chamado = await chamadosCommand.editarFiscal(id, escopo(session), session.sub, parsed.data)
+    const chamado = await chamadosCommand.editarFiscal(id, escopoSessao(session), session.sub, parsed.data)
     if (!chamado) return notFound('chamado')
     return ok(chamado)
   } catch {

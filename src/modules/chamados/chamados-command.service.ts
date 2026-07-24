@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { tenantFilter } from '@/modules/auth/tenant-filter'
-import { STATUS_ABERTOS } from './chamados.rules'
+import { STATUS_ABERTOS, ROLES_ESCRITA_CHAMADOS } from './chamados.rules'
 import type {
   CriarChamadoInput,
   AssumirChamadoInput,
@@ -23,6 +23,20 @@ const SELECT_RESUMO = {
   criadoEm: true,
 } as const
 
+// Responsável válido: existe, ativo, do tenant e com role que executa chamados
+// (nunca viewer/operator_forms — mesma regra do dropdown do cliente).
+async function validarResponsavel(responsavelId: string, tenantId: string) {
+  return prisma.usuario.findFirst({
+    where: {
+      id: responsavelId,
+      tenantId,
+      ativo: true,
+      role: { in: [...ROLES_ESCRITA_CHAMADOS] },
+    },
+    select: { id: true },
+  })
+}
+
 export async function criar(
   tenantId: string,
   criadoPorId: string,
@@ -40,17 +54,14 @@ export async function criar(
 
     let dadosAtribuicao = {}
     if (atribuicao) {
-      // Responsável precisa existir, estar ativo e pertencer ao mesmo tenant
-      const responsavel = await prisma.usuario.findFirst({
-        where: { id: atribuicao.responsavelId, tenantId, ativo: true },
-        select: { id: true },
-      })
+      const responsavel = await validarResponsavel(atribuicao.responsavelId, tenantId)
       if (!responsavel) throw new Error('responsável inválido')
       dadosAtribuicao = {
         responsavelId: atribuicao.responsavelId,
         atribuidoPorId: atribuicao.atribuidoPorId,
         assumidoEm: new Date(),
         status: 'em_execucao',
+        atualizadoPorId: atribuicao.atribuidoPorId,
       }
     }
 
@@ -126,10 +137,7 @@ export async function atribuir(
     if (!chamado) return null
 
     // Responsável precisa pertencer ao tenant do chamado (importa no super_admin)
-    const responsavel = await prisma.usuario.findFirst({
-      where: { id: input.responsavelId, tenantId: chamado.tenantId, ativo: true },
-      select: { id: true },
-    })
+    const responsavel = await validarResponsavel(input.responsavelId, chamado.tenantId)
     if (!responsavel) return null
 
     return await prisma.chamado.update({

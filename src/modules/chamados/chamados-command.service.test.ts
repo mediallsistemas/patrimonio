@@ -89,13 +89,20 @@ describe('criar', () => {
 
     expect(mocks.usuario).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: 'resp-1', tenantId: TENANT, ativo: true }),
+        where: expect.objectContaining({
+          id: 'resp-1',
+          tenantId: TENANT,
+          ativo: true,
+          // responsável precisa ter role que executa chamados (nunca viewer)
+          role: { in: ['super_admin', 'tenant_admin', 'operator', 'operator_patrimonio'] },
+        }),
       }),
     )
     const data = mocks.create.mock.calls[0][0].data as Record<string, unknown>
     expect(data.status).toBe('em_execucao')
     expect(data.responsavelId).toBe('resp-1')
     expect(data.atribuidoPorId).toBe(USER)
+    expect(data.atualizadoPorId).toBe(USER) // mesma pegada de auditoria do atribuir
   })
 
   it('atribuição direta com responsável de outro tenant falha', async () => {

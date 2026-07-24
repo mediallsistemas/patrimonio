@@ -1,4 +1,5 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { escopoSessao } from '@/modules/auth/tenant-filter'
 import { ok, created, badRequest, unauthorized, forbidden, serverError } from '@/lib/api-response'
 import * as chamadosQuery from '@/modules/chamados/chamados-query.service'
 import * as chamadosCommand from '@/modules/chamados/chamados-command.service'
@@ -17,19 +18,14 @@ export async function GET(req: Request): Promise<Response> {
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
   const session = auth.session
 
+  if (session.role !== 'super_admin' && !session.tenantId) return forbidden()
+
   const url = new URL(req.url)
   const parsed = FiltrosChamadosSchema.safeParse(Object.fromEntries(url.searchParams))
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
 
-  const tenantId = session.role === 'super_admin' ? null : session.tenantId
-  if (session.role !== 'super_admin' && !tenantId) return forbidden()
-
   try {
-    const chamados = await chamadosQuery.listar(
-      { tenantId, tenantIds: session.tenantIds },
-      session.role,
-      parsed.data,
-    )
+    const chamados = await chamadosQuery.listar(escopoSessao(session), session.role, parsed.data)
     return ok(chamados)
   } catch {
     return serverError('listar chamados failed')

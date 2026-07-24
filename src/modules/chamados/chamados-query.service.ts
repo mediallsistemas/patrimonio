@@ -2,7 +2,9 @@ import { prisma } from '@/lib/db'
 import { tenantFilter } from '@/modules/auth/tenant-filter'
 import { estaAtrasado, sanitizarParaRole, STATUS_ABERTOS } from './chamados.rules'
 import type { JWTPayload } from '@/modules/auth/auth.types'
-import type { FiltrosChamados } from './chamados.types'
+import type { FiltrosChamados, DashboardChamados, StatusChamado } from './chamados.types'
+
+export type { DashboardChamados }
 
 // Leituras do domínio de chamados. Fotos nunca entram nas listas (lazy via
 // buscarFotos). Campos fiscais são sanitizados por role antes de retornar.
@@ -44,16 +46,26 @@ function comAtraso<T extends { status: string; prazo: Date }>(chamado: T, agora:
 export async function listar(escopo: EscopoTenant, role: Role, filtros: FiltrosChamados = {}) {
   try {
     const agora = new Date()
+
+    // status e atrasados compõem: atrasado só existe em status vivos.
+    // status vivo + atrasados → intersecção; status terminal + atrasados → vazio.
+    let statusWhere: object = filtros.status ? { status: filtros.status } : {}
+    if (filtros.atrasados) {
+      if (filtros.status && !STATUS_ABERTOS.includes(filtros.status as StatusChamado)) {
+        return [] // combinação impossível (ex.: finalizado + atrasado)
+      }
+      statusWhere = filtros.status
+        ? { status: filtros.status, prazo: { lt: agora } }
+        : { status: { in: [...STATUS_ABERTOS] }, prazo: { lt: agora } }
+    }
+
     const chamados = await prisma.chamado.findMany({
       where: {
         ...tenantFilter(escopo),
-        ...(filtros.status ? { status: filtros.status } : {}),
+        ...statusWhere,
         ...(filtros.prioridade ? { prioridade: filtros.prioridade } : {}),
         ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
         ...(filtros.responsavelId ? { responsavelId: filtros.responsavelId } : {}),
-        ...(filtros.atrasados
-          ? { status: { in: [...STATUS_ABERTOS] }, prazo: { lt: agora } }
-          : {}),
       },
       orderBy: [{ status: 'asc' }, { prazo: 'asc' }],
       take: 200,
@@ -95,20 +107,7 @@ export async function buscarFotos(id: string, escopo: EscopoTenant) {
 
 // ── Dashboard (admin) — espelha o painel da planilha ────────────────────────
 // Agregações no banco (groupBy), nunca em memória. Valor gasto só chega aqui
-// porque a rota restringe o acesso a admin.
-
-export interface DashboardChamados {
-  total: number
-  finalizados: number
-  emExecucao: number
-  abertos: number
-  atrasados: number
-  valorGastoCentavos: number
-  porStatus: { status: string; qtde: number }[]
-  porPrioridade: { prioridade: string; qtde: number }[]
-  porTipo: { tipo: string; qtde: number }[]
-  porResponsavel: { responsavelId: string | null; nome: string; qtde: number }[]
-}
+// porque a rota restringe o acesso a admin. Shape em chamados.types.ts.
 
 export async function dashboard(
   escopo: EscopoTenant,
@@ -138,7 +137,9 @@ export async function dashboard(
         }),
       ])
 
-    // Nomes dos responsáveis em uma query única
+    // Nomes dos responsáveis em uma query única.
+    // Sem filtro de tenant intencionalmente: os IDs derivam de chamados já
+    // escopados por tenantFilter acima — nunca alargar este `in`.
     const responsavelIds = porResponsavel
       .map((r) => r.responsavelId)
       .filter((id): id is string => id !== null)

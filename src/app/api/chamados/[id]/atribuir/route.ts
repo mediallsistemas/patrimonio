@@ -1,4 +1,5 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { escopoSessao } from '@/modules/auth/tenant-filter'
 import { ok, badRequest, unauthorized, forbidden, notFound, serverError } from '@/lib/api-response'
 import * as chamadosCommand from '@/modules/chamados/chamados-command.service'
 import { AtribuirChamadoSchema } from '@/modules/chamados/chamados.types'
@@ -9,6 +10,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const auth = await verifyAuthDetailed(req, ROLES_ADMIN_CHAMADOS)
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
   const session = auth.session
+  if (session.role !== 'super_admin' && !session.tenantId) return forbidden()
 
   const { id } = await ctx.params
 
@@ -16,11 +18,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
 
   try {
-    const escopo = {
-      tenantId: session.role === 'super_admin' ? null : session.tenantId,
-      tenantIds: session.tenantIds,
-    }
-    const chamado = await chamadosCommand.atribuir(id, escopo, session.sub, parsed.data)
+    const chamado = await chamadosCommand.atribuir(id, escopoSessao(session), session.sub, parsed.data)
     if (!chamado) return notFound('chamado ou responsável')
     return ok(chamado)
   } catch {

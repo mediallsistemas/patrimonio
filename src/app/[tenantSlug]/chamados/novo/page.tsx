@@ -52,7 +52,7 @@ export default function NovoChamadoPage({
   const { user } = useAuth()
 
   const ehAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin'
-  const { blocosChamado, blocosCarregando, usuarios, criar } = useChamados({ ehAdmin })
+  const { blocosChamado, blocosCarregando, usuarios, criar } = useChamados({ ehAdmin, comBlocos: true })
 
   const [estado, setEstado] = useState<Etapa>({ etapa: 'ambiente' })
   const [search, setSearch] = useState('')

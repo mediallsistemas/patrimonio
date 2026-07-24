@@ -133,6 +133,25 @@ export const FiltrosChamadosSchema = z.object({
   prioridade: z.enum(PRIORIDADES_CHAMADO).optional(),
   tipo: z.enum(TIPOS_CHAMADO).optional(),
   responsavelId: z.string().uuid().optional(),
-  atrasados: z.coerce.boolean().optional(),
+  // Vem da query string — 'true' é o único valor que liga o filtro.
+  // (z.coerce.boolean() faria Boolean('false') === true — nunca usar aqui.)
+  atrasados: z
+    .preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean())
+    .optional(),
 })
 export type FiltrosChamados = z.infer<typeof FiltrosChamadosSchema>
+
+// Shape do dashboard gerencial — compartilhado entre o service (server)
+// e o client service (client-safe: este arquivo não importa Prisma).
+export interface DashboardChamados {
+  total: number
+  finalizados: number
+  emExecucao: number
+  abertos: number
+  atrasados: number
+  valorGastoCentavos: number
+  porStatus: { status: string; qtde: number }[]
+  porPrioridade: { prioridade: string; qtde: number }[]
+  porTipo: { tipo: string; qtde: number }[]
+  porResponsavel: { responsavelId: string | null; nome: string; qtde: number }[]
+}

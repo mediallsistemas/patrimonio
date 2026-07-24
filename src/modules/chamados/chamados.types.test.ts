@@ -6,6 +6,7 @@ import {
   AtribuirChamadoSchema,
   FinalizarChamadoSchema,
   EditarFiscalSchema,
+  FiltrosChamadosSchema,
 } from './chamados.types'
 
 const AMBIENTE_ID = '3f2c1a34-9d3c-4e0a-8f21-0aa111222333'
@@ -114,6 +115,14 @@ describe('FinalizarChamadoSchema', () => {
         fotoExecucao: fotoGrande,
       }).success,
     ).toBe(false)
+  })
+})
+
+describe('FiltrosChamadosSchema — atrasados vindo de query string', () => {
+  it("'true' liga o filtro; 'false' NÃO liga (nunca Boolean('false'))", () => {
+    expect(FiltrosChamadosSchema.parse({ atrasados: 'true' }).atrasados).toBe(true)
+    expect(FiltrosChamadosSchema.parse({ atrasados: 'false' }).atrasados).toBe(false)
+    expect(FiltrosChamadosSchema.parse({}).atrasados).toBeUndefined()
   })
 })
 

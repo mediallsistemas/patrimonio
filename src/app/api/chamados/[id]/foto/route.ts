@@ -1,4 +1,5 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { escopoSessao } from '@/modules/auth/tenant-filter'
 import { ok, unauthorized, forbidden, notFound, serverError } from '@/lib/api-response'
 import * as chamadosQuery from '@/modules/chamados/chamados-query.service'
 import { ROLES_LEITURA_CHAMADOS } from '@/modules/chamados/chamados.rules'
@@ -14,11 +15,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const { id } = await ctx.params
 
   try {
-    const escopo = {
-      tenantId: session.role === 'super_admin' ? null : session.tenantId,
-      tenantIds: session.tenantIds,
-    }
-    const fotos = await chamadosQuery.buscarFotos(id, escopo)
+    const fotos = await chamadosQuery.buscarFotos(id, escopoSessao(session))
     if (!fotos) return notFound('chamado')
     return ok(fotos)
   } catch {

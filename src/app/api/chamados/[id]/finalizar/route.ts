@@ -1,4 +1,5 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
+import { escopoSessao } from '@/modules/auth/tenant-filter'
 import { ok, badRequest, unauthorized, forbidden, conflict, serverError } from '@/lib/api-response'
 import * as chamadosCommand from '@/modules/chamados/chamados-command.service'
 import { FinalizarChamadoSchema } from '@/modules/chamados/chamados.types'
@@ -18,11 +19,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
 
   try {
-    const escopo = {
-      tenantId: session.role === 'super_admin' ? null : session.tenantId,
-      tenantIds: session.tenantIds,
-    }
-    const chamado = await chamadosCommand.finalizar(id, escopo, session.sub, parsed.data)
+    const chamado = await chamadosCommand.finalizar(id, escopoSessao(session), session.sub, parsed.data)
     if (!chamado) return conflict('Chamado já finalizado ou cancelado')
     return ok(chamado)
   } catch {

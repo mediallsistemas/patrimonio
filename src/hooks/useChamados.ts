@@ -24,8 +24,9 @@ export type {
 }
 
 // Hook único do painel de chamados: lista com filtros + todas as mutations.
-// `ehAdmin` habilita as queries exclusivas de admin (usuários p/ atribuir).
-export function useChamados(opts: { ehAdmin?: boolean } = {}) {
+// `ehAdmin` habilita as queries exclusivas de admin (usuários p/ atribuir);
+// `comBlocos` liga a query de blocos/ambientes (pesada) — só a tela de criação usa.
+export function useChamados(opts: { ehAdmin?: boolean; comBlocos?: boolean } = {}) {
   const qc = useQueryClient()
   const [filtros, setFiltros] = useState<FiltrosChamados>({})
 
@@ -38,6 +39,7 @@ export function useChamados(opts: { ehAdmin?: boolean } = {}) {
   const { data: blocos = [], isLoading: blocosCarregando } = useQuery<BlocoAPI[]>({
     queryKey: ['me-blocos'],
     queryFn: buscarBlocos,
+    enabled: opts.comBlocos === true,
   })
 
   // Ambientes de manutenção predial (não-gases), como no fluxo de manutenção
