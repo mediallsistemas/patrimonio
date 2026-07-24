@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, ShieldCheck, Activity, LayoutDashboard, Package } from 'lucide-react'
+import { Building2, Users, ShieldCheck, Activity, LayoutDashboard, Package, ClipboardList } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import LogoutButton from '@/components/ui/LogoutButton'
@@ -36,6 +36,14 @@ const ALL_ACTIONS = [
     description: 'Acompanhe retiradas, devoluções e pendências de rouparia em todas as unidades',
     color: '#f97316',
     superAdminOnly: true,
+  },
+  {
+    href: '/admin/chamados',
+    icon: ClipboardList,
+    title: 'Painel de Chamados',
+    description: 'Indicadores dos chamados de manutenção: status, prioridade, atrasados e valor gasto',
+    color: '#7c3aed',
+    superAdminOnly: false,
   },
   {
     href: '/admin/patrimonio',
