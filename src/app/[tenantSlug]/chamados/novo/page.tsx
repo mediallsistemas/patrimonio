@@ -4,7 +4,7 @@ import { useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, ClipboardList, X, CheckCircle, Package,
+  ChevronLeft, Ticket, X, CheckCircle, Package,
 } from 'lucide-react'
 
 import Card from '@/components/ui/Card'
@@ -139,7 +139,7 @@ export default function NovoChamadoPage({
           <>
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-dark mb-4">
-                <ClipboardList className="w-8 h-8 text-white" />
+                <Ticket className="w-8 h-8 text-white" />
               </div>
               <Text as="h1" variant="heading-lg" className="text-dark mb-1 block">
                 Abrir Chamado

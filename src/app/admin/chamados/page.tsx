@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { format, subMonths } from 'date-fns'
 import {
-  ArrowLeft, ClipboardList, CheckCircle, Loader2, AlertTriangle, Wallet, PlayCircle,
+  ArrowLeft, Ticket, CheckCircle, Loader2, AlertTriangle, Wallet, PlayCircle,
 } from 'lucide-react'
 
 import Card from '@/components/ui/Card'
@@ -80,7 +80,7 @@ export default function DashboardChamadosPage() {
 
   const tiles = data
     ? [
-        { label: 'Total de chamados', valor: String(data.total), icon: ClipboardList, cor: 'bg-purple-100 text-purple-600' },
+        { label: 'Total de chamados', valor: String(data.total), icon: Ticket, cor: 'bg-purple-100 text-purple-600' },
         { label: 'Finalizados', valor: String(data.finalizados), icon: CheckCircle, cor: 'bg-emerald-100 text-emerald-600' },
         { label: 'Em execução', valor: String(data.emExecucao), icon: PlayCircle, cor: 'bg-blue-100 text-blue-600' },
         { label: 'Atrasados', valor: String(data.atrasados), icon: AlertTriangle, cor: 'bg-red-100 text-red-600' },

@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { ChevronLeft, ClipboardList, Plus } from 'lucide-react'
+import { ChevronLeft, Ticket, Plus } from 'lucide-react'
 
 import Text from '@/components/ui/Text'
 import Button from '@/components/ui/Button'
@@ -171,7 +171,7 @@ export default function PainelChamadosPage({
         {/* Título */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-dark mb-4">
-            <ClipboardList className="w-8 h-8 text-white" />
+            <Ticket className="w-8 h-8 text-white" />
           </div>
           <Text as="h1" variant="heading-lg" className="text-dark mb-1 block">
             Painel de Chamados
@@ -225,15 +225,6 @@ export default function PainelChamadosPage({
               ))}
             </select>
           </div>
-          <label className="flex items-center gap-2 pb-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filtros.atrasados === true}
-              onChange={(e) => setFiltros({ ...filtros, atrasados: e.target.checked || undefined })}
-              className="w-4 h-4 accent-red-500"
-            />
-            <span className="text-sm text-gray-400 font-sans">Só atrasados</span>
-          </label>
         </div>
 
         {/* Lista */}
@@ -241,14 +232,9 @@ export default function PainelChamadosPage({
           <p className="text-center py-10 text-sm text-gray-300 font-sans">Carregando chamados...</p>
         ) : chamados.length === 0 ? (
           <div className="text-center py-10">
-            <Text variant="body-md" className="text-gray-300 block mb-3">
+            <Text variant="body-md" className="text-gray-300 block">
               Nenhum chamado encontrado
             </Text>
-            {escreve && (
-              <Link href={`/${tenantSlug}/chamados/novo`}>
-                <Button variant="outline" size="sm">Abrir o primeiro chamado</Button>
-              </Link>
-            )}
           </div>
         ) : (
           <div className="space-y-3">

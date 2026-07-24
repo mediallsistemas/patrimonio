@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardList, Activity, Users, Wrench, FileText } from 'lucide-react'
+import { ClipboardList, Activity, Users, Wrench, FileText, Ticket } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
@@ -19,7 +19,7 @@ export default async function ManutencaoHomePage({
   const operatorActions = [
     {
       href: `/${tenantSlug}/chamados`,
-      icon: ClipboardList,
+      icon: Ticket,
       title: 'Painel de Chamados',
       description: 'Veja os chamados em aberto, assuma e finalize',
       color: '#7c3aed',
@@ -57,7 +57,7 @@ export default async function ManutencaoHomePage({
   const adminActions = [
     {
       href: `/${tenantSlug}/chamados`,
-      icon: ClipboardList,
+      icon: Ticket,
       title: 'Painel de Chamados',
       description: 'Assuma, atribua e finalize chamados; edite dados fiscais',
       color: '#7c3aed',

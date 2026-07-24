@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Users, ShieldCheck, Activity, LayoutDashboard, Package, ClipboardList } from 'lucide-react'
+import { Building2, Users, ShieldCheck, Activity, LayoutDashboard, Package, Ticket } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import LogoutButton from '@/components/ui/LogoutButton'
@@ -39,7 +39,7 @@ const ALL_ACTIONS = [
   },
   {
     href: '/admin/chamados',
-    icon: ClipboardList,
+    icon: Ticket,
     title: 'Painel de Chamados',
     description: 'Indicadores dos chamados de manutenção: status, prioridade, atrasados e valor gasto',
     color: '#7c3aed',
