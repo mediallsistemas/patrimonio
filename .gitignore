@@ -7,3 +7,6 @@ node_modules
 .env*.tmp
 .env*.tmp*
 .next/
+test-results/
+playwright-report/
+server-dev.log
