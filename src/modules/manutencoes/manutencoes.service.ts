@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { tenantFilter } from '@/modules/auth/tenant-filter'
 import type { IniciarManutencaoInput, FinalizarManutencaoInput } from './manutencoes.types'
 
 export async function iniciar(
@@ -113,17 +114,52 @@ export async function listarRealizadasPorAssets(trilogoAssetIds: number[]) {
   }
 }
 
-// Lê uma manutenção individual com as fotos. Usado pelo endpoint de detalhe.
+// Lista todas as manutenções realizadas do tenant (qualquer tipo/status),
+// para o relatório/histórico. Fotos não são incluídas — leitura sob demanda
+// via buscarRealizadaComFotos.
+export async function listarHistorico(tenantId: string | null, tenantIds?: string[]) {
+  try {
+    return await prisma.manutencaoRealizada.findMany({
+      where: tenantFilter({ tenantId, tenantIds }),
+      orderBy: { iniciadaEm: 'desc' },
+      select: {
+        id: true,
+        tipo: true,
+        status: true,
+        ambienteNomeSnapshot: true,
+        blocoNomeSnapshot: true,
+        patrimony: true,
+        descricaoBemSnapshot: true,
+        subtipoPatrimonio: true,
+        descricao: true,
+        observacaoFinal: true,
+        iniciadaEm: true,
+        finalizadaEm: true,
+        criadoPor: { select: { nome: true } },
+      },
+    })
+  } catch (error) {
+    console.error('[manutencoes.service] listarHistorico:', error)
+    throw error
+  }
+}
+
+// Lê uma manutenção individual com as fotos. Usado pelo endpoint de detalhe
+// (modal de bem público e drill-down do relatório de manutenções).
 export async function buscarRealizadaComFotos(id: string) {
   try {
     return await prisma.manutencaoRealizada.findFirst({
-      where: { id, tipo: 'patrimonio', status: 'concluida' },
+      where: { id },
       select: {
         id: true,
+        tipo: true,
+        status: true,
         trilogoAssetId: true,
         patrimony: true,
         descricaoBemSnapshot: true,
         subtipoPatrimonio: true,
+        ambienteNomeSnapshot: true,
+        blocoNomeSnapshot: true,
         descricao: true,
         observacaoFinal: true,
         fotoAntes: true,
