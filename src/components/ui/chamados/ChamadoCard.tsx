@@ -173,9 +173,6 @@ function ChamadoCardBase({
                 Execução
               </Text>
               <Text variant="body-sm" className="text-dark block whitespace-pre-wrap">{c.descricaoExecucao}</Text>
-              {c.observacaoFinal && (
-                <Text variant="caption" className="text-gray-400 block mt-1">{c.observacaoFinal}</Text>
-              )}
             </div>
           )}
 

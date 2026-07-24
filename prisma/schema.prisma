@@ -362,7 +362,6 @@ model Chamado {
   // Execução / finalização (payload no formato do fluxo de ocorrências)
   descricaoExecucao    String?
   fotoExecucao         String?
-  observacaoFinal      String?
   finalizadoEm         DateTime?
   finalizadoPorId      String?
 

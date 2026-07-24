@@ -173,7 +173,6 @@ export async function finalizar(
         status: 'finalizado',
         descricaoExecucao: input.descricaoExecucao,
         fotoExecucao: input.fotoExecucao ?? null,
-        observacaoFinal: input.observacaoFinal ?? null,
         finalizadoEm: new Date(),
         finalizadoPorId: userId,
         atualizadoPorId: userId,

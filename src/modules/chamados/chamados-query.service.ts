@@ -35,7 +35,6 @@ const SELECT_LISTA = {
   finalizadoEm: true,
   criadoEm: true,
   descricaoExecucao: true,
-  observacaoFinal: true,
   criadoPor: { select: { id: true, nome: true } },
   responsavel: { select: { id: true, nome: true } },
   // Fiscais — removidos por sanitizarParaRole quando o role não é admin

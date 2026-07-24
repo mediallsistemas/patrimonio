@@ -116,7 +116,6 @@ export type AtribuirChamadoInput = z.infer<typeof AtribuirChamadoSchema>
 export const FinalizarChamadoSchema = z.object({
   descricaoExecucao: z.string().trim().min(3, 'Descreva o que foi feito').max(2000),
   fotoExecucao: fotoBase64.optional().nullable(),
-  observacaoFinal: z.string().trim().max(2000).optional(),
 })
 export type FinalizarChamadoInput = z.infer<typeof FinalizarChamadoSchema>
 
@@ -177,7 +176,6 @@ export interface ChamadoListaItem {
   finalizadoEm: Date | null
   criadoEm: Date
   descricaoExecucao: string | null
-  observacaoFinal: string | null
   criadoPor: { id: string; nome: string }
   responsavel: { id: string; nome: string } | null
   fornecedor?: string | null

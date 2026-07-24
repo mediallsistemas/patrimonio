@@ -127,7 +127,6 @@ export default function PainelChamadosPage({
   function handleFinalizarConfirmar(input: {
     descricaoExecucao: string
     fotoExecucao: string | null
-    observacaoFinal?: string
   }) {
     if (!finalizando) return
     setErroFinalizar(null)

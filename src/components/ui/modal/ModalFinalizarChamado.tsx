@@ -16,7 +16,6 @@ interface Props {
   onConfirmar: (input: {
     descricaoExecucao: string
     fotoExecucao: string | null
-    observacaoFinal?: string
   }) => void
   onClose: () => void
 }
@@ -27,7 +26,6 @@ export default function ModalFinalizarChamado({ chamado, loading, erro, onConfir
   const open = chamado !== null
   const [descricao, setDescricao] = useState('')
   const [foto, setFoto] = useState<string | null>(null)
-  const [observacao, setObservacao] = useState('')
   const [erroLocal, setErroLocal] = useState<string | null>(null)
 
   useEffect(() => {
@@ -35,7 +33,6 @@ export default function ModalFinalizarChamado({ chamado, loading, erro, onConfir
       document.body.style.overflow = 'hidden'
       setDescricao('')
       setFoto(null)
-      setObservacao('')
       setErroLocal(null)
     } else {
       document.body.style.overflow = ''
@@ -54,7 +51,6 @@ export default function ModalFinalizarChamado({ chamado, loading, erro, onConfir
     onConfirmar({
       descricaoExecucao: descricao.trim(),
       fotoExecucao: foto,
-      observacaoFinal: observacao.trim() || undefined,
     })
   }
 
@@ -118,19 +114,6 @@ export default function ModalFinalizarChamado({ chamado, loading, erro, onConfir
             onChange={setFoto}
             accent="green"
           />
-
-          <div>
-            <Text variant="caption" className="text-gray-400 uppercase tracking-wide font-semibold block mb-1.5">
-              Observação final (opcional)
-            </Text>
-            <textarea
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-              placeholder="Detalhes adicionais"
-              rows={2}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-sans text-dark focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white placeholder:text-gray-300 resize-none"
-            />
-          </div>
 
           {(erroLocal || erro) && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">

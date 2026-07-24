@@ -30,7 +30,6 @@ export interface ChamadoResumo {
   finalizadoEm: string | null
   criadoEm: string
   descricaoExecucao: string | null
-  observacaoFinal: string | null
   criadoPor: { id: string; nome: string }
   responsavel: { id: string; nome: string } | null
   // Fiscais — presentes SOMENTE quando o usuário é admin
@@ -56,7 +55,6 @@ export interface CriarChamadoInput {
 export interface FinalizarChamadoInput {
   descricaoExecucao: string
   fotoExecucao?: string | null
-  observacaoFinal?: string
 }
 
 export interface EditarFiscalInput {
