@@ -10,6 +10,8 @@ import {
 import Card from '@/components/ui/Card'
 import Text from '@/components/ui/Text'
 import { useDashboardChamados } from '@/hooks/useChamados'
+import { STATUS_BAR_COLOR, PRIORIDADE_BAR_COLOR } from '@/components/ui/chamados/ChamadoBadges'
+import { formatarBRL } from '@/utils/moeda'
 import {
   TIPO_CHAMADO_LABEL,
   PRIORIDADE_CHAMADO_LABEL,
@@ -21,26 +23,8 @@ import {
 
 // Painel gerencial de chamados (admin) — espelha o painel da planilha:
 // totais + distribuição por status/prioridade/tipo/responsável.
-// Cores de status/prioridade seguem o mesmo mapa dos badges do painel;
-// identidade sempre carregada pelo rótulo de texto, nunca só pela cor.
-
-const STATUS_BAR_COLOR: Record<string, string> = {
-  aberto: 'bg-amber-400',
-  em_execucao: 'bg-blue-400',
-  finalizado: 'bg-emerald-400',
-  cancelado: 'bg-gray-300',
-}
-
-const PRIORIDADE_BAR_COLOR: Record<string, string> = {
-  baixa: 'bg-gray-300',
-  media: 'bg-yellow-400',
-  alta: 'bg-orange-400',
-  urgente: 'bg-red-400',
-}
-
-function fmtReais(centavos: number): string {
-  return (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
+// Cores vêm de ChamadoBadges (fonte única); identidade sempre carregada
+// pelo rótulo de texto, nunca só pela cor.
 
 // Lista de barras horizontais: rótulo + barra proporcional + valor.
 // Uma única série (magnitude) — barra em um tom, valor sempre visível.
@@ -100,7 +84,7 @@ export default function DashboardChamadosPage() {
         { label: 'Finalizados', valor: String(data.finalizados), icon: CheckCircle, cor: 'bg-emerald-100 text-emerald-600' },
         { label: 'Em execução', valor: String(data.emExecucao), icon: PlayCircle, cor: 'bg-blue-100 text-blue-600' },
         { label: 'Atrasados', valor: String(data.atrasados), icon: AlertTriangle, cor: 'bg-red-100 text-red-600' },
-        { label: 'Valor gasto', valor: fmtReais(data.valorGastoCentavos), icon: Wallet, cor: 'bg-amber-100 text-amber-600' },
+        { label: 'Valor gasto', valor: formatarBRL(data.valorGastoCentavos), icon: Wallet, cor: 'bg-amber-100 text-amber-600' },
       ]
     : []
 

@@ -141,6 +141,50 @@ export const FiltrosChamadosSchema = z.object({
 })
 export type FiltrosChamados = z.infer<typeof FiltrosChamadosSchema>
 
+// ── Shapes de retorno dos services (server) ─────────────────────────────────
+// Datas como Date no server; o client recebe strings via JSON.
+// Campos fiscais opcionais: presentes só para admin (sanitizarParaRole).
+
+export interface ChamadoOperado {
+  id: string
+  numero: number
+  status: string
+  prioridade: string
+  criadoEm: Date
+  responsavelId?: string | null
+  assumidoEm?: Date | null
+  finalizadoEm?: Date | null
+  fornecedor?: string | null
+  numeroOrdemCompra?: string | null
+  valorGastoCentavos?: number | null
+}
+
+export interface ChamadoListaItem {
+  id: string
+  numero: number
+  titulo: string
+  descricao: string
+  tipo: string
+  prioridade: string
+  status: string
+  prazo: Date
+  atrasado: boolean
+  ambienteNomeSnapshot: string | null
+  blocoNomeSnapshot: string | null
+  patrimony: string | null
+  descricaoBemSnapshot: string | null
+  assumidoEm: Date | null
+  finalizadoEm: Date | null
+  criadoEm: Date
+  descricaoExecucao: string | null
+  observacaoFinal: string | null
+  criadoPor: { id: string; nome: string }
+  responsavel: { id: string; nome: string } | null
+  fornecedor?: string | null
+  numeroOrdemCompra?: string | null
+  valorGastoCentavos?: number | null
+}
+
 // Shape do dashboard gerencial — compartilhado entre o service (server)
 // e o client service (client-safe: este arquivo não importa Prisma).
 export interface DashboardChamados {

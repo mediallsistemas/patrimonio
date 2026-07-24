@@ -7,6 +7,7 @@ import type {
   AtribuirChamadoInput,
   FinalizarChamadoInput,
   EditarFiscalInput,
+  ChamadoOperado,
 } from './chamados.types'
 
 // Escritas do domínio de chamados. IDs de usuário sempre vêm do JWT (rota),
@@ -43,7 +44,7 @@ export async function criar(
   input: CriarChamadoInput,
   // Atribuição direta na criação — a rota só preenche quando o role é admin
   atribuicao?: { responsavelId: string; atribuidoPorId: string },
-) {
+): Promise<ChamadoOperado> {
   try {
     // Snapshot do ambiente e do bloco preserva o histórico do chamado
     const ambiente = await prisma.ambienteTenant.findFirst({
@@ -98,7 +99,7 @@ export async function assumir(
   escopo: EscopoTenant,
   userId: string,
   input: AssumirChamadoInput,
-) {
+): Promise<ChamadoOperado | null> {
   try {
     const { count } = await prisma.chamado.updateMany({
       where: { id, status: 'aberto', ...tenantFilter(escopo) },
@@ -128,7 +129,7 @@ export async function atribuir(
   escopo: EscopoTenant,
   adminId: string,
   input: AtribuirChamadoInput,
-) {
+): Promise<ChamadoOperado | null> {
   try {
     const chamado = await prisma.chamado.findFirst({
       where: { id, status: { in: [...STATUS_ABERTOS] }, ...tenantFilter(escopo) },
@@ -164,7 +165,7 @@ export async function finalizar(
   escopo: EscopoTenant,
   userId: string,
   input: FinalizarChamadoInput,
-) {
+): Promise<ChamadoOperado | null> {
   try {
     const { count } = await prisma.chamado.updateMany({
       where: { id, status: { in: [...STATUS_ABERTOS] }, ...tenantFilter(escopo) },
@@ -191,7 +192,11 @@ export async function finalizar(
 }
 
 // Cancelar (admin): a partir de qualquer status vivo.
-export async function cancelar(id: string, escopo: EscopoTenant, adminId: string) {
+export async function cancelar(
+  id: string,
+  escopo: EscopoTenant,
+  adminId: string,
+): Promise<ChamadoOperado | null> {
   try {
     const { count } = await prisma.chamado.updateMany({
       where: { id, status: { in: [...STATUS_ABERTOS] }, ...tenantFilter(escopo) },
@@ -215,7 +220,7 @@ export async function editarFiscal(
   escopo: EscopoTenant,
   adminId: string,
   input: EditarFiscalInput,
-) {
+): Promise<ChamadoOperado | null> {
   try {
     const existente = await prisma.chamado.findFirst({
       where: { id, ...tenantFilter(escopo) },

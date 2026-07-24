@@ -48,6 +48,11 @@ export function podeEditarFiscal(role: Role): boolean {
 // aberto → em_execucao (assumir/atribuir) | finalizado (finalização direta) | cancelado
 // em_execucao → finalizado | cancelado
 // finalizado / cancelado → terminais
+//
+// NOTA: em runtime as transições são impostas ATOMICAMENTE pelos where
+// condicionais do command service (status de origem no updateMany).
+// Esta tabela é a especificação executável do domínio (testada) — mantenha
+// as duas em sincronia ao alterar o ciclo de vida.
 
 const TRANSICOES: Record<StatusChamado, readonly StatusChamado[]> = {
   aberto: ['em_execucao', 'finalizado', 'cancelado'],

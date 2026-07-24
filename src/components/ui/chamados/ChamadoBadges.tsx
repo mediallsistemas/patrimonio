@@ -7,7 +7,8 @@ import {
   type StatusChamado,
 } from '@/modules/chamados/chamados.types'
 
-// Badges compartilhados do domínio de chamados (painel + dashboard)
+// Badges e mapas de cor do domínio de chamados — ÚNICA fonte de cor por
+// status/prioridade (painel + dashboard importam daqui; nunca duplicar).
 
 const STATUS_COLOR: Record<StatusChamado, string> = {
   aberto: 'bg-amber-100 text-amber-700',
@@ -21,6 +22,21 @@ const PRIORIDADE_COLOR: Record<PrioridadeChamado, string> = {
   media: 'bg-yellow-100 text-yellow-700',
   alta: 'bg-orange-100 text-orange-700',
   urgente: 'bg-red-100 text-red-700',
+}
+
+// Variantes sólidas para barras do dashboard — mesmas famílias de cor dos badges
+export const STATUS_BAR_COLOR: Record<StatusChamado, string> = {
+  aberto: 'bg-amber-400',
+  em_execucao: 'bg-blue-400',
+  finalizado: 'bg-emerald-400',
+  cancelado: 'bg-gray-300',
+}
+
+export const PRIORIDADE_BAR_COLOR: Record<PrioridadeChamado, string> = {
+  baixa: 'bg-gray-300',
+  media: 'bg-yellow-400',
+  alta: 'bg-orange-400',
+  urgente: 'bg-red-400',
 }
 
 export function StatusChamadoBadge({ status }: { status: StatusChamado }) {

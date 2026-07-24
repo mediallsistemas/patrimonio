@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -9,6 +9,7 @@ import {
 
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
+import { centavosParaReais, reaisParaCentavos } from '@/utils/moeda'
 import { StatusChamadoBadge, PrioridadeChamadoBadge, AtrasadoBadge } from './ChamadoBadges'
 import { FotoLazyChamado } from './FotoLazyChamado'
 import {
@@ -43,20 +44,7 @@ function fmtData(iso: string) {
   return format(new Date(iso), 'dd/MM/yyyy HH:mm', { locale: ptBR })
 }
 
-function centavosParaReais(centavos: number | null | undefined): string {
-  if (centavos === null || centavos === undefined) return ''
-  return (centavos / 100).toFixed(2).replace('.', ',')
-}
-
-function reaisParaCentavos(texto: string): number | null {
-  const limpo = texto.trim().replace(/\./g, '').replace(',', '.')
-  if (!limpo) return null
-  const valor = Number(limpo)
-  if (Number.isNaN(valor) || valor < 0) return null
-  return Math.round(valor * 100)
-}
-
-export default function ChamadoCard({
+function ChamadoCardBase({
   chamado: c,
   podeEscrever,
   ehAdmin,
@@ -307,3 +295,8 @@ export default function ChamadoCard({
     </div>
   )
 }
+
+// Lista pode ter até 200 cards — memoizado para re-renderizar só o card
+// cuja prop mudou (ex.: busy individual durante uma mutation).
+const ChamadoCard = memo(ChamadoCardBase)
+export default ChamadoCard

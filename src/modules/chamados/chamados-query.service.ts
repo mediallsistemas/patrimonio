@@ -2,7 +2,12 @@ import { prisma } from '@/lib/db'
 import { tenantFilter } from '@/modules/auth/tenant-filter'
 import { estaAtrasado, sanitizarParaRole, STATUS_ABERTOS } from './chamados.rules'
 import type { JWTPayload } from '@/modules/auth/auth.types'
-import type { FiltrosChamados, DashboardChamados, StatusChamado } from './chamados.types'
+import type {
+  FiltrosChamados,
+  DashboardChamados,
+  StatusChamado,
+  ChamadoListaItem,
+} from './chamados.types'
 
 export type { DashboardChamados }
 
@@ -43,7 +48,11 @@ function comAtraso<T extends { status: string; prazo: Date }>(chamado: T, agora:
   return { ...chamado, atrasado: estaAtrasado(chamado, agora) }
 }
 
-export async function listar(escopo: EscopoTenant, role: Role, filtros: FiltrosChamados = {}) {
+export async function listar(
+  escopo: EscopoTenant,
+  role: Role,
+  filtros: FiltrosChamados = {},
+): Promise<ChamadoListaItem[]> {
   try {
     const agora = new Date()
 
@@ -78,7 +87,11 @@ export async function listar(escopo: EscopoTenant, role: Role, filtros: FiltrosC
   }
 }
 
-export async function buscar(id: string, escopo: EscopoTenant, role: Role) {
+export async function buscar(
+  id: string,
+  escopo: EscopoTenant,
+  role: Role,
+): Promise<ChamadoListaItem | null> {
   try {
     const chamado = await prisma.chamado.findFirst({
       where: { id, ...tenantFilter(escopo) },
@@ -93,7 +106,10 @@ export async function buscar(id: string, escopo: EscopoTenant, role: Role) {
 }
 
 // Fotos sob demanda (abertura + execução) — padrão FotoLazy do projeto
-export async function buscarFotos(id: string, escopo: EscopoTenant) {
+export async function buscarFotos(
+  id: string,
+  escopo: EscopoTenant,
+): Promise<{ fotoAbertura: string | null; fotoExecucao: string | null } | null> {
   try {
     return await prisma.chamado.findFirst({
       where: { id, ...tenantFilter(escopo) },

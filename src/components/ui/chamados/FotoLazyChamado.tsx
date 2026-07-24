@@ -2,20 +2,15 @@
 
 import { useState } from 'react'
 import { Camera, ChevronDown, ChevronUp } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
 
-import * as chamadosService from '@/services/chamados.service'
+import { useFotosChamado } from '@/hooks/useChamados'
 
 // Carrega as fotos do chamado (abertura/execução) apenas quando solicitado —
 // mesmo padrão do FotoLazy da ronda (listas nunca trafegam base64).
 export function FotoLazyChamado({ chamadoId }: { chamadoId: string }) {
   const [mostrar, setMostrar] = useState(false)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['chamado-fotos', chamadoId],
-    queryFn: () => chamadosService.buscarFotos(chamadoId),
-    enabled: mostrar,
-  })
+  const { data, isLoading } = useFotosChamado(mostrar ? chamadoId : null)
 
   const toggleBtn = (
     <button

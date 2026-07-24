@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, useMemo, useCallback, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
@@ -19,8 +19,12 @@ import {
   PRIORIDADES_CHAMADO,
   PRIORIDADE_CHAMADO_LABEL,
 } from '@/modules/chamados/chamados.types'
+import { ROLES_ESCRITA_CHAMADOS, ROLES_ADMIN_CHAMADOS, podeEscrever } from '@/modules/chamados/chamados.rules'
 import type { ChamadoResumo, PrioridadeChamado } from '@/services/chamados.service'
 import type { StatusChamado } from '@/modules/chamados/chamados.types'
+import type { JWTPayload } from '@/modules/auth/auth.types'
+
+type JWTRole = JWTPayload['role']
 
 // Painel de chamados: o operador vê os abertos, assume (definindo prioridade)
 // e finaliza. Admin ainda atribui, cancela e edita os campos fiscais.
@@ -33,8 +37,9 @@ export default function PainelChamadosPage({
   const router = useRouter()
   const { user } = useAuth()
 
-  const ehAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin'
-  const podeEscrever = user !== null && user.role !== 'viewer' && user.role !== 'operator_forms'
+  // Mesmas listas de roles do servidor (chamados.rules) — nunca denylist local
+  const ehAdmin = user !== null && ROLES_ADMIN_CHAMADOS.includes(user.role)
+  const escreve = user !== null && podeEscrever(user.role)
 
   const chamadosHook = useChamados({ ehAdmin })
   const { chamados, carregando, filtros, setFiltros, usuarios } = chamadosHook
@@ -42,53 +47,75 @@ export default function PainelChamadosPage({
   const [finalizando, setFinalizando] = useState<ChamadoResumo | null>(null)
   const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
 
-  const busy =
-    chamadosHook.assumir.isPending ||
-    chamadosHook.atribuir.isPending ||
-    chamadosHook.finalizar.isPending ||
-    chamadosHook.cancelar.isPending ||
-    chamadosHook.editarFiscal.isPending
+  const { assumir, atribuir, finalizar, cancelar, editarFiscal } = chamadosHook
 
-  function handleAssumir(id: string, prioridade?: PrioridadeChamado) {
-    chamadosHook.assumir.mutate(
-      { id, prioridade },
-      {
-        onSuccess: () => toast.success('Chamado assumido — você é o responsável'),
-        onError: () => toast.error('Não foi possível assumir. Alguém pode ter assumido antes.'),
-      },
-    )
-  }
+  // Busy por card: só o chamado da mutation pendente desabilita seus botões
+  const busyId =
+    (assumir.isPending && assumir.variables?.id) ||
+    (atribuir.isPending && atribuir.variables?.id) ||
+    (finalizar.isPending && finalizar.variables?.id) ||
+    (cancelar.isPending && cancelar.variables) ||
+    (editarFiscal.isPending && editarFiscal.variables?.id) ||
+    null
 
-  function handleAtribuir(id: string, responsavelId: string) {
-    chamadosHook.atribuir.mutate(
-      { id, responsavelId },
-      {
-        onSuccess: () => toast.success('Chamado atribuído'),
-        onError: () => toast.error('Não foi possível atribuir o chamado'),
-      },
-    )
-  }
+  // mutate é estável no TanStack Query — handlers estáveis mantêm o memo dos cards
+  const handleAssumir = useCallback(
+    (id: string, prioridade?: PrioridadeChamado) => {
+      assumir.mutate(
+        { id, prioridade },
+        {
+          onSuccess: () => toast.success('Chamado assumido — você é o responsável'),
+          onError: () => toast.error('Não foi possível assumir. Alguém pode ter assumido antes.'),
+        },
+      )
+    },
+    [assumir.mutate],
+  )
 
-  function handleCancelar(id: string) {
-    if (!confirm('Cancelar este chamado? Esta ação não pode ser desfeita.')) return
-    chamadosHook.cancelar.mutate(id, {
-      onSuccess: () => toast.success('Chamado cancelado'),
-      onError: () => toast.error('Não foi possível cancelar'),
-    })
-  }
+  const handleAtribuir = useCallback(
+    (id: string, responsavelId: string) => {
+      atribuir.mutate(
+        { id, responsavelId },
+        {
+          onSuccess: () => toast.success('Chamado atribuído'),
+          onError: () => toast.error('Não foi possível atribuir o chamado'),
+        },
+      )
+    },
+    [atribuir.mutate],
+  )
 
-  function handleSalvarFiscal(
-    id: string,
-    input: { fornecedor: string | null; numeroOrdemCompra: string | null; valorGastoCentavos: number | null },
-  ) {
-    chamadosHook.editarFiscal.mutate(
-      { id, input },
-      {
-        onSuccess: () => toast.success('Dados fiscais salvos'),
-        onError: () => toast.error('Não foi possível salvar os dados fiscais'),
-      },
-    )
-  }
+  const handleCancelar = useCallback(
+    (id: string) => {
+      if (!confirm('Cancelar este chamado? Esta ação não pode ser desfeita.')) return
+      cancelar.mutate(id, {
+        onSuccess: () => toast.success('Chamado cancelado'),
+        onError: () => toast.error('Não foi possível cancelar'),
+      })
+    },
+    [cancelar.mutate],
+  )
+
+  const handleSalvarFiscal = useCallback(
+    (
+      id: string,
+      input: { fornecedor: string | null; numeroOrdemCompra: string | null; valorGastoCentavos: number | null },
+    ) => {
+      editarFiscal.mutate(
+        { id, input },
+        {
+          onSuccess: () => toast.success('Dados fiscais salvos'),
+          onError: () => toast.error('Não foi possível salvar os dados fiscais'),
+        },
+      )
+    },
+    [editarFiscal.mutate],
+  )
+
+  const handleAbrirFinalizar = useCallback((chamado: ChamadoResumo) => {
+    setErroFinalizar(null)
+    setFinalizando(chamado)
+  }, [])
 
   function handleFinalizarConfirmar(input: {
     descricaoExecucao: string
@@ -97,7 +124,7 @@ export default function PainelChamadosPage({
   }) {
     if (!finalizando) return
     setErroFinalizar(null)
-    chamadosHook.finalizar.mutate(
+    finalizar.mutate(
       { id: finalizando.id, input },
       {
         onSuccess: () => {
@@ -109,10 +136,14 @@ export default function PainelChamadosPage({
     )
   }
 
-  // Usuários atribuíveis: ativos do tenant, sem viewers/forms
-  const usuariosAtribuiveis = usuarios
-    .filter((u) => u.ativo && u.role !== 'viewer' && u.role !== 'operator_forms')
-    .map((u) => ({ id: u.id, nome: u.nome }))
+  // Usuários atribuíveis: ativos, com role executor (mesma regra do servidor)
+  const usuariosAtribuiveis = useMemo(
+    () =>
+      usuarios
+        .filter((u) => u.ativo && ROLES_ESCRITA_CHAMADOS.includes(u.role as JWTRole))
+        .map((u) => ({ id: u.id, nome: u.nome })),
+    [usuarios],
+  )
 
   return (
     <div className="form-bg min-h-screen flex flex-col p-6">
@@ -145,7 +176,7 @@ export default function PainelChamadosPage({
 
         {/* Ações + filtros */}
         <div className="flex flex-wrap items-end gap-3 mb-5">
-          {podeEscrever && (
+          {escreve && (
             <Link href={`/${tenantSlug}/chamados/novo`}>
               <Button size="sm">
                 <Plus className="w-4 h-4" />
@@ -206,7 +237,7 @@ export default function PainelChamadosPage({
             <Text variant="body-md" className="text-gray-300 block mb-3">
               Nenhum chamado encontrado
             </Text>
-            {podeEscrever && (
+            {escreve && (
               <Link href={`/${tenantSlug}/chamados/novo`}>
                 <Button variant="outline" size="sm">Abrir o primeiro chamado</Button>
               </Link>
@@ -218,13 +249,13 @@ export default function PainelChamadosPage({
               <ChamadoCard
                 key={c.id}
                 chamado={c}
-                podeEscrever={podeEscrever}
+                podeEscrever={escreve}
                 ehAdmin={ehAdmin}
                 usuarios={usuariosAtribuiveis}
-                busy={busy}
+                busy={busyId === c.id}
                 onAssumir={handleAssumir}
                 onAtribuir={handleAtribuir}
-                onFinalizar={(chamado) => { setErroFinalizar(null); setFinalizando(chamado) }}
+                onFinalizar={handleAbrirFinalizar}
                 onCancelar={handleCancelar}
                 onSalvarFiscal={handleSalvarFiscal}
               />
