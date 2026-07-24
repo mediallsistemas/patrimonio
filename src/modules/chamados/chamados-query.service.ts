@@ -37,9 +37,10 @@ const SELECT_LISTA = {
   descricaoExecucao: true,
   criadoPor: { select: { id: true, nome: true } },
   responsavel: { select: { id: true, nome: true } },
-  // Nome/slug do tenant — usado pelo admin (cross-tenant) para identificar
-  // a unidade de cada chamado; o painel de tenant único não precisa exibir.
-  tenant: { select: { nome: true, slug: true } },
+  // Id/nome/slug do tenant — usado pelo admin (cross-tenant) para identificar
+  // a unidade de cada chamado e filtrar os usuários atribuíveis por ela;
+  // o painel de tenant único não precisa exibir.
+  tenant: { select: { id: true, nome: true, slug: true } },
   // Fiscais — removidos por sanitizarParaRole quando o role não é admin
   fornecedor: true,
   numeroOrdemCompra: true,

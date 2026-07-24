@@ -2,52 +2,19 @@ import { z } from 'zod'
 
 // ── Constantes de domínio ───────────────────────────────────────────────────
 
-// Tipos de serviço (mesma base da planilha de chamados do setor)
+// Tipos de serviço — mesmos três da ronda/manutenção predial (TipoManutencao
+// em useManutencao), para manter as duas telas consistentes.
 export const TIPOS_CHAMADO = [
-  'civil',
   'eletrica',
   'hidraulica',
-  'climatizacao',
-  'gases_medicinais',
-  'geradores',
-  'obras_reformas',
-  'pintura',
-  'marcenaria',
-  'serralheria',
-  'drywall_forros',
-  'cobertura',
-  'impermeabilizacao',
-  'rede_logica_ti',
-  'seguranca_eletronica',
-  'jardinagem',
-  'limpeza_tecnica',
-  'dedetizacao',
-  'elevadores',
-  'outros',
+  'patrimonio',
 ] as const
 export type TipoChamado = (typeof TIPOS_CHAMADO)[number]
 
 export const TIPO_CHAMADO_LABEL: Record<TipoChamado, string> = {
-  civil: 'Civil',
   eletrica: 'Elétrica',
   hidraulica: 'Hidráulica',
-  climatizacao: 'Climatização',
-  gases_medicinais: 'Gases Medicinais',
-  geradores: 'Geradores',
-  obras_reformas: 'Obras e Reformas',
-  pintura: 'Pintura',
-  marcenaria: 'Marcenaria',
-  serralheria: 'Serralheria',
-  drywall_forros: 'Drywall/Forros',
-  cobertura: 'Cobertura',
-  impermeabilizacao: 'Impermeabilização',
-  rede_logica_ti: 'Rede Lógica / TI',
-  seguranca_eletronica: 'Segurança Eletrônica',
-  jardinagem: 'Jardinagem',
-  limpeza_tecnica: 'Limpeza Técnica',
-  dedetizacao: 'Dedetização',
-  elevadores: 'Elevadores',
-  outros: 'Outros',
+  patrimonio: 'Patrimônio',
 }
 
 export const PRIORIDADES_CHAMADO = ['baixa', 'media', 'alta', 'urgente'] as const
@@ -178,7 +145,7 @@ export interface ChamadoListaItem {
   descricaoExecucao: string | null
   criadoPor: { id: string; nome: string }
   responsavel: { id: string; nome: string } | null
-  tenant: { nome: string; slug: string }
+  tenant: { id: string; nome: string; slug: string }
   fornecedor?: string | null
   numeroOrdemCompra?: string | null
   valorGastoCentavos?: number | null

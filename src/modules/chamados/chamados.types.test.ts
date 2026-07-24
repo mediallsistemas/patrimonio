@@ -35,6 +35,15 @@ describe('CriarChamadoSchema', () => {
     expect(r.success).toBe(false)
   })
 
+  it('só aceita os 3 tipos da ronda/manutenção (eletrica/hidraulica/patrimonio)', () => {
+    expect(CriarChamadoSchema.safeParse({ ...criarValido, tipo: 'eletrica' }).success).toBe(true)
+    expect(CriarChamadoSchema.safeParse({ ...criarValido, tipo: 'hidraulica' }).success).toBe(true)
+    expect(CriarChamadoSchema.safeParse({ ...criarValido, tipo: 'patrimonio' }).success).toBe(true)
+    // tipos antigos da planilha, removidos do domínio
+    expect(CriarChamadoSchema.safeParse({ ...criarValido, tipo: 'civil' }).success).toBe(false)
+    expect(CriarChamadoSchema.safeParse({ ...criarValido, tipo: 'outros' }).success).toBe(false)
+  })
+
   it('rejeita título/descrição curtos demais', () => {
     expect(CriarChamadoSchema.safeParse({ ...criarValido, titulo: 'ab' }).success).toBe(false)
     expect(CriarChamadoSchema.safeParse({ ...criarValido, descricao: 'x' }).success).toBe(false)

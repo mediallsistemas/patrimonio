@@ -32,7 +32,7 @@ export interface ChamadoResumo {
   descricaoExecucao: string | null
   criadoPor: { id: string; nome: string }
   responsavel: { id: string; nome: string } | null
-  tenant: { nome: string; slug: string }
+  tenant: { id: string; nome: string; slug: string }
   // Fiscais — presentes SOMENTE quando o usuário é admin
   fornecedor?: string | null
   numeroOrdemCompra?: string | null

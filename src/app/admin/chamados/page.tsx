@@ -113,9 +113,16 @@ export default function DashboardChamadosPage() {
     )
   }
 
-  const usuariosAtribuiveis = usuarios
-    .filter((u) => u.ativo && ROLES_ESCRITA_CHAMADOS.includes(u.role as JWTRole))
-    .map((u) => ({ id: u.id, nome: u.nome }))
+  // Super_admin vê chamados de VÁRIOS tenants na mesma lista — o dropdown de
+  // "Atribuir" de cada card só pode oferecer usuários do MESMO tenant do
+  // chamado (o servidor já rejeita um responsável de outro tenant; aqui
+  // evitamos oferecer uma opção que sempre falharia). Para tenant_admin,
+  // `usuarios` já vem só do seu próprio tenant, então o filtro é um no-op.
+  function usuariosDoTenant(tenantId: string) {
+    return usuarios
+      .filter((u) => u.ativo && u.tenantId === tenantId && ROLES_ESCRITA_CHAMADOS.includes(u.role as JWTRole))
+      .map((u) => ({ id: u.id, nome: u.nome }))
+  }
 
   const tiles = data
     ? [
@@ -286,7 +293,7 @@ export default function DashboardChamadosPage() {
                   podeEscrever
                   ehAdmin
                   mostrarTenant={isSuperAdmin}
-                  usuarios={usuariosAtribuiveis}
+                  usuarios={usuariosDoTenant(c.tenant.id)}
                   busy={busyIds.has(c.id)}
                   onAssumir={handleAssumir}
                   onAtribuir={handleAtribuir}
