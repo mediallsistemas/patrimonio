@@ -76,14 +76,21 @@ test.describe('admin', () => {
     await expect(page.getByText(/dados fiscais salvos/i)).toBeVisible({ timeout: 15_000 })
   })
 
-  test('vê o dashboard com os indicadores', async ({ page }) => {
+  test('vê o dashboard com os indicadores e a lista de chamados', async ({ page }) => {
     await page.goto('/admin/chamados')
 
     await expect(page.getByText('Total de chamados')).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByText('Valor gasto')).toBeVisible()
-    await expect(page.getByText('Chamados por status')).toBeVisible()
-    await expect(page.getByText('Chamados por responsável')).toBeVisible()
+    await expect(page.getByText('Valor gasto')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Chamados por status')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Chamados por responsável')).toBeVisible({ timeout: 15_000 })
     // O chamado finalizado do fluxo aparece na distribuição por responsável
-    await expect(page.getByText('Operador E2E')).toBeVisible()
+    // (getByTitle, não getByText — o card da lista abaixo também mostra o
+    // nome do responsável, então um texto solto casaria com os dois lugares)
+    await expect(page.getByTitle('Operador E2E')).toBeVisible({ timeout: 15_000 })
+
+    // A lista de chamados de verdade (não só os indicadores agregados) — busca
+    // e o dropdown de usuários (admin) fazem chamadas próprias, compiladas
+    // sob demanda no dev server — timeout maior para a primeira renderização
+    await expect(page.getByRole('button', { name: new RegExp(TITULO) })).toBeVisible({ timeout: 20_000 })
   })
 })

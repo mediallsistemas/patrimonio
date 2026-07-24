@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 
 import * as chamadosService from '@/services/chamados.service'
 import { buscarBlocos, type BlocoAPI } from '@/services/rondas.service'
@@ -102,6 +103,77 @@ export function useChamados(opts: { ehAdmin?: boolean; comBlocos?: boolean } = {
     onSuccess: invalidar,
   })
 
+  // Busy por card: Set explícito de IDs em voo — nunca derivar de
+  // mutation.isPending/variables (compartilhada entre todos os cards da
+  // lista; uma segunda chamada concorrente sobrescreveria de qual card
+  // era "o" pendente e derrubaria os callbacks da primeira).
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
+  const marcarBusy = useCallback((id: string) => {
+    setBusyIds((s) => new Set(s).add(id))
+  }, [])
+  const desmarcarBusy = useCallback((id: string) => {
+    setBusyIds((s) => {
+      const n = new Set(s)
+      n.delete(id)
+      return n
+    })
+  }, [])
+
+  // mutateAsync (não mutate+callbacks): cada clique fica preso à própria
+  // promise, imune a um segundo clique concorrente na mesma mutation
+  // compartilhada sobrescrever o observer e derrubar o toast do primeiro.
+  const handleAssumir = useCallback(
+    (id: string, prioridade?: PrioridadeChamado) => {
+      marcarBusy(id)
+      assumir
+        .mutateAsync({ id, prioridade })
+        .then(() => toast.success('Chamado assumido — você é o responsável'))
+        .catch(() => toast.error('Não foi possível assumir. Alguém pode ter assumido antes.'))
+        .finally(() => desmarcarBusy(id))
+    },
+    [assumir.mutateAsync, marcarBusy, desmarcarBusy],
+  )
+
+  const handleAtribuir = useCallback(
+    (id: string, responsavelId: string) => {
+      marcarBusy(id)
+      atribuir
+        .mutateAsync({ id, responsavelId })
+        .then(() => toast.success('Chamado atribuído'))
+        .catch(() => toast.error('Não foi possível atribuir o chamado'))
+        .finally(() => desmarcarBusy(id))
+    },
+    [atribuir.mutateAsync, marcarBusy, desmarcarBusy],
+  )
+
+  const handleCancelar = useCallback(
+    (id: string) => {
+      if (!confirm('Cancelar este chamado? Esta ação não pode ser desfeita.')) return
+      marcarBusy(id)
+      cancelar
+        .mutateAsync(id)
+        .then(() => toast.success('Chamado cancelado'))
+        .catch(() => toast.error('Não foi possível cancelar'))
+        .finally(() => desmarcarBusy(id))
+    },
+    [cancelar.mutateAsync, marcarBusy, desmarcarBusy],
+  )
+
+  const handleSalvarFiscal = useCallback(
+    (
+      id: string,
+      input: { fornecedor: string | null; numeroOrdemCompra: string | null; valorGastoCentavos: number | null },
+    ) => {
+      marcarBusy(id)
+      editarFiscal
+        .mutateAsync({ id, input })
+        .then(() => toast.success('Dados fiscais salvos'))
+        .catch(() => toast.error('Não foi possível salvar os dados fiscais'))
+        .finally(() => desmarcarBusy(id))
+    },
+    [editarFiscal.mutateAsync, marcarBusy, desmarcarBusy],
+  )
+
   return {
     chamados,
     carregando,
@@ -116,6 +188,11 @@ export function useChamados(opts: { ehAdmin?: boolean; comBlocos?: boolean } = {
     finalizar,
     cancelar,
     editarFiscal,
+    busyIds,
+    handleAssumir,
+    handleAtribuir,
+    handleCancelar,
+    handleSalvarFiscal,
   }
 }
 

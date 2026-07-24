@@ -178,6 +178,7 @@ export interface ChamadoListaItem {
   descricaoExecucao: string | null
   criadoPor: { id: string; nome: string }
   responsavel: { id: string; nome: string } | null
+  tenant: { nome: string; slug: string }
   fornecedor?: string | null
   numeroOrdemCompra?: string | null
   valorGastoCentavos?: number | null

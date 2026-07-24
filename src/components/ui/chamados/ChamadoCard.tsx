@@ -4,7 +4,7 @@ import { memo, useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
-  ChevronDown, ChevronUp, MapPin, User, Package, CalendarClock, UserPlus, Ban,
+  ChevronDown, ChevronUp, MapPin, User, Package, CalendarClock, UserPlus, Ban, Building2,
 } from 'lucide-react'
 
 import Button from '@/components/ui/Button'
@@ -30,6 +30,8 @@ interface ChamadoCardProps {
   ehAdmin: boolean
   usuarios?: UsuarioOption[]
   busy?: boolean
+  // Exibe o nome da unidade — útil só em listas cross-tenant (admin global)
+  mostrarTenant?: boolean
   onAssumir: (id: string, prioridade?: PrioridadeChamado) => void
   onAtribuir: (id: string, responsavelId: string) => void
   onFinalizar: (chamado: ChamadoResumo) => void
@@ -50,6 +52,7 @@ function ChamadoCardBase({
   ehAdmin,
   usuarios = [],
   busy = false,
+  mostrarTenant = false,
   onAssumir,
   onAtribuir,
   onFinalizar,
@@ -98,6 +101,12 @@ function ChamadoCardBase({
           </div>
           <Text variant="body-md-bold" className="text-dark block truncate">{c.titulo}</Text>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-gray-400 font-sans">
+            {mostrarTenant && (
+              <span className="inline-flex items-center gap-1 font-semibold text-gray-500">
+                <Building2 className="w-3 h-3" />
+                {c.tenant.nome}
+              </span>
+            )}
             <span className="inline-flex items-center gap-1">
               <MapPin className="w-3 h-3" />
               {c.ambienteNomeSnapshot ?? '—'}

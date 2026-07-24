@@ -9,20 +9,31 @@ import {
 
 import Card from '@/components/ui/Card'
 import Text from '@/components/ui/Text'
-import { useDashboardChamados } from '@/hooks/useChamados'
+import ChamadoCard from '@/components/ui/chamados/ChamadoCard'
+import ModalFinalizarChamado from '@/components/ui/modal/ModalFinalizarChamado'
+import { useAuth } from '@/hooks/useAuth'
+import { useChamados, useDashboardChamados } from '@/hooks/useChamados'
 import { STATUS_BAR_COLOR, PRIORIDADE_BAR_COLOR } from '@/components/ui/chamados/ChamadoBadges'
 import { formatarBRL } from '@/utils/moeda'
 import {
   TIPO_CHAMADO_LABEL,
   PRIORIDADE_CHAMADO_LABEL,
   STATUS_CHAMADO_LABEL,
+  STATUS_CHAMADO,
+  PRIORIDADES_CHAMADO,
   type TipoChamado,
   type PrioridadeChamado,
   type StatusChamado,
 } from '@/modules/chamados/chamados.types'
+import { ROLES_ESCRITA_CHAMADOS } from '@/modules/chamados/chamados.rules'
+import type { ChamadoResumo } from '@/services/chamados.service'
+import type { JWTPayload } from '@/modules/auth/auth.types'
+
+type JWTRole = JWTPayload['role']
 
 // Painel gerencial de chamados (admin) — espelha o painel da planilha:
-// totais + distribuição por status/prioridade/tipo/responsável.
+// totais + distribuição por status/prioridade/tipo/responsável, seguido
+// da lista real dos chamados (mesmo card interativo do painel de tenant).
 // Cores vêm de ChamadoBadges (fonte única); identidade sempre carregada
 // pelo rótulo de texto, nunca só pela cor.
 
@@ -73,10 +84,38 @@ export default function DashboardChamadosPage() {
   const [de, setDe] = useState(format(subMonths(hoje, 3), 'yyyy-MM-dd'))
   const [ate, setAte] = useState(format(hoje, 'yyyy-MM-dd'))
 
+  const { user } = useAuth()
+  const isSuperAdmin = user?.role === 'super_admin'
+
   const { data, isLoading, isError } = useDashboardChamados({
     de: `${de}T00:00:00`,
     ate: `${ate}T23:59:59`,
   })
+
+  const chamadosHook = useChamados({ ehAdmin: true })
+  const {
+    chamados, carregando: carregandoLista, filtros, setFiltros, usuarios,
+    finalizar, busyIds, handleAssumir, handleAtribuir, handleCancelar, handleSalvarFiscal,
+  } = chamadosHook
+
+  const [finalizando, setFinalizando] = useState<ChamadoResumo | null>(null)
+  const [erroFinalizar, setErroFinalizar] = useState<string | null>(null)
+
+  function handleFinalizarConfirmar(input: { descricaoExecucao: string; fotoExecucao: string | null }) {
+    if (!finalizando) return
+    setErroFinalizar(null)
+    finalizar.mutate(
+      { id: finalizando.id, input },
+      {
+        onSuccess: () => setFinalizando(null),
+        onError: () => setErroFinalizar('Falha ao finalizar. Tente novamente.'),
+      },
+    )
+  }
+
+  const usuariosAtribuiveis = usuarios
+    .filter((u) => u.ativo && ROLES_ESCRITA_CHAMADOS.includes(u.role as JWTRole))
+    .map((u) => ({ id: u.id, nome: u.nome }))
 
   const tiles = data
     ? [
@@ -103,7 +142,7 @@ export default function DashboardChamadosPage() {
           </div>
         </div>
 
-        {/* Filtro de período */}
+        {/* Filtro de período (dashboard) */}
         <Card padding="sm">
           <div className="flex flex-wrap gap-3 items-end">
             <div>
@@ -196,7 +235,78 @@ export default function DashboardChamadosPage() {
             </div>
           </>
         )}
+
+        {/* Lista de chamados */}
+        <div className="pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <Text variant="heading-sm" className="text-dark">Chamados</Text>
+            <div className="flex flex-wrap gap-3">
+              <select
+                value={filtros.status ?? ''}
+                onChange={(e) =>
+                  setFiltros({ ...filtros, status: (e.target.value || undefined) as StatusChamado | undefined })
+                }
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-300"
+              >
+                <option value="">Todos os status</option>
+                {STATUS_CHAMADO.map((s) => (
+                  <option key={s} value={s}>{STATUS_CHAMADO_LABEL[s]}</option>
+                ))}
+              </select>
+              <select
+                value={filtros.prioridade ?? ''}
+                onChange={(e) =>
+                  setFiltros({
+                    ...filtros,
+                    prioridade: (e.target.value || undefined) as PrioridadeChamado | undefined,
+                  })
+                }
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-300"
+              >
+                <option value="">Todas as prioridades</option>
+                {PRIORIDADES_CHAMADO.map((p) => (
+                  <option key={p} value={p}>{PRIORIDADE_CHAMADO_LABEL[p]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {carregandoLista ? (
+            <p className="text-center py-10 text-sm text-gray-400">Carregando chamados...</p>
+          ) : chamados.length === 0 ? (
+            <Card padding="lg">
+              <p className="text-center text-sm text-gray-400 py-4">Nenhum chamado encontrado.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {chamados.map((c) => (
+                <ChamadoCard
+                  key={c.id}
+                  chamado={c}
+                  podeEscrever
+                  ehAdmin
+                  mostrarTenant={isSuperAdmin}
+                  usuarios={usuariosAtribuiveis}
+                  busy={busyIds.has(c.id)}
+                  onAssumir={handleAssumir}
+                  onAtribuir={handleAtribuir}
+                  onFinalizar={(chamado) => { setErroFinalizar(null); setFinalizando(chamado) }}
+                  onCancelar={handleCancelar}
+                  onSalvarFiscal={handleSalvarFiscal}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      <ModalFinalizarChamado
+        chamado={finalizando}
+        loading={chamadosHook.finalizar.isPending}
+        erro={erroFinalizar}
+        onConfirmar={handleFinalizarConfirmar}
+        onClose={() => setFinalizando(null)}
+      />
     </div>
   )
 }
