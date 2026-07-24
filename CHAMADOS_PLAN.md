@@ -260,7 +260,19 @@ Cada fase é um commit isolado em `feature/chamados-manutencao` (branch nova a p
 
 ---
 
-## 11. Fora de escopo (v1)
+## 11. Status de execução
+
+| Fase | Status |
+|------|--------|
+| 0. Infra de testes | ✅ Vitest + Playwright, scripts npm |
+| 1. Domínio + banco | ✅ migration `add_chamados` aplicada, 40 testes verdes |
+| 2. API | ✅ 8 rotas com guards por role |
+| 3. Cliente | ✅ service + useChamados/useFotosChamado/useDashboardChamados |
+| 4. UI operador | ✅ painel + novo + assumir + finalizar (modal ocorrência) |
+| 5. UI admin | ✅ atribuir/cancelar/fiscais no painel + /admin/chamados |
+| 6. E2E | ✅ specs Playwright (pulam sem credenciais — ver e2e/README.md) |
+
+## 12. Fora de escopo (v1)
 
 - Sync/importação de chamados do ERP Trílogo.
 - Notificações (e-mail/push) de atribuição ou vencimento de SLA.
