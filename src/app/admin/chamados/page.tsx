@@ -14,15 +14,12 @@ import ModalFinalizarChamado from '@/components/ui/modal/ModalFinalizarChamado'
 import ModalCancelarChamado from '@/components/ui/modal/ModalCancelarChamado'
 import { useAuth } from '@/hooks/useAuth'
 import { useChamados, useDashboardChamados } from '@/hooks/useChamados'
-import { STATUS_BAR_COLOR, PRIORIDADE_BAR_COLOR } from '@/components/ui/chamados/ChamadoBadges'
 import { formatarBRL } from '@/utils/moeda'
 import {
-  TIPO_CHAMADO_LABEL,
   PRIORIDADE_CHAMADO_LABEL,
   STATUS_CHAMADO_LABEL,
   STATUS_CHAMADO,
   PRIORIDADES_CHAMADO,
-  type TipoChamado,
   type PrioridadeChamado,
   type StatusChamado,
 } from '@/modules/chamados/chamados.types'
@@ -32,53 +29,8 @@ import type { JWTPayload } from '@/modules/auth/auth.types'
 
 type JWTRole = JWTPayload['role']
 
-// Painel gerencial de chamados (admin) — espelha o painel da planilha:
-// totais + distribuição por status/prioridade/tipo/responsável, seguido
-// da lista real dos chamados (mesmo card interativo do painel de tenant).
-// Cores vêm de ChamadoBadges (fonte única); identidade sempre carregada
-// pelo rótulo de texto, nunca só pela cor.
-
-// Lista de barras horizontais: rótulo + barra proporcional + valor.
-// Uma única série (magnitude) — barra em um tom, valor sempre visível.
-function BarrasDistribuicao({
-  titulo,
-  itens,
-  corPorChave,
-}: {
-  titulo: string
-  itens: { chave: string; rotulo: string; qtde: number }[]
-  corPorChave?: Record<string, string>
-}) {
-  const max = Math.max(1, ...itens.map((i) => i.qtde))
-  const visiveis = itens.filter((i) => i.qtde > 0)
-  return (
-    <Card padding="sm">
-      <Text variant="body-sm-bold" className="text-dark block mb-3">{titulo}</Text>
-      {visiveis.length === 0 ? (
-        <p className="text-xs text-gray-300 font-sans py-2">Sem chamados no período</p>
-      ) : (
-        <div className="space-y-2">
-          {visiveis.map((i) => (
-            <div key={i.chave} className="flex items-center gap-2">
-              <span className="w-32 shrink-0 text-xs text-gray-500 font-sans truncate" title={i.rotulo}>
-                {i.rotulo}
-              </span>
-              <div className="flex-1 h-4 bg-gray-100 rounded overflow-hidden">
-                <div
-                  className={`h-full rounded ${corPorChave?.[i.chave] ?? 'bg-teal-500'}`}
-                  style={{ width: `${(i.qtde / max) * 100}%` }}
-                />
-              </div>
-              <span className="w-8 shrink-0 text-right text-xs font-semibold text-gray-600 font-sans">
-                {i.qtde}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
-}
+// Painel gerencial de chamados (admin) — tiles de resumo seguidos da lista
+// real dos chamados (mesmo card interativo do painel de tenant).
 
 export default function DashboardChamadosPage() {
   const hoje = new Date()
@@ -200,62 +152,21 @@ export default function DashboardChamadosPage() {
             </p>
           </Card>
         ) : (
-          <>
-            {/* Tiles de resumo */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {tiles.map(({ label, valor, icon: Icon, cor }) => (
-                <Card key={label} padding="sm">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${cor}`}>
-                      <Icon size={18} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xl font-bold text-gray-800 truncate" title={valor}>{valor}</p>
-                      <p className="text-xs text-gray-500">{label}</p>
-                    </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {tiles.map(({ label, valor, icon: Icon, cor }) => (
+              <Card key={label} padding="sm">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${cor}`}>
+                    <Icon size={18} />
                   </div>
-                </Card>
-              ))}
-            </div>
-
-            {/* Distribuições */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <BarrasDistribuicao
-                titulo="Chamados por status"
-                corPorChave={STATUS_BAR_COLOR}
-                itens={data.porStatus.map((s) => ({
-                  chave: s.status,
-                  rotulo: STATUS_CHAMADO_LABEL[s.status as StatusChamado] ?? s.status,
-                  qtde: s.qtde,
-                }))}
-              />
-              <BarrasDistribuicao
-                titulo="Chamados por prioridade"
-                corPorChave={PRIORIDADE_BAR_COLOR}
-                itens={data.porPrioridade.map((p) => ({
-                  chave: p.prioridade,
-                  rotulo: PRIORIDADE_CHAMADO_LABEL[p.prioridade as PrioridadeChamado] ?? p.prioridade,
-                  qtde: p.qtde,
-                }))}
-              />
-              <BarrasDistribuicao
-                titulo="Chamados por tipo"
-                itens={data.porTipo.map((t) => ({
-                  chave: t.tipo,
-                  rotulo: TIPO_CHAMADO_LABEL[t.tipo as TipoChamado] ?? t.tipo,
-                  qtde: t.qtde,
-                }))}
-              />
-              <BarrasDistribuicao
-                titulo="Chamados por responsável"
-                itens={data.porResponsavel.map((r) => ({
-                  chave: r.responsavelId ?? 'sem',
-                  rotulo: r.nome,
-                  qtde: r.qtde,
-                }))}
-              />
-            </div>
-          </>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-gray-800 truncate" title={valor}>{valor}</p>
+                    <p className="text-xs text-gray-500">{label}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         )}
 
         {/* Lista de chamados */}
