@@ -49,51 +49,59 @@ export default function PainelChamadosPage({
 
   const { assumir, atribuir, finalizar, cancelar, editarFiscal } = chamadosHook
 
-  // Busy por card: só o chamado da mutation pendente desabilita seus botões
-  const busyId =
-    (assumir.isPending && assumir.variables?.id) ||
-    (atribuir.isPending && atribuir.variables?.id) ||
-    (finalizar.isPending && finalizar.variables?.id) ||
-    (cancelar.isPending && cancelar.variables) ||
-    (editarFiscal.isPending && editarFiscal.variables?.id) ||
-    null
+  // Busy por card: Set explícito de IDs em voo — não deriva de mutation.variables
+  // (compartilhada entre todos os cards; um segundo clique em outro card
+  // sobrescreveria de qual card era "o" pendente).
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
+  const marcarBusy = useCallback((id: string) => {
+    setBusyIds((s) => new Set(s).add(id))
+  }, [])
+  const desmarcarBusy = useCallback((id: string) => {
+    setBusyIds((s) => {
+      const n = new Set(s)
+      n.delete(id)
+      return n
+    })
+  }, [])
 
-  // mutate é estável no TanStack Query — handlers estáveis mantêm o memo dos cards
+  // mutateAsync (não mutate+callbacks): cada clique fica preso à própria promise,
+  // imune a um segundo clique concorrente na MESMA mutation compartilhada
+  // sobrescrever o observer e derrubar o toast do primeiro clique.
   const handleAssumir = useCallback(
     (id: string, prioridade?: PrioridadeChamado) => {
-      assumir.mutate(
-        { id, prioridade },
-        {
-          onSuccess: () => toast.success('Chamado assumido — você é o responsável'),
-          onError: () => toast.error('Não foi possível assumir. Alguém pode ter assumido antes.'),
-        },
-      )
+      marcarBusy(id)
+      assumir
+        .mutateAsync({ id, prioridade })
+        .then(() => toast.success('Chamado assumido — você é o responsável'))
+        .catch(() => toast.error('Não foi possível assumir. Alguém pode ter assumido antes.'))
+        .finally(() => desmarcarBusy(id))
     },
-    [assumir.mutate],
+    [assumir.mutateAsync, marcarBusy, desmarcarBusy],
   )
 
   const handleAtribuir = useCallback(
     (id: string, responsavelId: string) => {
-      atribuir.mutate(
-        { id, responsavelId },
-        {
-          onSuccess: () => toast.success('Chamado atribuído'),
-          onError: () => toast.error('Não foi possível atribuir o chamado'),
-        },
-      )
+      marcarBusy(id)
+      atribuir
+        .mutateAsync({ id, responsavelId })
+        .then(() => toast.success('Chamado atribuído'))
+        .catch(() => toast.error('Não foi possível atribuir o chamado'))
+        .finally(() => desmarcarBusy(id))
     },
-    [atribuir.mutate],
+    [atribuir.mutateAsync, marcarBusy, desmarcarBusy],
   )
 
   const handleCancelar = useCallback(
     (id: string) => {
       if (!confirm('Cancelar este chamado? Esta ação não pode ser desfeita.')) return
-      cancelar.mutate(id, {
-        onSuccess: () => toast.success('Chamado cancelado'),
-        onError: () => toast.error('Não foi possível cancelar'),
-      })
+      marcarBusy(id)
+      cancelar
+        .mutateAsync(id)
+        .then(() => toast.success('Chamado cancelado'))
+        .catch(() => toast.error('Não foi possível cancelar'))
+        .finally(() => desmarcarBusy(id))
     },
-    [cancelar.mutate],
+    [cancelar.mutateAsync, marcarBusy, desmarcarBusy],
   )
 
   const handleSalvarFiscal = useCallback(
@@ -101,15 +109,14 @@ export default function PainelChamadosPage({
       id: string,
       input: { fornecedor: string | null; numeroOrdemCompra: string | null; valorGastoCentavos: number | null },
     ) => {
-      editarFiscal.mutate(
-        { id, input },
-        {
-          onSuccess: () => toast.success('Dados fiscais salvos'),
-          onError: () => toast.error('Não foi possível salvar os dados fiscais'),
-        },
-      )
+      marcarBusy(id)
+      editarFiscal
+        .mutateAsync({ id, input })
+        .then(() => toast.success('Dados fiscais salvos'))
+        .catch(() => toast.error('Não foi possível salvar os dados fiscais'))
+        .finally(() => desmarcarBusy(id))
     },
-    [editarFiscal.mutate],
+    [editarFiscal.mutateAsync, marcarBusy, desmarcarBusy],
   )
 
   const handleAbrirFinalizar = useCallback((chamado: ChamadoResumo) => {
@@ -252,7 +259,7 @@ export default function PainelChamadosPage({
                 podeEscrever={escreve}
                 ehAdmin={ehAdmin}
                 usuarios={usuariosAtribuiveis}
-                busy={busyId === c.id}
+                busy={busyIds.has(c.id)}
                 onAssumir={handleAssumir}
                 onAtribuir={handleAtribuir}
                 onFinalizar={handleAbrirFinalizar}

@@ -45,6 +45,15 @@ describe('CriarChamadoSchema', () => {
     expect(CriarChamadoSchema.safeParse({ ...criarValido, ambienteId: '123' }).success).toBe(false)
   })
 
+  it('prazo ausente mostra mensagem amigável, não o erro cru do Zod', () => {
+    const { prazo: _prazo, ...semPrazo } = criarValido
+    const r = CriarChamadoSchema.safeParse(semPrazo)
+    expect(r.success).toBe(false)
+    if (!r.success) {
+      expect(r.error.issues[0]?.message).toBe('Informe o prazo')
+    }
+  })
+
   it('rejeita bem incompleto (asset sem patrimony)', () => {
     const r = CriarChamadoSchema.safeParse({ ...criarValido, trilogoAssetId: 42 })
     expect(r.success).toBe(false)

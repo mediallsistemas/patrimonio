@@ -20,14 +20,23 @@ interface SeletorAmbientePorBlocoProps {
   blocos: { id: string; nome: string; ambientes: { id: string; nome: string }[] }[]
   carregando: boolean
   onSelecionar: (ambiente: AmbienteSelecionadoPorBloco) => void
+  // Opcional: torna a busca controlada pelo chamador (ex.: preservá-la entre
+  // desmontagens do componente). Sem isso, o componente gerencia sozinho —
+  // comportamento inalterado para quem não passar essas props.
+  search?: string
+  onSearchChange?: (v: string) => void
 }
 
 export default function SeletorAmbientePorBloco({
   blocos,
   carregando,
   onSelecionar,
+  search: searchControlado,
+  onSearchChange,
 }: SeletorAmbientePorBlocoProps) {
-  const [search, setSearch] = useState('')
+  const [searchLocal, setSearchLocal] = useState('')
+  const search = searchControlado ?? searchLocal
+  const setSearch = onSearchChange ?? setSearchLocal
 
   const q = search.trim().toLowerCase()
   const blocosFiltrados = blocos

@@ -23,6 +23,11 @@ export type {
   PrioridadeChamado,
 }
 
+// Referência estável — para operadores a query fica `enabled: false` e o data
+// nunca resolve; um `[]` literal no default do destructuring criaria uma
+// referência NOVA a cada render, quebrando o useMemo/memo() a jusante.
+const USUARIOS_VAZIO: Usuario[] = []
+
 // Hook único do painel de chamados: lista com filtros + todas as mutations.
 // `ehAdmin` habilita as queries exclusivas de admin (usuários p/ atribuir);
 // `comBlocos` liga a query de blocos/ambientes (pesada) — só a tela de criação usa.
@@ -48,7 +53,7 @@ export function useChamados(opts: { ehAdmin?: boolean; comBlocos?: boolean } = {
     .filter((b) => b.ambientes.length > 0)
 
   // Usuários do tenant para o dropdown de atribuição — só admin
-  const { data: usuarios = [] } = useQuery<Usuario[]>({
+  const { data: usuarios = USUARIOS_VAZIO } = useQuery<Usuario[]>({
     queryKey: ['chamados-usuarios-atribuiveis'],
     queryFn: listarUsuarios,
     enabled: opts.ehAdmin === true,

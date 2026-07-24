@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -63,6 +63,15 @@ function ChamadoCardBase({
   const [fornecedor, setFornecedor] = useState(c.fornecedor ?? '')
   const [ordemCompra, setOrdemCompra] = useState(c.numeroOrdemCompra ?? '')
   const [valorReais, setValorReais] = useState(centavosParaReais(c.valorGastoCentavos))
+
+  // O card tem key={c.id} estável — sem isso, um refetch (ex.: outro admin
+  // salvou fiscais deste mesmo chamado) nunca chegaria aos campos locais, e
+  // "Salvar fiscais" aqui reverteria o valor mais novo em silêncio.
+  useEffect(() => {
+    setFornecedor(c.fornecedor ?? '')
+    setOrdemCompra(c.numeroOrdemCompra ?? '')
+    setValorReais(centavosParaReais(c.valorGastoCentavos))
+  }, [c.fornecedor, c.numeroOrdemCompra, c.valorGastoCentavos])
 
   const vivo = c.status === 'aberto' || c.status === 'em_execucao'
 

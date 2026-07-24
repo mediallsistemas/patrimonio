@@ -57,6 +57,9 @@ export default function NovoChamadoPage({
   const { blocosChamado, blocosCarregando, usuarios, criar } = useChamados({ ehAdmin, comBlocos: true })
 
   const [estado, setEstado] = useState<Etapa>({ etapa: 'ambiente' })
+  // Levantado para a página (em vez de interno ao seletor) para sobreviver
+  // à desmontagem do componente ao avançar/voltar entre as etapas.
+  const [searchAmbiente, setSearchAmbiente] = useState('')
 
   // Campos do formulário
   const [titulo, setTitulo] = useState('')
@@ -149,6 +152,8 @@ export default function NovoChamadoPage({
             <SeletorAmbientePorBloco
               blocos={blocosChamado}
               carregando={blocosCarregando}
+              search={searchAmbiente}
+              onSearchChange={setSearchAmbiente}
               onSelecionar={(ambiente) => setEstado({ etapa: 'dados', ambiente })}
             />
           </>
@@ -317,7 +322,7 @@ export default function NovoChamadoPage({
               <Button
                 onClick={() => {
                   setTitulo(''); setDescricao(''); setPrazo(''); setFoto(null)
-                  setBem(null); setResponsavelId(''); setErro(null)
+                  setBem(null); setResponsavelId(''); setErro(null); setSearchAmbiente('')
                   setEstado({ etapa: 'ambiente' })
                 }}
                 className="w-full"

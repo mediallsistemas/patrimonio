@@ -84,7 +84,7 @@ export const CriarChamadoSchema = z
     descricao: z.string().trim().min(3, 'Descreva o problema').max(2000),
     tipo: z.enum(TIPOS_CHAMADO),
     prioridade: z.enum(PRIORIDADES_CHAMADO).default('media'),
-    prazo: z.coerce.date(),
+    prazo: z.coerce.date({ error: 'Informe o prazo' }),
     ambienteId: z.string().uuid('Selecione o ambiente'),
     // Bem do Trilogo (opcional) — os três campos andam juntos
     trilogoAssetId: z.number().int().positive().optional(),
