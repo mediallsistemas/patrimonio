@@ -10,6 +10,8 @@ import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import Text from '@/components/ui/Text'
 import Header from '@/components/ui/Header'
+import ExportarPdfButton from '@/components/ui/ExportarPdfButton'
+import { exportarTabelaPdf, COLUNAS_INSPECOES_PDF, linhaRodadaPdf } from '@/utils/pdf-export'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -283,6 +285,16 @@ export default function HistoricoPage() {
     (acc, r) => acc + r.ambientes.filter((a) => !a.temAlteracao).length, 0
   )
 
+  function exportarPdf() {
+    exportarTabelaPdf({
+      titulo: 'Histórico de Inspeções de Gases',
+      subtitulo: `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+      colunas: COLUNAS_INSPECOES_PDF,
+      linhas: rodadas.map(linhaRodadaPdf),
+      nomeArquivo: `inspecoes-historico-${tenantSlug}.pdf`,
+    })
+  }
+
   return (
     <div className="form-bg min-h-screen flex flex-col">
       <Header title="Histórico de Inspeções" backHref={`/${tenantSlug}/inspecao`} />
@@ -310,6 +322,10 @@ export default function HistoricoPage() {
               <p className="text-xs text-gray-300 font-sans">{label}</p>
             </Card>
           ))}
+        </div>
+
+        <div className="flex justify-end mb-5">
+          <ExportarPdfButton onClick={exportarPdf} disabled={rodadas.length === 0} />
         </div>
 
         {/* Lista */}

@@ -18,6 +18,8 @@ import { KpiCard } from '@/components/ui/ronda/KpiCard'
 import { OcorrenciaRow } from '@/components/ui/ronda/OcorrenciaRow'
 import { FotoLazy } from '@/components/ui/ronda/FotoLazy'
 import Header from '@/components/ui/Header'
+import ExportarPdfButton from '@/components/ui/ExportarPdfButton'
+import { exportarTabelaPdf, COLUNAS_RONDAS_PDF, linhaRondaPdf } from '@/utils/pdf-export'
 import type { Ronda } from '@/services/rondas.types'
 import type { OcorrenciaFlat } from '@/lib/rondas-admin-utils'
 
@@ -192,6 +194,20 @@ export default function HistoricoRondaPage() {
   const totalComOcorrencia = rondas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
   const exibirNormais      = !soOcorrencias
 
+  const rondasParaExportar = rondasOrdenadas.filter(
+    (r) => !soOcorrencias || r.ambientes.some((a) => a.temOcorrencia),
+  )
+
+  function exportarPdf() {
+    exportarTabelaPdf({
+      titulo: 'Histórico de Rondas',
+      subtitulo: `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}${soOcorrencias ? ' · somente com ocorrências' : ''}`,
+      colunas: COLUNAS_RONDAS_PDF,
+      linhas: rondasParaExportar.map(linhaRondaPdf),
+      nomeArquivo: `rondas-historico-${tenantSlug}.pdf`,
+    })
+  }
+
   function selecionarRonda(id: string) {
     setVerConformes(false)
     setRondaSelecionadaId((prev) => {
@@ -251,28 +267,31 @@ export default function HistoricoRondaPage() {
         </div>
 
         {/* ── Filtros ──────────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => {
-              setSoOcorrencias((v) => !v)
-              setRondaSelecionadaId(null)
-            }}
-            className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg ring-1 transition-all ${
-              soOcorrencias
-                ? 'bg-orange-50 ring-orange-200 text-orange-700'
-                : 'bg-white ring-gray-200 text-gray-500 hover:ring-orange-200 hover:text-orange-600'
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Só com ocorrências
-            {rondasComOcorrencia.length > 0 && (
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                soOcorrencias ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'
-              }`}>
-                {rondasComOcorrencia.length}
-              </span>
-            )}
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setSoOcorrencias((v) => !v)
+                setRondaSelecionadaId(null)
+              }}
+              className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg ring-1 transition-all ${
+                soOcorrencias
+                  ? 'bg-orange-50 ring-orange-200 text-orange-700'
+                  : 'bg-white ring-gray-200 text-gray-500 hover:ring-orange-200 hover:text-orange-600'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Só com ocorrências
+              {rondasComOcorrencia.length > 0 && (
+                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                  soOcorrencias ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {rondasComOcorrencia.length}
+                </span>
+              )}
+            </button>
+          </div>
+          <ExportarPdfButton onClick={exportarPdf} disabled={rondasParaExportar.length === 0} />
         </div>
 
         {isLoading ? (

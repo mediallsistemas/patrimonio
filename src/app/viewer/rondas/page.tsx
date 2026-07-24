@@ -17,6 +17,8 @@ import { desnormalizarOcorrencias } from '@/lib/rondas-admin-utils'
 import { KpiCard } from '@/components/ui/ronda/KpiCard'
 import { OcorrenciaRow } from '@/components/ui/ronda/OcorrenciaRow'
 import LogoutButton from '@/components/ui/LogoutButton'
+import ExportarPdfButton from '@/components/ui/ExportarPdfButton'
+import { exportarTabelaPdf, COLUNAS_RONDAS_ADMIN_PDF, linhaRondaPdf } from '@/utils/pdf-export'
 import { useAuth } from '@/hooks/useAuth'
 import type { Ronda } from '@/services/rondas.types'
 import type { Tenant } from '@/services/admin-tenants.service'
@@ -149,6 +151,23 @@ export default function ViewerRondasPage() {
   const totalComOcorrencia = rondas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
   const emAndamento = rondasFiltradas.filter((r) => r.finalizadoEm === null)
 
+  const rondasParaExportar = rondasOrdenadas.filter(
+    (r) => !soOcorrencias || r.ambientes.some((a) => a.temOcorrencia),
+  )
+
+  function exportarPdf() {
+    const tenantNome = filtroTenant === 'todos'
+      ? 'todas as unidades'
+      : tenants.find((t) => t.id === filtroTenant)?.nome ?? filtroTenant
+    exportarTabelaPdf({
+      titulo: 'Monitoramento de Rondas',
+      subtitulo: `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} · ${tenantNome}${soOcorrencias ? ' · somente com ocorrências' : ''}`,
+      colunas: COLUNAS_RONDAS_ADMIN_PDF,
+      linhas: rondasParaExportar.map(linhaRondaPdf),
+      nomeArquivo: 'rondas-monitoramento.pdf',
+    })
+  }
+
   function selecionarRonda(id: string) {
     setVerConformes(false)
     setRondaSelecionadaId((prev) => {
@@ -222,41 +241,44 @@ export default function ViewerRondasPage() {
         </div>
 
         {/* Filtros */}
-        <div className="flex flex-wrap items-center gap-2">
-          {tenants.length > 1 && (
-            <select
-              value={filtroTenant}
-              onChange={(e) => { setFiltroTenant(e.target.value); setRondaSelecionadaId(null) }}
-              className="text-sm border-0 bg-white ring-1 ring-gray-200 rounded-lg px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
-            >
-              <option value="todos">Todas as unidades</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>{t.nome}</option>
-              ))}
-            </select>
-          )}
-          {tenants.length === 1 && (
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 bg-white ring-1 ring-gray-200 px-3 py-2 rounded-lg">
-              <Building2 className="w-3.5 h-3.5 text-indigo-400" />
-              {tenants[0]?.nome}
-            </div>
-          )}
-          <button
-            onClick={() => { setSoOcorrencias((v) => !v); setRondaSelecionadaId(null) }}
-            className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg ring-1 transition-all ${
-              soOcorrencias
-                ? 'bg-orange-50 ring-orange-200 text-orange-700'
-                : 'bg-white ring-gray-200 text-gray-500 hover:ring-orange-200 hover:text-orange-600'
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Só com ocorrências
-            {rondasComOcorrencia.length > 0 && (
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${soOcorrencias ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
-                {rondasComOcorrencia.length}
-              </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {tenants.length > 1 && (
+              <select
+                value={filtroTenant}
+                onChange={(e) => { setFiltroTenant(e.target.value); setRondaSelecionadaId(null) }}
+                className="text-sm border-0 bg-white ring-1 ring-gray-200 rounded-lg px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition"
+              >
+                <option value="todos">Todas as unidades</option>
+                {tenants.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
             )}
-          </button>
+            {tenants.length === 1 && (
+              <div className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 bg-white ring-1 ring-gray-200 px-3 py-2 rounded-lg">
+                <Building2 className="w-3.5 h-3.5 text-indigo-400" />
+                {tenants[0]?.nome}
+              </div>
+            )}
+            <button
+              onClick={() => { setSoOcorrencias((v) => !v); setRondaSelecionadaId(null) }}
+              className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg ring-1 transition-all ${
+                soOcorrencias
+                  ? 'bg-orange-50 ring-orange-200 text-orange-700'
+                  : 'bg-white ring-gray-200 text-gray-500 hover:ring-orange-200 hover:text-orange-600'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Só com ocorrências
+              {rondasComOcorrencia.length > 0 && (
+                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${soOcorrencias ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {rondasComOcorrencia.length}
+                </span>
+              )}
+            </button>
+          </div>
+          <ExportarPdfButton onClick={exportarPdf} disabled={rondasParaExportar.length === 0} />
         </div>
 
         {isLoading ? (
