@@ -30,6 +30,7 @@ model Tenant {
   rondasOcorrencias      RondaOcorrencia[]
   templatesFormulario    TemplateFormulario[]
   usuarios               Usuario[]
+  chamados               Chamado[]
 
   @@map("tenants")
 }
@@ -55,6 +56,8 @@ model Usuario {
   rodadasCriadas             Rodada[]                @relation("RodadaCriadaPor")
   draftsOcorrencias          RondaDraft[]            @relation("DraftCriadoPor")
   rondasCriadas              RondaOcorrencia[]       @relation("RondaCriadaPor")
+  chamadosCriados            Chamado[]               @relation("ChamadoCriadoPor")
+  chamadosResponsavel        Chamado[]               @relation("ChamadoResponsavel")
   tenant                     Tenant?                 @relation(fields: [tenantId], references: [id])
 
   @@map("usuarios")
@@ -231,6 +234,7 @@ model AmbienteTenant {
   bloco    BlocoTenant? @relation(fields: [blocoId], references: [id])
   tenant   Tenant      @relation(fields: [tenantId], references: [id])
   manutencoes ManutencaoRealizada[]
+  chamados Chamado[]
 
   @@index([tenantId])
   @@index([blocoId])
@@ -317,6 +321,71 @@ model ManutencaoRealizada {
   @@index([tenantId, tipo, iniciadaEm])
   @@index([criadoPorId, status])
   @@map("manutencoes_realizadas")
+}
+
+// Chamado de manutenção: aberto por operador/admin, assumido (ou atribuído por
+// admin) e finalizado reusando o fluxo de ocorrências. "Atrasado" é derivado
+// (status aberto/em_execucao com prazo vencido) — nunca persistido.
+// Campos fiscais (fornecedor/ordem de compra/valor) são restritos a admin.
+model Chamado {
+  id                   String    @id @default(uuid())
+  numero               Int       @unique @default(autoincrement()) // código legível (#123)
+  tenantId             String
+  criadoPorId          String
+
+  titulo               String
+  descricao            String
+  // 'eletrica' | 'hidraulica' | 'civil' | ... — ver TIPOS_CHAMADO em chamados.types.ts
+  tipo                 String
+  prioridade           String    @default("media") // 'baixa' | 'media' | 'alta' | 'urgente'
+  status               String    @default("aberto") // 'aberto' | 'em_execucao' | 'finalizado' | 'cancelado'
+  prazo                DateTime
+
+  // Ambiente (snapshot preserva histórico se o ambiente for removido)
+  ambienteId           String?
+  ambienteNomeSnapshot String?
+  blocoNomeSnapshot    String?
+
+  // Bem do Trilogo (opcional)
+  trilogoAssetId       Int?
+  patrimony            String?
+  descricaoBemSnapshot String?
+
+  // Foto na abertura (base64, mesmo teto ~1.5MB dos demais fluxos)
+  fotoAbertura         String?
+
+  // Atribuição / responsável — sempre IDs vindos do JWT, nunca do body
+  responsavelId        String?
+  atribuidoPorId       String?
+  assumidoEm           DateTime?
+
+  // Execução / finalização (payload no formato do fluxo de ocorrências)
+  descricaoExecucao    String?
+  fotoExecucao         String?
+  observacaoFinal      String?
+  finalizadoEm         DateTime?
+  finalizadoPorId      String?
+
+  // Campos fiscais — SOMENTE admin escreve/lê (sanitizados para outros roles)
+  fornecedor           String?
+  numeroOrdemCompra    String?
+  valorGastoCentavos   Int?      // centavos — nunca float em moeda
+
+  criadoEm             DateTime  @default(now())
+  atualizadoEm         DateTime  @updatedAt
+  atualizadoPorId      String?
+
+  ambiente             AmbienteTenant? @relation(fields: [ambienteId], references: [id], onDelete: SetNull)
+  criadoPor            Usuario   @relation("ChamadoCriadoPor", fields: [criadoPorId], references: [id])
+  responsavel          Usuario?  @relation("ChamadoResponsavel", fields: [responsavelId], references: [id])
+  tenant               Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, prioridade])
+  @@index([tenantId, prazo])
+  @@index([tenantId, criadoEm])
+  @@index([responsavelId, status])
+  @@map("chamados")
 }
 
 model LinkPublicoBem {
