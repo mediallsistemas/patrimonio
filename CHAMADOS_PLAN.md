@@ -270,7 +270,8 @@ Cada fase é um commit isolado em `feature/chamados-manutencao` (branch nova a p
 | 3. Cliente | ✅ service + useChamados/useFotosChamado/useDashboardChamados |
 | 4. UI operador | ✅ painel + novo + assumir + finalizar (modal ocorrência) |
 | 5. UI admin | ✅ atribuir/cancelar/fiscais no painel + /admin/chamados |
-| 6. E2E | ✅ specs Playwright (pulam sem credenciais — ver e2e/README.md) |
+| 6. E2E | ✅ specs Playwright autossuficientes (fixture + cookie JWT no global-setup — sem credenciais; ver e2e/README.md) |
+| 7. Revisão | ✅ 8 findings (3 bugs) corrigidos + limpezas (seletor de ambiente compartilhado, utils de moeda, tipos explícitos, memo/busy por card) |
 
 ## 12. Fora de escopo (v1)
 

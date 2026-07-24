@@ -10,3 +10,5 @@ node_modules
 test-results/
 playwright-report/
 server-dev.log
+e2e/.auth/
+e2e/.fixture.json

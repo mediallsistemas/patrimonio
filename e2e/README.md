@@ -1,29 +1,39 @@
 # Testes E2E (Playwright)
 
-Os testes E2E rodam contra o dev server (`npm run dev` — o Playwright sobe
-sozinho via `webServer`) e o banco configurado em `DATABASE_URL`.
+Os testes E2E dirigem a **UI real** no navegador contra o dev server
+(`npm run dev` — o Playwright sobe/reusa via `webServer`) e o banco DEV de
+`DATABASE_URL`.
 
-## Credenciais
+## Como funciona a autenticação
 
-Os specs precisam de usuários reais do tenant de teste. Configure via variáveis
-de ambiente (ou um arquivo `.env.e2e` carregado no shell antes de rodar):
+**Nenhuma credencial real é necessária.** O `global-setup`:
 
-| Variável | Descrição |
-|----------|-----------|
-| `E2E_TENANT_SLUG` | Slug do tenant usado nos testes (ex.: `uei`) |
-| `E2E_OPERATOR_USER` / `E2E_OPERATOR_PASS` | Login de um usuário `operator` do tenant |
-| `E2E_ADMIN_USER` / `E2E_ADMIN_PASS` | Login de um `tenant_admin` do tenant |
-| `E2E_BASE_URL` | Opcional — default `http://localhost:3000` |
+1. Cria uma fixture rotulada no banco DEV (`DATABASE_URL`): tenant
+   `e2e-chamados` + usuários `operator`/`tenant_admin` + bloco/ambiente.
+2. Assina tokens JWT com o `JWT_SECRET` do `.env` e grava os cookies
+   `ls_session` em `e2e/.auth/*.json` (storage states do Playwright).
 
-**Sem essas variáveis os testes são pulados** (aparecem como `skipped`), para
-que `npm run test:e2e` nunca quebre por falta de configuração.
+O `global-teardown` remove **tudo** que a fixture criou (inclusive os
+chamados abertos pelos testes). O banco de autenticação
+(`AUTH_DATABASE_URL`) **nunca é tocado**.
 
-> Atenção: os testes criam chamados reais no banco apontado por `DATABASE_URL`.
-> Use um tenant de teste — nunca rode contra dados de produção.
+> Atenção: aponte `DATABASE_URL` para um banco de desenvolvimento.
+> Nunca rode E2E contra produção.
 
 ## Rodando
 
 ```bash
-npm run test:e2e        # headless
-npm run test:e2e:ui     # modo UI do Playwright
+npx playwright install chromium   # uma vez
+npm run test:e2e                  # headless
+npm run test:e2e:ui               # modo UI do Playwright
 ```
+
+## Cobertura
+
+| Spec | O que valida |
+|------|--------------|
+| operador cria chamado | Seleção de ambiente (UI da ronda) + dados + confirmação com número |
+| operador assume/finaliza | Assumir com prioridade, modal de finalização no formato ocorrência |
+| operador não vê fiscais | Bloco "Dados fiscais" ausente para não-admin |
+| admin edita fiscais | Fornecedor + valor (R$) salvos pelo painel |
+| admin dashboard | Tiles e distribuições em `/admin/chamados` |
