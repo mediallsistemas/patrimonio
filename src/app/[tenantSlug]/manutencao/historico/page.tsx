@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Wrench, Zap, Droplet, Package, Clock, CheckCircle2,
+  Wrench, Zap, Droplet, Building2, Package, Clock, CheckCircle2,
   ChevronDown, ChevronUp, ShieldCheck, User,
 } from 'lucide-react'
 import { format, differenceInMinutes, differenceInHours } from 'date-fns'
@@ -20,10 +20,13 @@ import { exportarTabelaPdf, COLUNAS_MANUTENCOES_PDF, linhaManutencaoPdf } from '
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const TIPO_CONFIG: Record<TipoManutencao, { label: string; icon: typeof Zap; badge: string }> = {
-  eletrica:   { label: 'Elétrica',   icon: Zap,     badge: 'bg-yellow-100 text-yellow-700' },
-  hidraulica: { label: 'Hidráulica', icon: Droplet, badge: 'bg-blue-100 text-blue-700' },
-  patrimonio: { label: 'Patrimônio', icon: Package, badge: 'bg-purple-100 text-purple-700' },
+// Chaveado por string (não por TipoManutencao) porque o histórico também traz
+// registros 'predial' — tipo válido nos dados, mesmo sem opção de criação nova.
+const TIPO_CONFIG: Record<string, { label: string; icon: typeof Zap; badge: string }> = {
+  eletrica:   { label: 'Elétrica',   icon: Zap,       badge: 'bg-yellow-100 text-yellow-700' },
+  hidraulica: { label: 'Hidráulica', icon: Droplet,   badge: 'bg-blue-100 text-blue-700' },
+  predial:    { label: 'Predial',    icon: Building2, badge: 'bg-emerald-100 text-emerald-700' },
+  patrimonio: { label: 'Patrimônio', icon: Package,   badge: 'bg-purple-100 text-purple-700' },
 }
 
 function titulo(m: ManutencaoHistoricoItem): string {
@@ -105,7 +108,7 @@ function ManutencaoListItem({ m }: { m: ManutencaoHistoricoItem }) {
   const tempoAberto = useTempoAberto(emAndamento ? m.iniciadaEm : null)
   const horas = emAndamento ? differenceInHours(new Date(), new Date(m.iniciadaEm)) : 0
   const vencida = horas >= 24
-  const { label, icon: Icon, badge } = TIPO_CONFIG[m.tipo]
+  const { label, icon: Icon, badge } = TIPO_CONFIG[m.tipo] ?? TIPO_CONFIG.eletrica
   const sub = subtitulo(m)
 
   const duracao = !emAndamento && m.finalizadaEm

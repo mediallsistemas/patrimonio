@@ -40,7 +40,7 @@ export async function listarTenants() {
         logoUrl: true,
         trilogoCompanyId: true, trilogoProjectName: true,
         linensistem: true,
-        _count: { select: { usuarios: true, pessoas: true } },
+        _count: { select: { usuarios: true } },
       },
     })
   } catch (error) {
@@ -61,7 +61,7 @@ export async function buscarTenant(id: string) {
         criadoEm: true,
         atualizadoEm: true,
         logoUrl: true,
-        _count: { select: { usuarios: true, pessoas: true } },
+        _count: { select: { usuarios: true } },
       },
     })
   } catch (error) {

@@ -63,7 +63,6 @@ export default function TenantsPage() {
                       {t._count && (
                         <>
                           <span className="text-xs text-gray-300 font-sans">{t._count.usuarios} usuário(s)</span>
-                          <span className="text-xs text-gray-300 font-sans">{t._count.pessoas} pessoa(s)</span>
                         </>
                       )}
                       <span className={`text-xs font-sans px-1.5 py-0.5 rounded ${t.ativo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'}`}>

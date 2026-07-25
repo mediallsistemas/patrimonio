@@ -7,7 +7,7 @@ export interface Tenant {
   ativo?: boolean
   criadoEm?: string
   linensistem?: boolean
-  _count?: { usuarios: number; pessoas: number }
+  _count?: { usuarios: number }
 }
 
 export interface CreateTenantInput {
