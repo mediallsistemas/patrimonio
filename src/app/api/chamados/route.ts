@@ -3,13 +3,14 @@ import { escopoSessao } from '@/modules/auth/tenant-filter'
 import { ok, created, badRequest, unauthorized, forbidden, serverError } from '@/lib/api-response'
 import * as chamadosQuery from '@/modules/chamados/chamados-query.service'
 import * as chamadosCommand from '@/modules/chamados/chamados-command.service'
+import * as tenantsService from '@/modules/tenants/tenants.service'
 import {
   CriarChamadoSchema,
   FiltrosChamadosSchema,
 } from '@/modules/chamados/chamados.types'
 import {
   ROLES_LEITURA_CHAMADOS,
-  ROLES_ESCRITA_CHAMADOS,
+  ROLES_CRIACAO_CHAMADOS,
   podeAtribuir,
 } from '@/modules/chamados/chamados.rules'
 
@@ -33,13 +34,22 @@ export async function GET(req: Request): Promise<Response> {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const auth = await verifyAuthDetailed(req, ROLES_ESCRITA_CHAMADOS)
+  const auth = await verifyAuthDetailed(req, ROLES_CRIACAO_CHAMADOS)
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
   const session = auth.session
-  if (!session.tenantId) return forbidden()
 
   const parsed = CriarChamadoSchema.safeParse(await req.json())
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
+
+  // Tenant alvo: super_admin informa no corpo (não tem tenant próprio); os
+  // demais roles usam o tenant da sessão e o tenantId do corpo é ignorado.
+  const tenantAlvo =
+    session.role === 'super_admin' ? parsed.data.tenantId : session.tenantId
+  if (!tenantAlvo) {
+    return session.role === 'super_admin'
+      ? badRequest({ tenantId: ['Selecione o hospital'] })
+      : forbidden()
+  }
 
   // Atribuição direta na criação é exclusiva de admin — para os demais roles
   // o campo é silenciosamente ignorado (o chamado nasce 'aberto')
@@ -49,7 +59,17 @@ export async function POST(req: Request): Promise<Response> {
       : undefined
 
   try {
-    const chamado = await chamadosCommand.criar(session.tenantId, session.sub, parsed.data, atribuicao)
+    // super_admin informa um tenant arbitrário do corpo — garantir que existe
+    // e está ativo (retorno limpo em vez de 500 na busca de ambiente abaixo).
+    // Para os demais roles o tenant vem da sessão, já confiável.
+    if (session.role === 'super_admin') {
+      const tenant = await tenantsService.buscarTenant(tenantAlvo)
+      if (!tenant || !tenant.ativo) {
+        return badRequest({ tenantId: ['Hospital inválido ou inativo'] })
+      }
+    }
+
+    const chamado = await chamadosCommand.criar(tenantAlvo, session.sub, parsed.data, atribuicao)
     return created(chamado)
   } catch {
     return serverError('criar chamado failed')

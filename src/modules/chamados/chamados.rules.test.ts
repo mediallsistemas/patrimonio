@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ehAdmin,
   podeEscrever,
+  podeCriar,
   podeAtribuir,
   podeCancelar,
   podeEditarFiscal,
@@ -44,6 +45,21 @@ describe('chamados.rules — permissões por role', () => {
       expect(podeCancelar(role)).toBe(true)
       expect(podeEditarFiscal(role)).toBe(true)
     }
+  })
+
+  it('criar chamado: admins e operator_patrimonio sim; operator não', () => {
+    expect(podeCriar('super_admin')).toBe(true)
+    expect(podeCriar('tenant_admin')).toBe(true)
+    expect(podeCriar('operator_patrimonio')).toBe(true)
+    // operator opera (assume/finaliza) mas NÃO abre chamado
+    expect(podeCriar('operator')).toBe(false)
+    expect(podeCriar('viewer')).toBe(false)
+    expect(podeCriar('operator_forms')).toBe(false)
+  })
+
+  it('operator escreve (opera) mas não cria — as duas permissões são distintas', () => {
+    expect(podeEscrever('operator')).toBe(true)
+    expect(podeCriar('operator')).toBe(false)
   })
 })
 
