@@ -20,7 +20,7 @@ import {
   PRIORIDADES_CHAMADO,
   PRIORIDADE_CHAMADO_LABEL,
 } from '@/modules/chamados/chamados.types'
-import { ROLES_ESCRITA_CHAMADOS, ROLES_ADMIN_CHAMADOS, podeEscrever } from '@/modules/chamados/chamados.rules'
+import { ROLES_ESCRITA_CHAMADOS, ROLES_ADMIN_CHAMADOS, podeEscrever, podeCriar } from '@/modules/chamados/chamados.rules'
 import type { ChamadoResumo, PrioridadeChamado } from '@/services/chamados.service'
 import type { StatusChamado } from '@/modules/chamados/chamados.types'
 import type { JWTPayload } from '@/modules/auth/auth.types'
@@ -41,6 +41,8 @@ export default function PainelChamadosPage({
   // Mesmas listas de roles do servidor (chamados.rules) — nunca denylist local
   const ehAdmin = user !== null && ROLES_ADMIN_CHAMADOS.includes(user.role)
   const escreve = user !== null && podeEscrever(user.role)
+  // Abrir chamado é separado de operar: operator opera mas não cria
+  const cria = user !== null && podeCriar(user.role)
 
   const chamadosHook = useChamados({ ehAdmin })
   const {
@@ -136,7 +138,7 @@ export default function PainelChamadosPage({
 
         {/* Ações + filtros */}
         <div className="flex flex-wrap items-end gap-3 mb-5">
-          {escreve && (
+          {cria && (
             <Link href={`/${tenantSlug}/chamados/novo`}>
               <Button size="sm">
                 <Plus className="w-4 h-4" />

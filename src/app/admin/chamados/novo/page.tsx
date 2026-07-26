@@ -1,21 +1,22 @@
 'use client'
 
-import { useState, use, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import {
-  ChevronLeft, Inbox, X, CheckCircle, Package,
-} from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronLeft, Inbox, CheckCircle, Building2 } from 'lucide-react'
 
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
 import FotoCapture from '@/components/ui/FotoCapture'
-import BemSelector from '@/components/ui/patrimonio/BemSelector'
 import LogoutButton from '@/components/ui/LogoutButton'
 import SeletorAmbientePorBloco from '@/components/ui/SeletorAmbientePorBloco'
 import { useAuth } from '@/hooks/useAuth'
-import { useChamados } from '@/hooks/useChamados'
+import { listarTenants } from '@/services/admin-tenants.service'
+import { listarUsuarios } from '@/services/admin-usuarios.service'
+import { buscarBlocosAdmin } from '@/services/rondas.service'
+import * as chamadosService from '@/services/chamados.service'
 import {
   TIPOS_CHAMADO,
   TIPO_CHAMADO_LABEL,
@@ -23,50 +24,37 @@ import {
   PRIORIDADE_CHAMADO_LABEL,
   CriarChamadoSchema,
 } from '@/modules/chamados/chamados.types'
-import { podeCriar } from '@/modules/chamados/chamados.rules'
+import { ROLES_ESCRITA_CHAMADOS } from '@/modules/chamados/chamados.rules'
 import type { TipoChamado, PrioridadeChamado } from '@/services/chamados.service'
+import type { JWTPayload } from '@/modules/auth/auth.types'
 
-// ── Tipos do fluxo (discriminated union — sem combinações inválidas) ────────
+type JWTRole = JWTPayload['role']
 
-type AmbienteSelecionado = {
-  id: string
-  nome: string
-  blocoNome: string
-}
-
-type BemVinculado = {
-  trilogoAssetId: number
-  patrimony: string
-  descricaoBem: string
-}
+type AmbienteSelecionado = { id: string; nome: string; blocoNome: string }
 
 type Etapa =
+  | { etapa: 'tenant' }
   | { etapa: 'ambiente' }
   | { etapa: 'dados'; ambiente: AmbienteSelecionado }
   | { etapa: 'concluido'; numero: number }
 
-export default function NovoChamadoPage({
-  params,
-}: {
-  params: Promise<{ tenantSlug: string }>
-}) {
-  const { tenantSlug } = use(params)
+// Abertura de chamado pelo super_admin: como ele não tem tenant próprio, o
+// fluxo começa escolhendo o hospital, depois reaproveita a mesma seleção de
+// ambiente e o mesmo formulário do fluxo do tenant. Vincular bem fica de fora
+// aqui — a busca de bens é escopada pela sessão (não cross-tenant).
+export default function NovoChamadoAdminPage() {
   const router = useRouter()
+  const qc = useQueryClient()
   const { user } = useAuth()
 
-  const ehAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin'
-  const { blocosChamado, blocosCarregando, usuarios, criar } = useChamados({ ehAdmin, comBlocos: true })
-
-  // Abrir chamado é separado de operar: operator opera mas não cria.
-  // Se cair aqui por URL direta, volta para o painel.
-  const naoPodeCriar = user !== null && !podeCriar(user.role)
+  // Página exclusiva do super_admin (o seletor de hospital exige cross-tenant)
+  const naoAutorizado = user !== null && user.role !== 'super_admin'
   useEffect(() => {
-    if (naoPodeCriar) router.replace(`/${tenantSlug}/chamados`)
-  }, [naoPodeCriar, router, tenantSlug])
+    if (naoAutorizado) router.replace('/admin/chamados')
+  }, [naoAutorizado, router])
 
-  const [estado, setEstado] = useState<Etapa>({ etapa: 'ambiente' })
-  // Levantado para a página (em vez de interno ao seletor) para sobreviver
-  // à desmontagem do componente ao avançar/voltar entre as etapas.
+  const [tenantId, setTenantId] = useState('')
+  const [estado, setEstado] = useState<Etapa>({ etapa: 'tenant' })
   const [searchAmbiente, setSearchAmbiente] = useState('')
 
   // Campos do formulário
@@ -76,30 +64,76 @@ export default function NovoChamadoPage({
   const [prazo, setPrazo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [foto, setFoto] = useState<string | null>(null)
-  const [bem, setBem] = useState<BemVinculado | null>(null)
   const [responsavelId, setResponsavelId] = useState('')
-  const [abrirBemSelector, setAbrirBemSelector] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  const usuariosAtribuiveis = usuarios
-    .filter((u) => u.ativo && u.role !== 'viewer' && u.role !== 'operator_forms')
+  const { data: tenants = [] } = useQuery({
+    queryKey: ['admin-tenants'],
+    queryFn: listarTenants,
+    enabled: user?.role === 'super_admin',
+  })
+
+  const { data: blocos = [], isLoading: blocosCarregando } = useQuery({
+    queryKey: ['admin-blocos', tenantId],
+    queryFn: () => buscarBlocosAdmin(tenantId),
+    enabled: tenantId !== '',
+  })
+
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ['admin-usuarios-chamado'],
+    queryFn: listarUsuarios,
+    enabled: user?.role === 'super_admin',
+  })
+
+  // Só ambientes de manutenção predial (não-gases), como no fluxo do tenant
+  const blocosChamado = useMemo(
+    () =>
+      blocos
+        .map((b) => ({ ...b, ambientes: b.ambientes.filter((a) => a.tipo !== 'gases') }))
+        .filter((b) => b.ambientes.length > 0),
+    [blocos],
+  )
+
+  // Responsáveis atribuíveis: do hospital escolhido, ativos e com role executor
+  const usuariosAtribuiveis = useMemo(
+    () =>
+      usuarios
+        .filter(
+          (u) =>
+            u.ativo &&
+            u.tenantId === tenantId &&
+            ROLES_ESCRITA_CHAMADOS.includes(u.role as JWTRole),
+        )
+        .map((u) => ({ id: u.id, nome: u.nome })),
+    [usuarios, tenantId],
+  )
+
+  const criar = useMutation({
+    mutationFn: (input: chamadosService.CriarChamadoInput) => chamadosService.criar(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chamados'] }),
+  })
+
+  const nomeTenant = tenants.find((t) => t.id === tenantId)?.nome ?? ''
+
+  function reiniciar() {
+    setTitulo(''); setDescricao(''); setPrazo(''); setFoto(null)
+    setResponsavelId(''); setErro(null); setSearchAmbiente('')
+  }
 
   async function handleCriar() {
     if (estado.etapa !== 'dados') return
     setErro(null)
 
-    // Mesmo schema do servidor — validação nunca diverge da API
     const parsed = CriarChamadoSchema.safeParse({
+      tenantId,
       titulo,
       descricao,
       tipo,
       prioridade,
-      // prazo = fim do dia selecionado (deadline inclusivo)
       prazo: prazo ? new Date(`${prazo}T23:59:59`).toISOString() : undefined,
       ambienteId: estado.ambiente.id,
-      ...(bem ?? {}),
       ...(foto ? { fotoAbertura: foto } : {}),
-      ...(ehAdmin && responsavelId ? { responsavelId } : {}),
+      ...(responsavelId ? { responsavelId } : {}),
     })
     if (!parsed.success) {
       setErro(parsed.error.issues[0]?.message ?? 'Preencha os campos obrigatórios')
@@ -110,7 +144,6 @@ export default function NovoChamadoPage({
       const r = await criar.mutateAsync({
         ...parsed.data,
         prazo: parsed.data.prazo.toISOString(),
-        descricaoBem: parsed.data.descricaoBem,
       })
       setEstado({ etapa: 'concluido', numero: r.numero })
     } catch {
@@ -130,8 +163,10 @@ export default function NovoChamadoPage({
                 if (confirm('Voltar agora descartará os dados preenchidos. Continuar?')) {
                   setEstado({ etapa: 'ambiente' })
                 }
+              } else if (estado.etapa === 'ambiente') {
+                setEstado({ etapa: 'tenant' })
               } else {
-                router.push(`/${tenantSlug}/chamados`)
+                router.push('/admin/chamados')
               }
             }}
             className="flex items-center gap-2 text-gray-400 hover:text-dark transition-colors"
@@ -142,7 +177,54 @@ export default function NovoChamadoPage({
           <LogoutButton />
         </div>
 
-        {/* Etapa 1 — ambiente (mesma UI da ronda) */}
+        {/* Etapa 0 — hospital */}
+        {estado.etapa === 'tenant' && (
+          <>
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-dark mb-4">
+                <Building2 className="w-8 h-8 text-white" />
+              </div>
+              <Text as="h1" variant="heading-lg" className="text-dark mb-1 block">
+                Abrir Chamado
+              </Text>
+              <Text variant="body-md" className="text-gray-300">
+                Para qual hospital é o chamado?
+              </Text>
+            </div>
+
+            <Card shadow="md">
+              <Text variant="caption" className="text-gray-400 uppercase tracking-wide font-semibold block mb-1.5">
+                Hospital *
+              </Text>
+              <select
+                value={tenantId}
+                onChange={(e) => {
+                  // Trocar de hospital invalida um responsável já escolhido
+                  // (ele é de outro tenant) — limpa para não submeter um
+                  // responsavelId que o servidor rejeitaria.
+                  setTenantId(e.target.value)
+                  setResponsavelId('')
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-sans text-dark bg-white focus:outline-none focus:ring-2 focus:ring-red-base"
+              >
+                <option value="">Selecione o hospital...</option>
+                {tenants.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
+              </select>
+
+              <Button
+                onClick={() => setEstado({ etapa: 'ambiente' })}
+                disabled={tenantId === ''}
+                className="w-full mt-4"
+              >
+                Continuar
+              </Button>
+            </Card>
+          </>
+        )}
+
+        {/* Etapa 1 — ambiente */}
         {estado.etapa === 'ambiente' && (
           <>
             <div className="text-center mb-6">
@@ -153,7 +235,7 @@ export default function NovoChamadoPage({
                 Abrir Chamado
               </Text>
               <Text variant="body-md" className="text-gray-300">
-                Onde é o problema? Selecione o ambiente
+                {nomeTenant} · Selecione o ambiente
               </Text>
             </div>
 
@@ -167,12 +249,12 @@ export default function NovoChamadoPage({
           </>
         )}
 
-        {/* Etapa 2 — dados do chamado */}
+        {/* Etapa 2 — dados */}
         {estado.etapa === 'dados' && (
           <Card shadow="md">
             <div className="mb-4 px-4 py-3 rounded-xl bg-gray-50 border border-gray-200">
               <Text variant="caption" className="text-gray-300 uppercase tracking-wide font-semibold block">
-                Ambiente
+                {nomeTenant} · Ambiente
               </Text>
               <Text variant="body-md" className="text-dark block">
                 {estado.ambiente.nome}
@@ -249,30 +331,6 @@ export default function NovoChamadoPage({
                 />
               </div>
 
-              {/* Bem vinculado (opcional) */}
-              {bem ? (
-                <div className="px-4 py-3 rounded-xl bg-purple-50 border border-purple-200 flex items-start justify-between gap-2">
-                  <div>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-600 uppercase tracking-wide font-sans">
-                      <Package className="w-3.5 h-3.5" />
-                      Patrimônio · {bem.patrimony}
-                    </span>
-                    <Text variant="body-sm" className="text-dark block mt-0.5">{bem.descricaoBem}</Text>
-                  </div>
-                  <button
-                    onClick={() => setBem(null)}
-                    className="text-gray-300 hover:text-gray-500 shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => setAbrirBemSelector(true)}>
-                  <Package className="w-4 h-4" />
-                  Vincular bem patrimonial (opcional)
-                </Button>
-              )}
-
               <FotoCapture
                 label="Foto do problema"
                 hint="Opcional"
@@ -281,24 +339,22 @@ export default function NovoChamadoPage({
                 accent="amber"
               />
 
-              {/* Atribuição direta — só admin */}
-              {ehAdmin && (
-                <div>
-                  <Text variant="caption" className="text-gray-400 uppercase tracking-wide font-semibold block mb-1.5">
-                    Atribuir diretamente (opcional)
-                  </Text>
-                  <select
-                    value={responsavelId}
-                    onChange={(e) => setResponsavelId(e.target.value)}
-                    className="w-full px-3 py-3 rounded-xl border border-gray-200 text-sm font-sans text-dark bg-white focus:outline-none focus:ring-2 focus:ring-red-base"
-                  >
-                    <option value="">Deixar em aberto no painel</option>
-                    {usuariosAtribuiveis.map((u) => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Atribuição direta (opcional) */}
+              <div>
+                <Text variant="caption" className="text-gray-400 uppercase tracking-wide font-semibold block mb-1.5">
+                  Atribuir diretamente (opcional)
+                </Text>
+                <select
+                  value={responsavelId}
+                  onChange={(e) => setResponsavelId(e.target.value)}
+                  className="w-full px-3 py-3 rounded-xl border border-gray-200 text-sm font-sans text-dark bg-white focus:outline-none focus:ring-2 focus:ring-red-base"
+                >
+                  <option value="">Deixar em aberto no painel</option>
+                  {usuariosAtribuiveis.map((u) => (
+                    <option key={u.id} value={u.id}>{u.nome}</option>
+                  ))}
+                </select>
+              </div>
 
               {erro && (
                 <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
@@ -328,16 +384,12 @@ export default function NovoChamadoPage({
 
             <div className="space-y-2 max-w-xs mx-auto">
               <Button
-                onClick={() => {
-                  setTitulo(''); setDescricao(''); setPrazo(''); setFoto(null)
-                  setBem(null); setResponsavelId(''); setErro(null); setSearchAmbiente('')
-                  setEstado({ etapa: 'ambiente' })
-                }}
+                onClick={() => { reiniciar(); setEstado({ etapa: 'ambiente' }) }}
                 className="w-full"
               >
-                Abrir outro chamado
+                Abrir outro neste hospital
               </Button>
-              <Link href={`/${tenantSlug}/chamados`} className="block">
+              <Link href="/admin/chamados" className="block">
                 <Button variant="outline" className="w-full">
                   Ir para o painel
                 </Button>
@@ -346,20 +398,6 @@ export default function NovoChamadoPage({
           </Card>
         )}
       </div>
-
-      {abrirBemSelector && estado.etapa === 'dados' && (
-        <BemSelector
-          ambienteNome={estado.ambiente.nome}
-          blocoNome={estado.ambiente.blocoNome}
-          onFechar={() => setAbrirBemSelector(false)}
-          permitirSemSelecao={false}
-          onSelecionar={(b) => {
-            setAbrirBemSelector(false)
-            if (!b) return
-            setBem({ trilogoAssetId: b.id, patrimony: b.patrimony, descricaoBem: b.descricao })
-          }}
-        />
-      )}
     </div>
   )
 }

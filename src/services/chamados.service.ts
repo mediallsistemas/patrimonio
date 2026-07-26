@@ -41,6 +41,8 @@ export interface ChamadoResumo {
 }
 
 export interface CriarChamadoInput {
+  // Só o super_admin envia — define o hospital alvo do chamado.
+  tenantId?: string
   titulo: string
   descricao: string
   tipo: TipoChamado

@@ -14,10 +14,20 @@ export const ROLES_LEITURA_CHAMADOS: Role[] = [
   'viewer',
 ]
 
+// "Escrita" = operar um chamado que já existe (assumir/finalizar) e ser
+// atribuível como responsável. Inclui operator — ele executa chamados.
 export const ROLES_ESCRITA_CHAMADOS: Role[] = [
   'super_admin',
   'tenant_admin',
   'operator',
+  'operator_patrimonio',
+]
+
+// "Criação" = abrir um chamado novo. NÃO inclui operator (só operar/finalizar).
+// super_admin cria informando o tenant alvo (não tem tenant próprio).
+export const ROLES_CRIACAO_CHAMADOS: Role[] = [
+  'super_admin',
+  'tenant_admin',
   'operator_patrimonio',
 ]
 
@@ -29,6 +39,10 @@ export function ehAdmin(role: Role): boolean {
 
 export function podeEscrever(role: Role): boolean {
   return ROLES_ESCRITA_CHAMADOS.includes(role)
+}
+
+export function podeCriar(role: Role): boolean {
+  return ROLES_CRIACAO_CHAMADOS.includes(role)
 }
 
 // Atribuir a outro usuário, cancelar e editar campos fiscais: só admin

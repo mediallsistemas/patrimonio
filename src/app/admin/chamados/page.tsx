@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { format, subMonths } from 'date-fns'
 import {
-  ArrowLeft, Inbox, CheckCircle, Loader2, AlertTriangle, Wallet, PlayCircle,
+  ArrowLeft, Inbox, CheckCircle, Loader2, AlertTriangle, Wallet, PlayCircle, Plus,
 } from 'lucide-react'
 
 import Card from '@/components/ui/Card'
@@ -114,6 +114,17 @@ export default function DashboardChamadosPage() {
             <h1 className="text-2xl font-bold text-gray-800">Painel de Chamados</h1>
             <p className="text-sm text-gray-500">Indicadores dos chamados de manutenção da unidade</p>
           </div>
+          {/* Abrir chamado pelo painel — exclusivo do super_admin, que escolhe
+              o hospital no fluxo dedicado (não tem tenant próprio). */}
+          {isSuperAdmin && (
+            <Link
+              href="/admin/chamados/novo"
+              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-700 transition-colors"
+            >
+              <Plus size={16} />
+              Novo chamado
+            </Link>
+          )}
         </div>
 
         {/* Filtro de período (dashboard) */}

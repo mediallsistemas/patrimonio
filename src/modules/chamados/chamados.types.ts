@@ -47,6 +47,9 @@ const fotoBase64 = z
 
 export const CriarChamadoSchema = z
   .object({
+    // Tenant alvo — usado APENAS pelo super_admin (não tem tenant próprio).
+    // Para os demais roles a rota ignora e usa o tenant da sessão.
+    tenantId: z.string().uuid().optional(),
     titulo: z.string().trim().min(3, 'Informe o título').max(200),
     descricao: z.string().trim().min(3, 'Descreva o problema').max(2000),
     tipo: z.enum(TIPOS_CHAMADO),

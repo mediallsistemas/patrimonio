@@ -88,13 +88,25 @@ describe('CriarChamadoSchema', () => {
     const r = CriarChamadoSchema.safeParse({
       ...criarValido,
       criadoPorId: 'injetado',
-      tenantId: 'injetado',
+      atualizadoPorId: 'injetado',
     })
     expect(r.success).toBe(true)
     if (r.success) {
       expect(r.data).not.toHaveProperty('criadoPorId')
-      expect(r.data).not.toHaveProperty('tenantId')
+      expect(r.data).not.toHaveProperty('atualizadoPorId')
     }
+  })
+
+  it('tenantId é opcional e, quando presente, precisa ser uuid (super_admin)', () => {
+    // ausente: ok (roles com tenant próprio não enviam)
+    expect(CriarChamadoSchema.safeParse(criarValido).success).toBe(true)
+    // uuid válido: aceito e preservado
+    const uuid = '11111111-1111-4111-8111-111111111111'
+    const r = CriarChamadoSchema.safeParse({ ...criarValido, tenantId: uuid })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.tenantId).toBe(uuid)
+    // não-uuid: rejeitado (nunca aceitar um tenant arbitrário do corpo)
+    expect(CriarChamadoSchema.safeParse({ ...criarValido, tenantId: 'injetado' }).success).toBe(false)
   })
 })
 

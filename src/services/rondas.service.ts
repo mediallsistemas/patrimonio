@@ -85,6 +85,12 @@ export async function buscarBlocos(): Promise<BlocoAPI[]> {
   return json.data ?? []
 }
 
+// Blocos de um tenant específico — super_admin, ao abrir chamado pelo painel.
+export async function buscarBlocosAdmin(tenantId: string): Promise<BlocoAPI[]> {
+  const json = await api.get<{ data: BlocoAPI[] }>(`admin/blocos?tenantId=${tenantId}`)
+  return json.data ?? []
+}
+
 export async function buscarAmbientesTenant(tenantSlug: string): Promise<AmbienteTenant[]> {
   const json = await api.get<{ data: AmbienteTenant[] }>(`tenants/${tenantSlug}/ambientes`)
   return json.data ?? []
