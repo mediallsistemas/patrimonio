@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ClipboardList, Activity, Users, Wrench, FileText, Inbox } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
+import { podeVerRelatorio } from '@/modules/manutencoes/manutencoes.rules'
 import { redirect } from 'next/navigation'
 import LogoutButton from '@/components/ui/LogoutButton'
 
@@ -15,6 +16,10 @@ export default async function ManutencaoHomePage({
   if (!session) redirect('/login')
 
   const isTenantAdmin = session.role === 'tenant_admin'
+
+  // Esconder o card é só cosmético — quem protege são o guard de historico/layout.tsx
+  // e a API. Os três consultam a mesma regra em manutencoes.rules.ts.
+  const veRelatorio = podeVerRelatorio(session.role)
 
   const operatorActions = [
     {
@@ -45,13 +50,19 @@ export default async function ManutencaoHomePage({
       description: 'Visualize o histórico das suas rondas realizadas',
       color: '#059669',
     },
-    {
-      href: `/${tenantSlug}/manutencao/historico`,
-      icon: FileText,
-      title: 'Relatório de Manutenções',
-      description: 'Histórico de manutenções realizadas, com fotos antes e depois',
-      color: '#f59e0b',
-    },
+    // Condicional porque super_admin também cai em operatorActions (não é tenant_admin)
+    // e continua devendo ver o relatório.
+    ...(veRelatorio
+      ? [
+          {
+            href: `/${tenantSlug}/manutencao/historico`,
+            icon: FileText,
+            title: 'Relatório de Manutenções',
+            description: 'Histórico de manutenções realizadas, com fotos antes e depois',
+            color: '#f59e0b',
+          },
+        ]
+      : []),
   ]
 
   const adminActions = [
