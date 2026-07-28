@@ -28,6 +28,14 @@ export type AdminModule = {
   description: string
   color: string
   superAdminOnly: boolean
+  /**
+   * Fora do ar temporariamente. Some do /admin e as rotas do módulo passam a
+   * responder 404 — inclusive quando a URL é digitada à mão.
+   *
+   * Marcar em vez de apagar: o módulo volta removendo esta linha, sem precisar
+   * reconstruir a definição das telas nem lembrar onde elas ficavam.
+   */
+  oculto?: boolean
   actions: AdminAction[]
 }
 
@@ -120,6 +128,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     color: '#f97316',
     // Única tela do módulo é superAdminOnly; marcar o módulo também evita card vazio.
     superAdminOnly: true,
+    oculto: true,
     actions: [
       {
         href: '/admin/dashboard',
@@ -133,6 +142,18 @@ export const ADMIN_MODULES: AdminModule[] = [
   },
 ]
 
+/** Módulos que aparecem na UI. Único lugar que decide isso. */
+export const MODULOS_VISIVEIS: AdminModule[] = ADMIN_MODULES.filter((m) => !m.oculto)
+
+/**
+ * Busca por slug para exibição. Módulo oculto devolve undefined de propósito:
+ * quem chama usa isso para 404, então a URL digitada à mão também não abre.
+ */
 export function getModule(slug: AdminModule['slug']): AdminModule | undefined {
-  return ADMIN_MODULES.find((m) => m.slug === slug)
+  return MODULOS_VISIVEIS.find((m) => m.slug === slug)
 }
+
+/** Telas de módulos ocultos — usado pelas guardas de rota das próprias telas. */
+export const TELAS_OCULTAS: string[] = ADMIN_MODULES
+  .filter((m) => m.oculto)
+  .flatMap((m) => m.actions.map((a) => a.href))

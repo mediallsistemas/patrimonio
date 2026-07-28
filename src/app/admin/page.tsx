@@ -3,7 +3,7 @@ import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import LogoutButton from '@/components/ui/LogoutButton'
 import AdminCardGrid from './_components/AdminCardGrid'
-import { ADMIN_MODULES } from './_modules'
+import { MODULOS_VISIVEIS } from './_modules'
 
 export default async function AdminPage() {
   const session = await getSession()
@@ -12,7 +12,7 @@ export default async function AdminPage() {
 
   // Oculta módulo que exige super_admin e também aquele cujas telas, depois de
   // filtradas, ficariam todas de fora — para não haver card que abre em página vazia.
-  const modules = ADMIN_MODULES
+  const modules = MODULOS_VISIVEIS
     .filter((m) => !m.superAdminOnly || isSuperAdmin)
     .filter((m) => m.actions.some((a) => !a.superAdminOnly || isSuperAdmin))
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { ADMIN_MODULES, getModule } from './_modules'
+import { ADMIN_MODULES, MODULOS_VISIVEIS, TELAS_OCULTAS, getModule } from './_modules'
 
 // Contrato do reagrupamento: as telas da lista plana anterior, com os mesmos
 // `superAdminOnly`. Se alguém adicionar uma tela nova, este teste falha de propósito —
@@ -49,14 +49,41 @@ describe('ADMIN_MODULES — reagrupamento por setor', () => {
     }
   })
 
-  it('getModule resolve os três slugs e recusa desconhecido', () => {
+  it('getModule resolve os módulos visíveis e recusa desconhecido', () => {
     expect(getModule('administrativo')?.title).toBe('Administrativo')
     expect(getModule('patrimonio')?.title).toBe('Patrimônio')
-    expect(getModule('higienizacao')?.title).toBe('Higienização e Limpeza')
     expect(getModule('inexistente' as never)).toBeUndefined()
   })
 
   it('href do módulo bate com o slug', () => {
     for (const m of ADMIN_MODULES) expect(m.href).toBe(`/admin/m/${m.slug}`)
+  })
+})
+
+// Higienização e Limpeza está fora do ar por ora. `oculto` some com o módulo da
+// UI e fecha as rotas; a definição fica no arquivo para o retorno ser uma linha.
+describe('módulo oculto', () => {
+  it('higienização continua definida, mas marcada como oculta', () => {
+    const mod = ADMIN_MODULES.find((m) => m.slug === 'higienizacao')
+    expect(mod, 'a definição não deve ser apagada — só marcada').toBeDefined()
+    expect(mod?.oculto).toBe(true)
+  })
+
+  it('não aparece entre os módulos visíveis', () => {
+    expect(MODULOS_VISIVEIS.map((m) => m.slug)).toEqual(['administrativo', 'patrimonio'])
+  })
+
+  // Sem isto, /admin/m/higienizacao continuaria abrindo para quem digitasse a URL.
+  it('getModule recusa o slug oculto', () => {
+    expect(getModule('higienizacao')).toBeUndefined()
+  })
+
+  it('as telas do módulo entram na lista de bloqueio', () => {
+    expect(TELAS_OCULTAS).toEqual(['/admin/dashboard'])
+  })
+
+  it('nenhuma tela oculta aparece em módulo visível', () => {
+    const visiveis = MODULOS_VISIVEIS.flatMap((m) => m.actions.map((a) => a.href))
+    for (const href of TELAS_OCULTAS) expect(visiveis).not.toContain(href)
   })
 })
