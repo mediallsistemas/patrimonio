@@ -117,3 +117,36 @@ describe('janela de sincronização', () => {
     expect(sincronizarChamados).not.toHaveBeenCalled()
   })
 })
+
+// A tela de triagem foi removida; este aviso passou a ser o unico sinal de que
+// algum ticket nao entrou. Se ele sumir, a recusa volta a ser silenciosa.
+describe('aviso de tickets nao importados', () => {
+  it('avisa no log quando algo cai na triagem, com a contagem por motivo', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    sincronizarChamados.mockResolvedValue({
+      buscados: 3, criados: 1, jaExistiam: 0, emTriagem: 2,
+      triagem: [
+        { trilogoTicketId: 1, motivo: 'ticket sem descrição', statusOrigem: null, descricao: null, endereco: null, companyId: null },
+        { trilogoTicketId: 2, motivo: 'ticket sem descrição', statusOrigem: null, descricao: null, endereco: null, companyId: null },
+      ],
+      vinculadosSoPorEmpresa: 0, janela: { inicio: '', fim: '' },
+    })
+
+    const { GET } = await carregarRota()
+    await GET(req({ authorization: `Bearer ${SEGREDO}` }))
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    const [msg, porMotivo] = warn.mock.calls[0]
+    expect(String(msg)).toContain('2 ticket(s) nao importado(s)')
+    expect(porMotivo).toEqual({ 'ticket sem descrição': 2 })
+    warn.mockRestore()
+  })
+
+  it('não polui o log quando tudo importa', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { GET } = await carregarRota()
+    await GET(req({ authorization: `Bearer ${SEGREDO}` }))
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+})

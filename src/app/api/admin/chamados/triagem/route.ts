@@ -5,9 +5,16 @@ import { prisma } from '@/lib/db'
 /**
  * Fila de tickets do Trílogo que a sincronização não conseguiu importar.
  *
- * É o outro lado da persistência da triagem: sem esta leitura, a fila existiria
- * no banco e ninguém veria. Somente super_admin — a lista atravessa unidades.
+ * NÃO tem tela. É proposital: com a sincronização automática de janela anual, o
+ * ticket recusado é reprocessado toda noite sozinho, então não havia o que
+ * alguém fizesse numa tela além de olhar. Manter uma tela para um caso que
+ * costuma ser vazio é peso morto no menu.
  *
+ * A rota fica porque é a única forma de ler a fila sem abrir o banco. Quando há
+ * recusa, o cron emite um console.warn com a contagem por motivo e aponta para
+ * cá — é assim que se descobre que existe algo a olhar.
+ *
+ * Somente super_admin: a lista atravessa unidades.
  * `?resolvidos=true` inclui os que já viraram chamado, para conferência.
  */
 
