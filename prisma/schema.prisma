@@ -351,6 +351,11 @@ model Chamado {
   patrimony            String?
   descricaoBemSnapshot String?
 
+  // Ticket de origem no Trilogo, quando o chamado nasceu de uma sincronizacao.
+  // Unico: e a chave de idempotencia — reexecutar a sincronizacao nao duplica.
+  // Nulo = chamado aberto pelo proprio sistema.
+  trilogoTicketId      Int?      @unique
+
   // Foto na abertura (base64, mesmo teto ~1.5MB dos demais fluxos)
   fotoAbertura         String?
 

@@ -31,6 +31,7 @@ const SELECT_LISTA = {
   blocoNomeSnapshot: true,
   patrimony: true,
   descricaoBemSnapshot: true,
+  trilogoTicketId: true,
   assumidoEm: true,
   finalizadoEm: true,
   criadoEm: true,

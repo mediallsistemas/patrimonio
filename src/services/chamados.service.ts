@@ -26,6 +26,8 @@ export interface ChamadoResumo {
   blocoNomeSnapshot: string | null
   patrimony: string | null
   descricaoBemSnapshot: string | null
+  /** Preenchido quando o chamado nasceu de um ticket do Trílogo. Nulo = aberto no sistema. */
+  trilogoTicketId: number | null
   assumidoEm: string | null
   finalizadoEm: string | null
   criadoEm: string
