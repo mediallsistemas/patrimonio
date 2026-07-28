@@ -6,14 +6,18 @@ import { timingSafeEqual } from '@/lib/crypto-utils'
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
 
+// Porta única: Authorization: Bearer <CRON_SECRET>.
+//
+// A Vercel envia esse header sozinha nas execuções de cron quando CRON_SECRET
+// existe nas env vars do projeto — não é preciso um segundo caminho, e é a
+// mesma porta da chamada manual (PM2 / curl).
+//
+// Havia aqui um atalho que aceitava qualquer requisição com x-vercel-cron-signature
+// preenchido, sem conferir o conteúdo. Como header de requisição é livre e o
+// middleware libera /api/*, um curl com o header em qualquer valor executava o cron.
 function autenticado(req: Request): boolean {
   if (!CRON_SECRET) return false
 
-  // Vercel Crons autenticam via header próprio (não Authorization)
-  const vercelCronHeader = req.headers.get('x-vercel-cron-signature') ?? ''
-  if (vercelCronHeader) return true // Vercel assina internamente com o projeto
-
-  // Chamada manual (PM2 / curl): Authorization: Bearer <CRON_SECRET>
   const auth = req.headers.get('authorization') ?? ''
   return timingSafeEqual(auth, `Bearer ${CRON_SECRET}`)
 }
