@@ -146,7 +146,8 @@ export interface ChamadoListaItem {
   tipo: string
   prioridade: string
   status: string
-  prazo: Date
+  /** Nulo quando a origem não informou deadline — ver estaAtrasado. */
+  prazo: Date | null
   atrasado: boolean
   ambienteNomeSnapshot: string | null
   blocoNomeSnapshot: string | null

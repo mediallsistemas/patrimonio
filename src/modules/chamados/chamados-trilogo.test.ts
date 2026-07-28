@@ -138,7 +138,7 @@ describe('converterTicket', () => {
       patrimony: 'PAT-00123',
       ambienteNomeSnapshot: 'Enfermaria 2',
     })
-    expect(r.chamado.prazo.toISOString()).toBe('2026-07-27T10:00:00.000Z')
+    expect(r.chamado.prazo?.toISOString()).toBe('2026-07-27T10:00:00.000Z')
     expect(r.chamado.criadoEm.toISOString()).toBe('2026-07-20T10:00:00.000Z')
   })
 
@@ -192,9 +192,20 @@ describe('converterTicket', () => {
     expect(r).toEqual({ ok: false, motivo: 'ticket sem descrição' })
   })
 
-  it('recusa ticket sem prazo válido', () => {
-    expect(converterTicket({ ...TICKET_BASE, deadline: null }).ok).toBe(false)
-    expect(converterTicket({ ...TICKET_BASE, deadline: 'não é data' }).ok).toBe(false)
+  // Recusar escondia trabalho vivo: 73 dos 219 tickets sem deadline na amostra
+  // de produção estavam abertos. Sem prazo o chamado entra e não fica atrasado.
+  it('ticket sem prazo entra, com prazo nulo', () => {
+    const r = converterTicket({ ...TICKET_BASE, deadline: null })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.chamado.prazo).toBeNull()
+  })
+
+  it('prazo inválido também vira nulo, não recusa', () => {
+    const r = converterTicket({ ...TICKET_BASE, deadline: 'não é data' })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.chamado.prazo).toBeNull()
   })
 
   it('recusa ticket sem data de criação válida', () => {

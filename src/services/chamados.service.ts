@@ -20,7 +20,8 @@ export interface ChamadoResumo {
   tipo: TipoChamado
   prioridade: PrioridadeChamado
   status: StatusChamado
-  prazo: string
+  /** Nulo quando a origem não informou deadline. */
+  prazo: string | null
   atrasado: boolean
   ambienteNomeSnapshot: string | null
   blocoNomeSnapshot: string | null

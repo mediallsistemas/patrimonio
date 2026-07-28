@@ -339,7 +339,10 @@ model Chamado {
   tipo                 String
   prioridade           String    @default("media") // 'baixa' | 'media' | 'alta' | 'urgente'
   status               String    @default("aberto") // 'aberto' | 'em_execucao' | 'finalizado' | 'cancelado'
-  prazo                DateTime
+  // Opcional: ticket do Trilogo frequentemente nao traz deadline (219 de 868 na
+  // amostra de producao). Inventar um prazo produziria atraso falso; sem prazo,
+  // estaAtrasado devolve false e a tela mostra "—".
+  prazo                DateTime?
 
   // Ambiente (snapshot preserva histórico se o ambiente for removido)
   ambienteId           String?

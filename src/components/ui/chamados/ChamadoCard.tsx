@@ -42,7 +42,8 @@ interface ChamadoCardProps {
   ) => void
 }
 
-function fmtData(iso: string) {
+function fmtData(iso: string | null) {
+  if (!iso) return '—'
   return format(new Date(iso), 'dd/MM/yyyy HH:mm', { locale: ptBR })
 }
 
@@ -114,7 +115,7 @@ function ChamadoCardBase({
             </span>
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="w-3 h-3" />
-              Prazo {fmtData(c.prazo)}
+              {c.prazo ? `Prazo ${fmtData(c.prazo)}` : 'Sem prazo'}
             </span>
             {c.responsavel && (
               <span className="inline-flex items-center gap-1">

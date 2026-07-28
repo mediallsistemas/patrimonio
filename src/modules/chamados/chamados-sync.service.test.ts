@@ -168,15 +168,24 @@ describe('triagem', () => {
     })
   })
 
-  it('ticket sem prazo válido é persistido na fila com o motivo', async () => {
+  it('ticket sem prazo entra com prazo nulo, não vai para a fila', async () => {
     responderTrilogo([ticket({ id: 9, deadline: null })])
+    const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
+
+    expect(r.criados).toBe(1)
+    expect(r.emTriagem).toBe(0)
+    expect(chamado.createMany.mock.calls[0][0].data[0].prazo).toBeNull()
+  })
+
+  it('ticket sem descrição é persistido na fila com o motivo', async () => {
+    responderTrilogo([ticket({ id: 9, description: null })])
     const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
 
     expect(r.criados).toBe(0)
     expect(r.emTriagem).toBe(1)
     const gravado = triagem.upsert.mock.calls[0][0]
     expect(gravado.where).toEqual({ trilogoTicketId: 9 })
-    expect(gravado.create.motivo).toContain('prazo')
+    expect(gravado.create.motivo).toContain('descrição')
     // O status cru vai para a fila mesmo quando a recusa foi por outro motivo.
     expect(gravado.create.statusOrigem).toBe('Aberto')
   })
@@ -207,6 +216,24 @@ describe('triagem', () => {
     expect(triagem.updateMany.mock.calls[0][0].where).toMatchObject({
       trilogoTicketId: { in: [1] },
       resolvidoEm: null,
+    })
+  })
+})
+
+describe('ticket sem bem vinculado', () => {
+  // Eram 695 de 868 na amostra de produção — quase todos 'Solicitações'. O
+  // filtro `assetId || patrimony` que existia deixava 80% do volume de fora.
+  it('entra como chamado, sem patrimônio', async () => {
+    responderTrilogo([ticket({ id: 4, assetId: null, patrimony: null, assetName: null,
+      buildingServiceTypeDescription: 'Solicitações' })])
+    const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
+
+    expect(r.criados).toBe(1)
+    expect(chamado.createMany.mock.calls[0][0].data[0]).toMatchObject({
+      trilogoTicketId: 4,
+      tipo: 'patrimonio',
+      trilogoAssetId: null,
+      patrimony: null,
     })
   })
 })

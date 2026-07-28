@@ -57,7 +57,7 @@ const SELECT_LISTA = {
   valorGastoCentavos: true,
 } as const
 
-function comAtraso<T extends { status: string; prazo: Date }>(chamado: T, agora: Date) {
+function comAtraso<T extends { status: string; prazo: Date | null }>(chamado: T, agora: Date) {
   return { ...chamado, atrasado: estaAtrasado(chamado, agora) }
 }
 

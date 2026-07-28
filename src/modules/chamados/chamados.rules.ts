@@ -84,10 +84,13 @@ export const STATUS_ABERTOS: readonly StatusChamado[] = ['aberto', 'em_execucao'
 
 // ── Atraso (derivado — nunca persistido) ────────────────────────────────────
 
+// Sem prazo não há atraso: o chamado importado do Trílogo pode não ter deadline
+// na origem, e marcar como atrasado o que não tem prazo seria inventar o dado.
 export function estaAtrasado(
-  chamado: { status: string; prazo: Date },
+  chamado: { status: string; prazo: Date | null },
   agora: Date = new Date(),
 ): boolean {
+  if (!chamado.prazo) return false
   return STATUS_ABERTOS.includes(chamado.status as StatusChamado) && chamado.prazo < agora
 }
 

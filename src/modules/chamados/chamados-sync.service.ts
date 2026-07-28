@@ -85,9 +85,10 @@ async function buscarTickets(inicio: string, fim: string): Promise<TicketTrilogo
   })
   if (!res.ok) throw new Error(`Trílogo respondeu ${res.status}`)
 
-  const data = (await res.json()) as TicketTrilogo[]
-  // Mesma regra da tela atual: só tickets com bem vinculado são de patrimônio.
-  return data.filter((t) => t.assetId || t.patrimony)
+  // Todos os tickets, com bem vinculado ou não. O filtro `assetId || patrimony`
+  // que existia aqui deixava 695 de 868 tickets de fora — quase sempre do tipo
+  // de serviço 'Solicitações', que é trabalho de manutenção como qualquer outro.
+  return (await res.json()) as TicketTrilogo[]
 }
 
 async function vinculos(): Promise<VinculoTenant[]> {

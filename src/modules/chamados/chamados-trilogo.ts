@@ -108,8 +108,12 @@ export function mapearPrioridade(priority: number | null | undefined): Prioridad
 }
 
 // ── Tipo de serviço ─────────────────────────────────────────────────────────
-// Só importamos tickets que têm bem vinculado (assetId/patrimony), então o padrão é
-// 'patrimonio'; elétrica e hidráulica são detectadas pela descrição do serviço.
+// Elétrica e hidráulica saem da descrição do serviço; o resto cai em
+// 'patrimonio'. Vale notar o que isso significa depois que passamos a importar
+// também os tickets sem bem vinculado: os 688 do tipo 'Solicitações' viram
+// chamado de patrimônio sem patrimônio — patrimônio genérico. É deliberado. Os
+// tipos disponíveis são só elétrica, hidráulica e patrimônio, e deixar esses
+// tickets de fora era pior: são 80% do volume e trabalho de manutenção real.
 
 export function mapearTipo(descricaoServico: string | null | undefined): TipoChamado {
   const t = normalizar(descricaoServico ?? '')
@@ -145,7 +149,7 @@ export interface ChamadoImportado {
   tipo: TipoChamado
   prioridade: PrioridadeChamado
   status: StatusChamado
-  prazo: Date
+  prazo: Date | null
   criadoEm: Date
   trilogoAssetId: number | null
   patrimony: string | null
@@ -182,12 +186,10 @@ export function converterTicket(ticket: TicketTrilogo): ResultadoConversao {
     return { ok: false, motivo: 'ticket sem data de criação válida' }
   }
 
-  // `prazo` é obrigatório no modelo. Sem deadline preferimos recusar a inventar um prazo
-  // que faria o chamado nascer atrasado (ou nunca atrasar) sem base real.
+  // Sem deadline o chamado entra sem prazo, e não atrasado. Recusar escondia
+  // trabalho vivo (73 tickets abertos na amostra de produção) e inventar um
+  // prazo produziria atraso falso — a coluna passou a aceitar nulo.
   const prazo = dataValida(ticket.deadline)
-  if (!prazo) {
-    return { ok: false, motivo: 'ticket sem prazo (deadline) válido' }
-  }
 
   const statusOrigem = (ticket.currentStatus?.actionDescription ?? '').trim() || null
   const status = mapearStatus(statusOrigem)
