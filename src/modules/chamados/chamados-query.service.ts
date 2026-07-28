@@ -86,6 +86,11 @@ export async function listar(
       ...(filtros.prioridade ? { prioridade: filtros.prioridade } : {}),
       ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
       ...(filtros.responsavelId ? { responsavelId: filtros.responsavelId } : {}),
+      // Bem vinculado pode vir do Trílogo (trilogoAssetId) ou de chamado aberto
+      // aqui informando o patrimônio — os dois contam.
+      ...(filtros.comBem
+        ? { OR: [{ trilogoAssetId: { not: null } }, { patrimony: { not: null } }] }
+        : {}),
     }
 
     // Com filtro de status explícito não há o que separar: uma consulta só.

@@ -28,22 +28,28 @@ const TICKET_BASE: TicketTrilogo = {
 }
 
 describe('mapearStatus', () => {
-  // 'Aberto' e o unico valor confirmado no repositorio (as telas de patrimonio
-  // contam abertos comparando com ele). Os outros tres sao a leitura mais
-  // provavel — por isso o texto cru vai junto para o banco.
-  it('reconhece o status confirmado', () => {
-    expect(mapearStatus('Aberto')).toBe('aberto')
+  // Os cinco valores que a API de produção devolve de fato, com a contagem
+  // observada em 868 tickets de 120 dias. Este teste é o registro disso —
+  // se a API passar a devolver outro texto, o mapa precisa saber.
+  it('cobre os cinco status reais da API', () => {
+    expect(mapearStatus('Executado')).toBe('finalizado')   // 697 ocorrências
+    expect(mapearStatus('Em Execução')).toBe('em_execucao') // 101
+    expect(mapearStatus('Aberto')).toBe('aberto')           //  66
+    expect(mapearStatus('Arquivado')).toBe('cancelado')     //   3
+    expect(mapearStatus('Cancelado')).toBe('cancelado')     //   1
+  })
+
+  // O mapa anterior era suposição: usava 'Concluído', que a API não devolve.
+  // 'Executado' não casava com nada e caía no padrão 'aberto' — 697 tickets já
+  // resolvidos virariam chamados abertos.
+  it('Executado não pode cair no padrão aberto', () => {
+    expect(mapearStatus('Executado')).not.toBe('aberto')
   })
 
   it('ignora acento, caixa e espaço', () => {
-    expect(mapearStatus('  ABERTO ')).toBe('aberto')
+    expect(mapearStatus('  EXECUTADO ')).toBe('finalizado')
+    expect(mapearStatus('em execucao')).toBe('em_execucao')
     expect(mapearStatus('CONCLUÍDO')).toBe('finalizado')
-    expect(mapearStatus('concluido')).toBe('finalizado')
-  })
-
-  it('mapeia os demais status esperados', () => {
-    expect(mapearStatus('Em andamento')).toBe('em_execucao')
-    expect(mapearStatus('Cancelado')).toBe('cancelado')
   })
 
   // Sumir como finalizado esconderia trabalho de verdade; aparecer na fila, não.
@@ -137,15 +143,15 @@ describe('converterTicket', () => {
   })
 
   // Todo ticket entra, concluído inclusive — a fila os mostra por último.
-  it('importa ticket concluído guardando o texto cru do status', () => {
+  it('importa ticket executado guardando o texto cru do status', () => {
     const r = converterTicket({
       ...TICKET_BASE,
-      currentStatus: { actionDescription: 'Concluído' },
+      currentStatus: { actionDescription: 'Executado' },
     })
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.chamado.status).toBe('finalizado')
-    expect(r.chamado.trilogoStatusOrigem).toBe('Concluído')
+    expect(r.chamado.trilogoStatusOrigem).toBe('Executado')
   })
 
   it('guarda o texto cru mesmo quando o status não é reconhecido', () => {
@@ -172,12 +178,12 @@ describe('converterTicket', () => {
   it('em execução na origem vira aberto aqui', () => {
     const r = converterTicket({
       ...TICKET_BASE,
-      currentStatus: { actionDescription: 'Em andamento' },
+      currentStatus: { actionDescription: 'Em Execução' },
     })
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.chamado.status).toBe('aberto')
-    expect(r.chamado.trilogoStatusOrigem).toBe('Em andamento')
+    expect(r.chamado.trilogoStatusOrigem).toBe('Em Execução')
   })
 
   // Recusar é melhor que inventar: estes vão para a fila de triagem com o motivo.

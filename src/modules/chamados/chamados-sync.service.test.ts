@@ -157,14 +157,14 @@ describe('triagem', () => {
     })
   })
 
-  it('ticket concluído na origem entra como finalizado', async () => {
-    responderTrilogo([ticket({ id: 9, currentStatus: { actionDescription: 'Concluído' } })])
+  it('ticket executado na origem entra como finalizado', async () => {
+    responderTrilogo([ticket({ id: 9, currentStatus: { actionDescription: 'Executado' } })])
     const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
 
     expect(r.criados).toBe(1)
     expect(chamado.createMany.mock.calls[0][0].data[0]).toMatchObject({
       status: 'finalizado',
-      trilogoStatusOrigem: 'Concluído',
+      trilogoStatusOrigem: 'Executado',
     })
   })
 

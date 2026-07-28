@@ -1,69 +1,69 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, subMonths } from 'date-fns'
-import * as adminPatrimonioService from '@/services/admin-patrimonio.service'
+import * as chamadosService from '@/services/chamados.service'
+import type { ChamadoResumo } from '@/services/chamados.service'
+import { STATUS_CHAMADO_LABEL, type StatusChamado } from '@/modules/chamados/chamados.types'
 
-export interface Ticket {
-  id: number
-  description: string
-  creationDate: string
-  deadline: string
-  assetId: number
-  assetName: string
-  assetTypeId: number
-  assetTypeName: string
-  patrimony: string
-  companyName: string
-  departmentName: string
-  departmentFullAddress: string
-  assigneeName: string
-  priority: number
-  currentStatus: { actionDescription: string }
-  buildingServiceTypeDescription: string
-}
+// Fonte das telas de patrimônio.
+//
+// Antes isto batia na API do Trílogo a cada abertura de tela. Agora lê chamados
+// com bem vinculado, que é onde os tickets do Trílogo passam a viver depois da
+// sincronização — e onde já viviam os chamados abertos aqui informando o
+// patrimônio. É a unificação: as duas origens na mesma lista.
+//
+// O recorte por data saiu junto com a leitura ao vivo: a lista já vem ordenada
+// pela fila (vivos primeiro, terminais no fim) e limitada no servidor.
+
+export type ItemPatrimonio = ChamadoResumo
 
 export function usePatrimonio() {
-  const hoje = new Date()
-  const [start, setStart]       = useState(format(subMonths(hoje, 3), 'yyyy-MM-dd'))
-  const [end, setEnd]           = useState(format(hoje, 'yyyy-MM-dd'))
-  const [search, setSearch]     = useState('')
-  const [statusFiltro, setStatusFiltro] = useState('')
+  const [search, setSearch] = useState('')
+  const [statusFiltro, setStatusFiltro] = useState<StatusChamado | ''>('')
 
-  const { data = [], isLoading, isError, refetch } = useQuery<Ticket[]>({
-    queryKey: ['trilogo-patrimonio', start, end],
-    queryFn: () => adminPatrimonioService.listarChamados(start, end),
+  const { data = [], isLoading, isError, refetch } = useQuery<ChamadoResumo[]>({
+    queryKey: ['chamados-patrimonio'],
+    queryFn: () => chamadosService.listar({ comBem: true }),
   })
 
-  const filtrado = data.filter((t) => {
-    const q = search.toLowerCase()
-    const matchTexto =
-      !q ||
-      t.patrimony?.toLowerCase().includes(q) ||
-      t.assetName?.toLowerCase().includes(q) ||
-      t.description?.toLowerCase().includes(q) ||
-      t.companyName?.toLowerCase().includes(q)
-    const matchStatus =
-      !statusFiltro ||
-      (t.currentStatus?.actionDescription ?? '') === statusFiltro
-    return matchTexto && matchStatus
-  })
+  const filtrado = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return data.filter((c) => {
+      const matchTexto =
+        !q ||
+        c.patrimony?.toLowerCase().includes(q) ||
+        c.descricaoBemSnapshot?.toLowerCase().includes(q) ||
+        c.titulo?.toLowerCase().includes(q) ||
+        c.descricao?.toLowerCase().includes(q) ||
+        c.tenant?.nome?.toLowerCase().includes(q)
+      const matchStatus = !statusFiltro || c.status === statusFiltro
+      return matchTexto && matchStatus
+    })
+  }, [data, search, statusFiltro])
 
-  const total    = data.length
-  const abertos  = data.filter((t) => t.currentStatus?.actionDescription === 'Aberto').length
-  const urgentes = data.filter((t) => t.priority >= 3).length
-  const tipos    = [...new Set(data.map((t) => t.assetTypeName))].length
+  const stats = useMemo(() => ({
+    total: data.length,
+    abertos: data.filter((c) => c.status === 'aberto').length,
+    emExecucao: data.filter((c) => c.status === 'em_execucao').length,
+    // Substitui o contador antigo de "urgentes", que somava priority >= 3 do
+    // Trílogo. Na prática ele mostrava sempre zero: todos os 868 tickets da API
+    // vêm com priority 2. Atrasado é derivado do prazo e diz algo de verdade.
+    atrasados: data.filter((c) => c.atrasado).length,
+  }), [data])
 
-  const statusDisponiveis = [...new Set(
-    data.map((t) => t.currentStatus?.actionDescription).filter(Boolean)
-  )].sort() as string[]
+  // Só os status presentes na lista — nada de oferecer filtro que não filtra.
+  const statusDisponiveis = useMemo(() => {
+    const presentes = [...new Set(data.map((c) => c.status))] as StatusChamado[]
+    return presentes
+      .sort()
+      .map((s) => ({ valor: s, rotulo: STATUS_CHAMADO_LABEL[s] ?? s }))
+  }, [data])
 
   return {
     filtrado, isLoading, isError, refetch,
-    start, setStart, end, setEnd,
     search, setSearch,
     statusFiltro, setStatusFiltro, statusDisponiveis,
-    stats: { total, abertos, urgentes, tipos },
+    stats,
   }
 }

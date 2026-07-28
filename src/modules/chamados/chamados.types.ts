@@ -112,6 +112,11 @@ export const FiltrosChamadosSchema = z.object({
   atrasados: z
     .preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean())
     .optional(),
+  // Só chamados com bem patrimonial vinculado — é o recorte das telas de
+  // patrimônio, que antes liam o Trílogo ao vivo.
+  comBem: z
+    .preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean())
+    .optional(),
 })
 export type FiltrosChamados = z.infer<typeof FiltrosChamadosSchema>
 

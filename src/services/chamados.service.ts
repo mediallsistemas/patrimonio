@@ -77,6 +77,8 @@ export interface FiltrosChamados {
   tipo?: TipoChamado
   responsavelId?: string
   atrasados?: boolean
+  /** Só chamados com bem patrimonial vinculado. */
+  comBem?: boolean
 }
 
 function unwrap<T>(res: { data: T }): T {
@@ -90,6 +92,7 @@ export async function listar(filtros: FiltrosChamados = {}): Promise<ChamadoResu
   if (filtros.tipo) params.set('tipo', filtros.tipo)
   if (filtros.responsavelId) params.set('responsavelId', filtros.responsavelId)
   if (filtros.atrasados) params.set('atrasados', 'true')
+  if (filtros.comBem) params.set('comBem', 'true')
   const qs = params.toString()
   return unwrap(await api.get<{ data: ChamadoResumo[] }>(`chamados${qs ? `?${qs}` : ''}`))
 }

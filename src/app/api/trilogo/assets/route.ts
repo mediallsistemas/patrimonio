@@ -1,6 +1,7 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
 import { prismaAuth } from '@/lib/db-auth'
+import { visivelPara, type VinculoTrilogo } from '@/modules/trilogo/escopo'
 
 const TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
@@ -91,19 +92,27 @@ export async function GET(req: Request): Promise<Response> {
 
       const tenants = await prismaAuth.tenant.findMany({
         where: { id: { in: tenantIds } },
-        select: { trilogoCompanyId: true },
+        select: { slug: true, nome: true, trilogoCompanyId: true, trilogoProjectName: true },
       })
-      const allowedCompanyIds = tenants
+      const vinculos: VinculoTrilogo[] = tenants
         .filter((t) => t.trilogoCompanyId !== null)
-        .map((t) => String(t.trilogoCompanyId))
+        .map((t) => ({
+          trilogoCompanyId: t.trilogoCompanyId!,
+          trilogoProjectName: t.trilogoProjectName,
+          slug: t.slug,
+          nome: t.nome,
+        }))
 
-      if (allowedCompanyIds.length === 0) return forbidden()
+      if (vinculos.length === 0) return forbidden()
       if (searchParams.get('only') === 'empresas') return forbidden()
       if (!companyId) return badRequest('companyId obrigatório')
-      if (!allowedCompanyIds.includes(companyId)) return forbidden()
+      if (!vinculos.some((v) => String(v.trilogoCompanyId) === companyId)) return forbidden()
 
+      // Filtra pelas unidades do usuário, não pela empresa inteira: uma empresa
+      // agrupa vários hospitais, e um viewer de duas unidades não deve enxergar
+      // os bens das outras que dividem o mesmo companyId.
       const all = await fetchAll()
-      return ok(all.filter((a) => String(a['companyId']) === companyId))
+      return ok(all.filter((a) => visivelPara(a, vinculos)))
     }
 
     // tenant_admin e operator_patrimonio: restritos à empresa do próprio tenant
@@ -112,18 +121,25 @@ export async function GET(req: Request): Promise<Response> {
 
       const tenant = await prismaAuth.tenant.findUnique({
         where: { id: session.tenantId },
-        select: { trilogoCompanyId: true },
+        select: { slug: true, nome: true, trilogoCompanyId: true, trilogoProjectName: true },
       })
       if (!tenant?.trilogoCompanyId) return forbidden()
 
-      const allowedCompanyId = String(tenant.trilogoCompanyId)
+      const vinculo: VinculoTrilogo = {
+        trilogoCompanyId: tenant.trilogoCompanyId,
+        trilogoProjectName: tenant.trilogoProjectName,
+        slug: tenant.slug,
+        nome: tenant.nome,
+      }
 
       if (searchParams.get('only') === 'empresas') return forbidden()
       if (!companyId) return badRequest('companyId obrigatório')
-      if (companyId !== allowedCompanyId) return forbidden()
+      if (companyId !== String(tenant.trilogoCompanyId)) return forbidden()
 
+      // Só os bens da unidade. Antes vinham os da empresa inteira — no Amapá
+      // isso significa o admin do HRPG vendo os bens da UEI e da UPA Zona Sul.
       const all = await fetchAll()
-      return ok(all.filter((a) => String(a['companyId']) === allowedCompanyId))
+      return ok(all.filter((a) => visivelPara(a, [vinculo])))
     }
 
     if (searchParams.get('only') === 'empresas') {

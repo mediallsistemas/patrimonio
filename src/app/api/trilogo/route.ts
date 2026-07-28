@@ -1,6 +1,7 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
 import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
 import { prismaAuth } from '@/lib/db-auth'
+import { visivelPara, type VinculoTrilogo } from '@/modules/trilogo/escopo'
 
 const TRILOGO_TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
@@ -21,7 +22,7 @@ export async function GET(req: Request): Promise<Response> {
 
   // viewer: filtra pelos projetos de todos os seus tenants vinculados
   // tenant_admin / operator_patrimonio: filtra pelo próprio tenant
-  let allowedProjects: { companyId: number; projectName: string | null }[] = []
+  let vinculos: VinculoTrilogo[] = []
 
   if (session.role !== 'super_admin') {
     const tenantIds =
@@ -35,14 +36,19 @@ export async function GET(req: Request): Promise<Response> {
 
     const tenants = await prismaAuth.tenant.findMany({
       where: { id: { in: tenantIds } },
-      select: { trilogoCompanyId: true, trilogoProjectName: true },
+      select: { slug: true, nome: true, trilogoCompanyId: true, trilogoProjectName: true },
     })
 
-    allowedProjects = tenants
+    vinculos = tenants
       .filter((t) => t.trilogoCompanyId !== null)
-      .map((t) => ({ companyId: t.trilogoCompanyId!, projectName: t.trilogoProjectName ?? null }))
+      .map((t) => ({
+        trilogoCompanyId: t.trilogoCompanyId!,
+        trilogoProjectName: t.trilogoProjectName,
+        slug: t.slug,
+        nome: t.nome,
+      }))
 
-    if (allowedProjects.length === 0) return forbidden()
+    if (vinculos.length === 0) return forbidden()
   }
 
   try {
@@ -56,16 +62,11 @@ export async function GET(req: Request): Promise<Response> {
     const data = (await res.json()) as Record<string, unknown>[]
     let patrimonio = data.filter((t) => t['assetId'] || t['patrimony'])
 
-    if (allowedProjects.length > 0) {
-      patrimonio = patrimonio.filter((t) => {
-        const companyId = Number(t['companyId'])
-        const addr = String(t['departmentFullAddress'] ?? '').toUpperCase()
-        return allowedProjects.some(({ companyId: cid, projectName }) => {
-          if (companyId !== cid) return false
-          if (!projectName) return true
-          return addr.includes(projectName.toUpperCase())
-        })
-      })
+    // Recorte por unidade. Antes, tenant sem projeto configurado passava por
+    // `return true` e enxergava todos os bens da empresa; agora vale a mesma
+    // regra da importação, que fecha quando nada identifica a unidade.
+    if (vinculos.length > 0) {
+      patrimonio = patrimonio.filter((t) => visivelPara(t, vinculos))
     }
 
     return ok(patrimonio)

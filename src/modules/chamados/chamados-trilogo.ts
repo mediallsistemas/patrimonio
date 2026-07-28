@@ -1,4 +1,10 @@
 import type { PrioridadeChamado, StatusChamado, TipoChamado } from './chamados.types'
+import {
+  casaPorNome,
+  casaPorProjeto,
+  tokensDe,
+  type VinculoTrilogo,
+} from '@/modules/trilogo/escopo'
 
 // Conversão de um ticket do Trílogo para os campos de um Chamado.
 // Puro: sem I/O, sem Prisma, sem fetch — toda a tradução vive aqui e é testável isolada.
@@ -28,25 +34,36 @@ export interface TicketTrilogo {
 // Todo ticket é importado, concluído inclusive — a fila mostra os terminais por
 // último (ver `listar` em chamados-query.service).
 //
-// ATENÇÃO ao mexer neste mapa. O único valor confirmado no repositório é
-// 'Aberto': as telas /admin/patrimonio e /viewer/patrimonio contam os abertos
-// comparando `currentStatus.actionDescription === 'Aberto'`. Os outros três são
-// a leitura mais provável e ainda não foram vistos vindo da API.
+// Os valores abaixo vieram da API de produção — 868 tickets de uma janela de
+// 120 dias, conferidos em 28/07/2026:
 //
-// O que torna isso seguro é `trilogoStatusOrigem`: o texto cru vai junto para o
-// banco em toda importação. Se um destes estiver errado, a correção é um UPDATE
-// sobre os chamados afetados — não informação perdida. E o valor real aparece
-// no filtro de status de /admin/patrimonio, que é montado a partir dos dados.
+//   697  'Executado'      → finalizado
+//   101  'Em Execução'    → em_execucao (entra como 'aberto', ver converterTicket)
+//    66  'Aberto'         → aberto
+//     3  'Arquivado'      → cancelado
+//     1  'Cancelado'      → cancelado
 //
-// Status desconhecido cai em 'aberto' de propósito: aparece na fila para alguém
-// tratar. O inverso — sumir como finalizado — esconderia trabalho de verdade.
+// Vale registrar por que este comentário existe: o mapa anterior era suposição
+// e usava 'Concluído'/'Em andamento', que a API não devolve. Como 'Executado'
+// não casava com nada, os 697 tickets já resolvidos cairiam no padrão 'aberto'
+// — 80% da importação viraria trabalho fantasma numa fila que a equipe usa para
+// se organizar.
+//
+// 'Arquivado' → cancelado é interpretação: arquivado parece ser fechado sem
+// execução. São 3 tickets, e `trilogoStatusOrigem` guarda o texto cru, então
+// mudar de ideia é um UPDATE.
+//
+// Status novo do lado do Trílogo cai em 'aberto' de propósito: aparece na fila
+// para alguém tratar. O inverso — sumir como finalizado — esconderia trabalho.
 
 const STATUS_POR_DESCRICAO: Record<string, StatusChamado> = {
   'aberto': 'aberto',
-  'em andamento': 'em_execucao',
   'em execucao': 'em_execucao',
+  'em andamento': 'em_execucao',
+  'executado': 'finalizado',
   'concluido': 'finalizado',
   'finalizado': 'finalizado',
+  'arquivado': 'cancelado',
   'cancelado': 'cancelado',
 }
 
@@ -200,42 +217,14 @@ export function converterTicket(ticket: TicketTrilogo): ResultadoConversao {
 }
 
 // ── Resolução da unidade ────────────────────────────────────────────────────
-// Mesma heurística já usada por /api/trilogo: companyId igual e, quando o tenant tem
-// projeto definido, o nome do projeto contido no endereço do departamento.
+// As regras de casamento vivem em modules/trilogo/escopo — as mesmas decidem o
+// que cada usuário pode ver nas rotas do Trílogo. Divergir aqui significaria
+// importar um ticket para uma unidade que não pode nem enxergá-lo.
 
-export interface VinculoTenant {
+export interface VinculoTenant extends VinculoTrilogo {
   tenantId: string
-  trilogoCompanyId: number
-  trilogoProjectName: string | null
-  /** Identificadores do próprio tenant, usados quando não há projeto configurado. */
   slug: string
   nome: string
-}
-
-/** Palavras do texto com 3+ caracteres. Corta "de", "do", "da" sem lista de stopwords. */
-function tokensDe(texto: string): string[] {
-  return texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toUpperCase()
-    .split(/[^A-Z0-9]+/)
-    .filter((t) => t.length >= 3)
-}
-
-/**
- * Casa o tenant pelo próprio nome ou slug contra o endereço do departamento.
- *
- * Exige que TODAS as palavras do candidato apareçam como palavra inteira no
- * endereço. Palavra inteira, e não trecho, porque "PG" dentro de "HRPG" casaria
- * o hospital errado; e todas as palavras porque "Hospital Regional" sozinho
- * casaria com qualquer hospital regional da mesma empresa.
- */
-function casaPorNome(vinculo: VinculoTenant, palavrasEndereco: Set<string>): boolean {
-  for (const candidato of [vinculo.slug, vinculo.nome]) {
-    const palavras = tokensDe(candidato ?? '')
-    if (palavras.length > 0 && palavras.every((p) => palavrasEndereco.has(p))) return true
-  }
-  return false
 }
 
 /**
@@ -273,16 +262,16 @@ export function resolverTenant(
   // 1. Projeto configurado. Continua com precedência e com a mesma comparação por
   //    trecho usada em /api/trilogo e na sincronização de ambientes — mudar isso
   //    aqui divergiria das outras três telas que já filtram assim.
-  const porProjeto = daEmpresa.filter(
-    (v) => v.trilogoProjectName && endereco.includes(v.trilogoProjectName.toUpperCase()),
-  )
+  const porProjeto = daEmpresa.filter((v) => casaPorProjeto(v, endereco))
   if (porProjeto.length === 1) return { tenantId: porProjeto[0].tenantId, origem: 'projeto' }
   if (porProjeto.length > 1) return null // dois projetos no mesmo endereço: ambíguo
 
-  // 2. Nome do próprio tenant no endereço. O Trílogo traz o nome do hospital ali,
-  //    então normalmente ele identifica a unidade sem configuração nenhuma.
+  // 2. Nome do próprio tenant no endereço — só para quem NÃO tem projeto
+  //    configurado. Para quem tem, o projeto já foi consultado acima e a
+  //    resposta foi não; insistir pelo nome alargaria o casamento em vez de
+  //    restringi-lo (ver a nota sobre a Sede em modules/trilogo/escopo).
   const palavras = new Set(tokensDe(endereco))
-  const porNome = daEmpresa.filter((v) => casaPorNome(v, palavras))
+  const porNome = daEmpresa.filter((v) => !v.trilogoProjectName && casaPorNome(v, palavras))
   if (porNome.length === 1) return { tenantId: porNome[0].tenantId, origem: 'nome' }
   if (porNome.length > 1) return null
 
