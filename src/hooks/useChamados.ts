@@ -195,7 +195,7 @@ export function useFotosChamado(id: string | null) {
 }
 
 // Dashboard gerencial — usado apenas nas telas de admin
-export function useDashboardChamados(periodo?: { de?: string; ate?: string }) {
+export function useDashboardChamados(periodo?: { de?: string; ate?: string; tenantId?: string }) {
   return useQuery({
     queryKey: ['chamados-dashboard', periodo],
     queryFn: () => chamadosService.dashboard(periodo),

@@ -14,6 +14,8 @@ import ModalFinalizarChamado from '@/components/ui/modal/ModalFinalizarChamado'
 import ModalCancelarChamado from '@/components/ui/modal/ModalCancelarChamado'
 import { useAuth } from '@/hooks/useAuth'
 import { useChamados, useDashboardChamados } from '@/hooks/useChamados'
+import { useQuery } from '@tanstack/react-query'
+import { listarTenants } from '@/services/admin-tenants.service'
 import { formatarBRL } from '@/utils/moeda'
 import {
   PRIORIDADE_CHAMADO_LABEL,
@@ -39,10 +41,26 @@ export default function DashboardChamadosPage() {
 
   const { user } = useAuth()
   const isSuperAdmin = user?.role === 'super_admin'
+  const isViewer = user?.role === 'viewer'
+
+  // Filtro de unidade só faz sentido para quem enxerga mais de uma. O
+  // tenant_admin já está preso à própria unidade pelo escopo da sessão —
+  // oferecer um seletor com uma opção só seria ruído.
+  const podeFiltrarUnidade = isSuperAdmin || isViewer
+  const [unidadeId, setUnidadeId] = useState('')
+
+  // /api/admin/tenants já devolve o recorte certo: todas para o super_admin,
+  // só as vinculadas para o viewer.
+  const { data: unidades = [] } = useQuery({
+    queryKey: ['unidades-filtro-chamados'],
+    queryFn: listarTenants,
+    enabled: podeFiltrarUnidade,
+  })
 
   const { data, isLoading, isError } = useDashboardChamados({
     de: `${de}T00:00:00`,
     ate: `${ate}T23:59:59`,
+    ...(unidadeId ? { tenantId: unidadeId } : {}),
   })
 
   const chamadosHook = useChamados({ ehAdmin: true })
@@ -148,6 +166,28 @@ export default function DashboardChamadosPage() {
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
               />
             </div>
+
+            {podeFiltrarUnidade && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Unidade</label>
+                <select
+                  value={unidadeId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setUnidadeId(id)
+                    // Indicadores e lista andam juntos — filtrar só um dos dois
+                    // mostraria contadores que não batem com as linhas abaixo.
+                    setFiltros((f) => ({ ...f, tenantId: id || undefined }))
+                  }}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 min-w-[180px]"
+                >
+                  <option value="">Todas as unidades</option>
+                  {unidades.map((u) => (
+                    <option key={u.id} value={u.id}>{u.nome}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </Card>
 

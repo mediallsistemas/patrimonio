@@ -112,6 +112,9 @@ export const FiltrosChamadosSchema = z.object({
   atrasados: z
     .preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean())
     .optional(),
+  // Unidade escolhida no filtro. RESTRINGE dentro do escopo da sessão, nunca o
+  // amplia — ver como é aplicado em chamados-query.service.
+  tenantId: z.string().uuid().optional(),
   // Só chamados com bem patrimonial vinculado — é o recorte das telas de
   // patrimônio, que antes liam o Trílogo ao vivo.
   comBem: z
