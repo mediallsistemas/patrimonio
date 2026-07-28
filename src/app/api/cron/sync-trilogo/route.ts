@@ -84,6 +84,21 @@ async function handler(req: Request): Promise<Response> {
       erroChamados = (err as Error).message
     }
 
+    // Ticket recusado não tem mais tela. Sem este aviso, ele existiria só na
+    // tabela tickets_trilogo_triagem e ninguém ficaria sabendo — que era
+    // exatamente o problema que a tabela resolveu.
+    if (chamados && chamados.emTriagem > 0) {
+      const porMotivo = chamados.triagem.reduce<Record<string, number>>((acc, t) => {
+        acc[t.motivo] = (acc[t.motivo] ?? 0) + 1
+        return acc
+      }, {})
+      console.warn(
+        `[cron/sync-trilogo] ${chamados.emTriagem} ticket(s) nao importado(s):`,
+        porMotivo,
+        '— detalhe em GET /api/admin/chamados/triagem',
+      )
+    }
+
     return ok({
       blocosCriados,
       ambientesCriados,
