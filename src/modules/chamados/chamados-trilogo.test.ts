@@ -168,10 +168,18 @@ describe('converterTicket', () => {
 })
 
 describe('resolverTenant', () => {
+  const v = (
+    tenantId: string,
+    trilogoCompanyId: number,
+    trilogoProjectName: string | null,
+    slug = tenantId,
+    nome = tenantId,
+  ) => ({ tenantId, trilogoCompanyId, trilogoProjectName, slug, nome })
+
   const VINCULOS = [
-    { tenantId: 't-hrpg', trilogoCompanyId: 168, trilogoProjectName: 'HRPG' },
-    { tenantId: 't-uei', trilogoCompanyId: 168, trilogoProjectName: 'UEI' },
-    { tenantId: 't-solo', trilogoCompanyId: 200, trilogoProjectName: null },
+    v('t-hrpg', 168, 'HRPG', 'hrpg', 'Hospital Regional de Pedra Grande'),
+    v('t-uei', 168, 'UEI', 'uei', 'Unidade Estadual Integrada'),
+    v('t-solo', 200, null, 'solo', 'Hospital Solo'),
   ]
 
   it('resolve pelo projeto contido no endereço', () => {
@@ -181,51 +189,99 @@ describe('resolverTenant', () => {
     })
   })
 
-  // Casamento fraco: nada além do companyId confirma a unidade. Continua sendo
-  // importado, mas a origem sai no resultado da sincronização para conferência —
-  // se a empresa tiver um hospital não cadastrado, é aqui que ele erra.
-  it('resolve por companyId quando o tenant não tem projeto, marcando a origem', () => {
-    const t = { ...TICKET_BASE, companyId: 200, departmentFullAddress: 'QUALQUER LUGAR' }
-    expect(resolverTenant(t, VINCULOS)).toEqual({ tenantId: 't-solo', origem: 'empresa' })
-  })
-
   it('empresa sem tenant correspondente não resolve', () => {
     expect(resolverTenant({ ...TICKET_BASE, companyId: 999 }, VINCULOS)).toBeNull()
   })
 
-  it('endereço que não cita projeto nenhum não resolve', () => {
-    const t = { ...TICKET_BASE, departmentFullAddress: 'ENDERECO SEM PROJETO' }
+  it('ticket sem companyId não resolve', () => {
+    expect(resolverTenant({ ...TICKET_BASE, companyId: null }, VINCULOS)).toBeNull()
+  })
+
+  // ── Degrau do meio: o endereço do Trílogo traz o nome do hospital ──────────
+
+  it('sem projeto configurado, o slug do tenant no endereço resolve', () => {
+    const vinculos = [v('t-a', 168, null, 'hrpg', 'Hospital Regional de Pedra Grande')]
+    expect(resolverTenant(TICKET_BASE, vinculos)).toEqual({ tenantId: 't-a', origem: 'nome' })
+  })
+
+  it('o nome completo do tenant também resolve, ignorando acento', () => {
+    const vinculos = [v('t-a', 168, null, 'unidade-leste', 'Unidade Integrada Leste')]
+    const t = { ...TICKET_BASE, departmentFullAddress: 'UNIDADE INTEGRADA LESTE - ALA 2' }
+    expect(resolverTenant(t, vinculos)).toEqual({ tenantId: 't-a', origem: 'nome' })
+  })
+
+  // Nos dois casos abaixo há um segundo tenant na empresa de propósito: sem ele,
+  // o último degrau (empresa com um tenant só) assumiria e esconderia o que se
+  // quer verificar — que o casamento por nome NÃO ocorreu.
+
+  // Palavra inteira, não trecho: "PG" dentro de "HRPG" casaria o hospital errado.
+  it('sigla que é só um pedaço de outra palavra não casa', () => {
+    const vinculos = [v('t-pg', 168, null, 'pg', 'PG'), v('t-outro', 168, null, 'zzz', 'ZZZ')]
+    expect(resolverTenant(TICKET_BASE, vinculos)).toBeNull()
+  })
+
+  // Todas as palavras, não qualquer uma: senão "Hospital Regional" casaria com
+  // qualquer hospital regional da mesma empresa.
+  it('nome parcialmente presente não casa', () => {
+    const vinculos = [
+      v('t-a', 168, null, 'hospital-regional-sul', 'Hospital Regional Sul'),
+      v('t-outro', 168, null, 'zzz', 'ZZZ'),
+    ]
+    const t = { ...TICKET_BASE, departmentFullAddress: 'HOSPITAL REGIONAL NORTE - ALA 1' }
+    expect(resolverTenant(t, vinculos)).toBeNull()
+  })
+
+  it('dois tenants casando por nome vão para triagem', () => {
+    const vinculos = [
+      v('t-a', 168, null, 'hrpg', 'HRPG'),
+      v('t-b', 168, null, 'hrpg-anexo', 'HRPG'),
+    ]
+    expect(resolverTenant(TICKET_BASE, vinculos)).toBeNull()
+  })
+
+  it('projeto configurado vence o casamento por nome', () => {
+    const vinculos = [
+      v('t-projeto', 168, 'HRPG', 'outro', 'Outro Nome'),
+      v('t-nome', 168, null, 'hrpg', 'HRPG'),
+    ]
+    expect(resolverTenant(TICKET_BASE, vinculos)).toEqual({
+      tenantId: 't-projeto',
+      origem: 'projeto',
+    })
+  })
+
+  // ── Último degrau: só a empresa ───────────────────────────────────────────
+
+  // Nada além do companyId confirma a unidade. Continua sendo importado, mas a
+  // origem sai no resultado da sincronização para conferência — se a empresa
+  // tiver um hospital não cadastrado, é aqui que ele erra.
+  it('resolve por companyId quando nada mais identifica, marcando a origem', () => {
+    const t = { ...TICKET_BASE, companyId: 200, departmentFullAddress: 'QUALQUER LUGAR' }
+    expect(resolverTenant(t, VINCULOS)).toEqual({ tenantId: 't-solo', origem: 'empresa' })
+  })
+
+  it('endereço que não cita projeto nem nome, com empresa dividida, não resolve', () => {
+    const t = { ...TICKET_BASE, departmentFullAddress: 'ENDERECO ANONIMO 123' }
     expect(resolverTenant(t, VINCULOS)).toBeNull()
   })
 
   // Ambiguidade e chute são coisas diferentes: dois candidatos vão para triagem.
-  it('dois tenants candidatos não resolvem — vai para triagem', () => {
+  it('dois tenants sem nada que os distinga não resolvem', () => {
     const ambiguo = [
-      { tenantId: 't-a', trilogoCompanyId: 168, trilogoProjectName: null },
-      { tenantId: 't-b', trilogoCompanyId: 168, trilogoProjectName: null },
+      v('t-a', 168, null, 'aaa', 'AAA'),
+      v('t-b', 168, null, 'bbb', 'BBB'),
     ]
-    expect(resolverTenant(TICKET_BASE, ambiguo)).toBeNull()
-  })
-
-  it('projeto que casa vence quem não tem projeto na mesma empresa', () => {
-    const misto = [
-      { tenantId: 't-com', trilogoCompanyId: 168, trilogoProjectName: 'HRPG' },
-      { tenantId: 't-sem', trilogoCompanyId: 168, trilogoProjectName: null },
-    ]
-    expect(resolverTenant(TICKET_BASE, misto)).toEqual({ tenantId: 't-com', origem: 'projeto' })
+    const t = { ...TICKET_BASE, departmentFullAddress: 'ENDERECO ANONIMO 123' }
+    expect(resolverTenant(t, ambiguo)).toBeNull()
   })
 
   // Antes o tenant sem projeto abocanhava tudo que não casasse por projeto.
-  it('sem casar projeto, tenant sem projeto na empresa dividida vai para triagem', () => {
+  it('sem casar projeto nem nome, tenant sem projeto na empresa dividida vai para triagem', () => {
     const misto = [
-      { tenantId: 't-com', trilogoCompanyId: 168, trilogoProjectName: 'HRPG' },
-      { tenantId: 't-sem', trilogoCompanyId: 168, trilogoProjectName: null },
+      v('t-com', 168, 'HRPG', 'com', 'Com Projeto'),
+      v('t-sem', 168, null, 'sem', 'Sem Projeto'),
     ]
     const t = { ...TICKET_BASE, departmentFullAddress: 'OUTRO ENDERECO QUALQUER' }
     expect(resolverTenant(t, misto)).toBeNull()
-  })
-
-  it('ticket sem companyId não resolve', () => {
-    expect(resolverTenant({ ...TICKET_BASE, companyId: null }, VINCULOS)).toBeNull()
   })
 })

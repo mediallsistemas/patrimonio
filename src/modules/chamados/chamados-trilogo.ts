@@ -198,19 +198,53 @@ export interface VinculoTenant {
   tenantId: string
   trilogoCompanyId: number
   trilogoProjectName: string | null
+  /** Identificadores do próprio tenant, usados quando não há projeto configurado. */
+  slug: string
+  nome: string
+}
+
+/** Palavras do texto com 3+ caracteres. Corta "de", "do", "da" sem lista de stopwords. */
+function tokensDe(texto: string): string[] {
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/)
+    .filter((t) => t.length >= 3)
 }
 
 /**
- * `projeto` — o nome do projeto do tenant aparece no endereço do departamento.
- * É a evidência forte: liga o ticket àquela unidade especificamente.
+ * Casa o tenant pelo próprio nome ou slug contra o endereço do departamento.
  *
- * `empresa` — casou só pelo companyId, porque o tenant não tem projeto
- * configurado. Evidência fraca: se a empresa tiver um hospital que NÃO está
- * cadastrado como tenant, os tickets dele caem no tenant cadastrado, e o
- * índice único impede reimportar corrigido depois. Por isso a origem do
- * casamento sai no resultado da sincronização, em vez de sumir.
+ * Exige que TODAS as palavras do candidato apareçam como palavra inteira no
+ * endereço. Palavra inteira, e não trecho, porque "PG" dentro de "HRPG" casaria
+ * o hospital errado; e todas as palavras porque "Hospital Regional" sozinho
+ * casaria com qualquer hospital regional da mesma empresa.
  */
-export type OrigemVinculo = 'projeto' | 'empresa'
+function casaPorNome(vinculo: VinculoTenant, palavrasEndereco: Set<string>): boolean {
+  for (const candidato of [vinculo.slug, vinculo.nome]) {
+    const palavras = tokensDe(candidato ?? '')
+    if (palavras.length > 0 && palavras.every((p) => palavrasEndereco.has(p))) return true
+  }
+  return false
+}
+
+/**
+ * Como a unidade foi decidida, da evidência mais forte para a mais fraca.
+ *
+ * `projeto` — o `trilogoProjectName` do tenant aparece no endereço. É o vínculo
+ * configurado à mão e continua tendo precedência sobre tudo.
+ *
+ * `nome` — o nome ou o slug do próprio tenant aparece no endereço. O endereço do
+ * Trílogo traz o nome do hospital, então na maioria dos casos ele identifica a
+ * unidade sozinho, sem precisar de configuração.
+ *
+ * `empresa` — casou só pelo companyId. Evidência fraca: se a empresa tiver um
+ * hospital que NÃO está cadastrado como tenant, os tickets dele caem no tenant
+ * cadastrado, e o índice único impede reimportar corrigido depois. Por isso a
+ * origem sai no resultado da sincronização, em vez de sumir.
+ */
+export type OrigemVinculo = 'projeto' | 'nome' | 'empresa'
 
 export interface ResolucaoTenant {
   tenantId: string
@@ -227,19 +261,26 @@ export function resolverTenant(
   const endereco = String(ticket.departmentFullAddress ?? '').toUpperCase()
   const daEmpresa = vinculos.filter((v) => v.trilogoCompanyId === companyId)
 
-  // Casamento por projeto tem precedência: se algum tenant da empresa bate pelo
-  // nome do projeto, é ele — não importa quantos outros existam sem projeto.
+  // 1. Projeto configurado. Continua com precedência e com a mesma comparação por
+  //    trecho usada em /api/trilogo e na sincronização de ambientes — mudar isso
+  //    aqui divergiria das outras três telas que já filtram assim.
   const porProjeto = daEmpresa.filter(
     (v) => v.trilogoProjectName && endereco.includes(v.trilogoProjectName.toUpperCase()),
   )
   if (porProjeto.length === 1) return { tenantId: porProjeto[0].tenantId, origem: 'projeto' }
   if (porProjeto.length > 1) return null // dois projetos no mesmo endereço: ambíguo
 
-  // Sem casamento por projeto, sobra a empresa. Só vale se houver exatamente um
-  // tenant nela — empate é ambiguidade real e vai para triagem, não para o chute.
-  const semProjeto = daEmpresa.filter((v) => !v.trilogoProjectName)
-  if (semProjeto.length === 1 && daEmpresa.length === 1) {
-    return { tenantId: semProjeto[0].tenantId, origem: 'empresa' }
+  // 2. Nome do próprio tenant no endereço. O Trílogo traz o nome do hospital ali,
+  //    então normalmente ele identifica a unidade sem configuração nenhuma.
+  const palavras = new Set(tokensDe(endereco))
+  const porNome = daEmpresa.filter((v) => casaPorNome(v, palavras))
+  if (porNome.length === 1) return { tenantId: porNome[0].tenantId, origem: 'nome' }
+  if (porNome.length > 1) return null
+
+  // 3. Só a empresa. Vale apenas se houver exatamente um tenant nela — empate é
+  //    ambiguidade real e vai para triagem, não para o chute.
+  if (daEmpresa.length === 1 && !daEmpresa[0].trilogoProjectName) {
+    return { tenantId: daEmpresa[0].tenantId, origem: 'empresa' }
   }
 
   return null

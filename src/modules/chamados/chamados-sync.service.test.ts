@@ -53,7 +53,13 @@ function responderTrilogo(tickets: TicketTrilogo[]) {
 beforeEach(() => {
   vi.clearAllMocks()
   tenant.findMany.mockResolvedValue([
-    { id: 't-hrpg', trilogoCompanyId: 168, trilogoProjectName: 'HRPG' },
+    {
+      id: 't-hrpg',
+      slug: 'hrpg',
+      nome: 'Hospital Regional de Pedra Grande',
+      trilogoCompanyId: 168,
+      trilogoProjectName: 'HRPG',
+    },
   ])
   usuario.upsert.mockResolvedValue({ id: 'u-sistema' })
   chamado.findMany.mockResolvedValue([])
@@ -182,9 +188,9 @@ describe('triagem', () => {
 describe('origem do vínculo', () => {
   it('conta quantos foram vinculados só pela empresa', async () => {
     tenant.findMany.mockResolvedValue([
-      { id: 't-solo', trilogoCompanyId: 200, trilogoProjectName: null },
+      { id: 't-solo', slug: 'solo', nome: 'Hospital Solo', trilogoCompanyId: 200, trilogoProjectName: null },
     ])
-    responderTrilogo([ticket({ id: 5, companyId: 200, departmentFullAddress: 'SEM PROJETO' })])
+    responderTrilogo([ticket({ id: 5, companyId: 200, departmentFullAddress: 'ENDERECO ANONIMO' })])
 
     const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
     expect(r.criados).toBe(1)
@@ -195,6 +201,20 @@ describe('origem do vínculo', () => {
     responderTrilogo([TICKET])
     const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
     expect(r.vinculadosSoPorEmpresa).toBe(0)
+  })
+
+  // O nome do hospital no endereço é evidência real — não precisa de conferência.
+  it('vínculo pelo nome do tenant também não entra na contagem', async () => {
+    tenant.findMany.mockResolvedValue([
+      { id: 't-a', slug: 'hrpg', nome: 'Hospital Regional', trilogoCompanyId: 168, trilogoProjectName: null },
+      { id: 't-b', slug: 'uei', nome: 'Unidade Estadual', trilogoCompanyId: 168, trilogoProjectName: null },
+    ])
+    responderTrilogo([TICKET])
+
+    const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
+    expect(r.criados).toBe(1)
+    expect(r.vinculadosSoPorEmpresa).toBe(0)
+    expect(chamado.createMany.mock.calls[0][0].data[0].tenantId).toBe('t-a')
   })
 })
 

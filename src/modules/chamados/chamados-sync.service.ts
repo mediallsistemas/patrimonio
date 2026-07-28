@@ -93,12 +93,14 @@ async function buscarTickets(inicio: string, fim: string): Promise<TicketTrilogo
 async function vinculos(): Promise<VinculoTenant[]> {
   const tenants = await prisma.tenant.findMany({
     where: { trilogoCompanyId: { not: null } },
-    select: { id: true, trilogoCompanyId: true, trilogoProjectName: true },
+    select: { id: true, slug: true, nome: true, trilogoCompanyId: true, trilogoProjectName: true },
   })
   return tenants.map((t) => ({
     tenantId: t.id,
     trilogoCompanyId: t.trilogoCompanyId!,
     trilogoProjectName: t.trilogoProjectName,
+    slug: t.slug,
+    nome: t.nome,
   }))
 }
 
