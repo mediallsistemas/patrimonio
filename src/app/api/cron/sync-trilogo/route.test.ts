@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const sincronizarTenant = vi.fn()
 const findMany = vi.fn()
+const sincronizarChamados = vi.fn()
 
 vi.mock('@/lib/db-auth', () => ({
   prismaAuth: { tenant: { findMany: () => findMany() } },
@@ -15,6 +16,13 @@ vi.mock('@/modules/ambientes/ambientes.service', () => ({
   sincronizarTenant: (id: string) => sincronizarTenant(id),
 }))
 vi.mock('@/lib/blocos-cache', () => ({ invalidarCacheBlocos: vi.fn() }))
+vi.mock('@/modules/chamados/chamados-sync.service', async (original) => {
+  const real = await original() as Record<string, unknown>
+  return {
+    ...real,
+    sincronizarChamadosTrilogo: (i: string, f: string) => sincronizarChamados(i, f),
+  }
+})
 
 const SEGREDO = 'segredo-de-cron-para-teste'
 
@@ -30,6 +38,10 @@ function req(headers: Record<string, string> = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   findMany.mockResolvedValue([])
+  sincronizarChamados.mockResolvedValue({
+    buscados: 0, criados: 0, jaExistiam: 0, emTriagem: 0, triagem: [],
+    vinculadosSoPorEmpresa: 0, janela: { inicio: '', fim: '' },
+  })
   vi.stubEnv('CRON_SECRET', SEGREDO)
 })
 
@@ -82,5 +94,26 @@ describe('autenticação do cron', () => {
     expect((await GET(req({ authorization: 'Bearer ' }))).status).toBe(403)
     expect((await GET(req({ 'x-vercel-cron-signature': 'x' }))).status).toBe(403)
     expect(findMany).not.toHaveBeenCalled()
+  })
+})
+
+// A janela larga é o que torna a sincronização automática e dispensa backfill
+// manual: medido em produção, 7 dias custam 1,0s de API e 365 dias custam 2,5s.
+// Reduzir isto de volta reintroduz a necessidade de alguém apertar um botão.
+describe('janela de sincronização', () => {
+  it('cobre um ano, não alguns dias', async () => {
+    const { GET } = await carregarRota()
+    await GET(req({ authorization: `Bearer ${SEGREDO}` }))
+
+    expect(sincronizarChamados).toHaveBeenCalledTimes(1)
+    const [inicio, fim] = sincronizarChamados.mock.calls[0]
+    const dias = (new Date(fim).getTime() - new Date(inicio).getTime()) / 86_400_000
+    expect(Math.round(dias)).toBe(365)
+  })
+
+  it('não sincroniza chamados quando a porta recusa', async () => {
+    const { GET } = await carregarRota()
+    await GET(req({ 'x-vercel-cron-signature': 'qualquercoisa' }))
+    expect(sincronizarChamados).not.toHaveBeenCalled()
   })
 })
