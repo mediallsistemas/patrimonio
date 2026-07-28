@@ -1,73 +1,20 @@
-import Link from 'next/link'
-import { Building2, Users, ShieldCheck, Activity, LayoutDashboard, Package, Inbox } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import { getSession } from '@/lib/auth'
 import LogoutButton from '@/components/ui/LogoutButton'
-
-const ALL_ACTIONS = [
-  {
-    href: '/admin/tenants',
-    icon: Building2,
-    title: 'Unidades',
-    description: 'Gerencie hospitais e unidades cadastradas no sistema',
-    color: '#6366f1',
-    superAdminOnly: true,
-  },
-  {
-    href: '/admin/usuarios',
-    icon: Users,
-    title: 'Usuários',
-    description: 'Gerencie contas de acesso e permissões dos usuários',
-    color: '#0369a1',
-    superAdminOnly: false,
-  },
-  {
-    href: '/admin/rondas',
-    icon: Activity,
-    title: 'Monitoramento de Rondas',
-    description: 'Visualize histórico de inspeções e ocorrências de todas as unidades',
-    color: '#059669',
-    superAdminOnly: false,
-  },
-  {
-    href: '/admin/dashboard',
-    icon: LayoutDashboard,
-    title: 'Dashboard de Rouparia',
-    description: 'Acompanhe retiradas, devoluções e pendências de rouparia em todas as unidades',
-    color: '#f97316',
-    superAdminOnly: true,
-  },
-  {
-    href: '/admin/chamados',
-    icon: Inbox,
-    title: 'Painel de Chamados',
-    description: 'Indicadores dos chamados de manutenção: status, prioridade, atrasados e valor gasto',
-    color: '#7c3aed',
-    superAdminOnly: false,
-  },
-  {
-    href: '/admin/patrimonio',
-    icon: Package,
-    title: 'Tickets de Patrimônio',
-    description: 'Visualize tickets de manutenção com bens patrimoniais vinculados via Trílogo',
-    color: '#7c3aed',
-    superAdminOnly: false,
-  },
-  {
-    href: '/admin/bens',
-    icon: Package,
-    title: 'Bens por Ambiente',
-    description: 'Consulte todos os bens patrimoniais cadastrados por setor e ambiente',
-    color: '#0891b2',
-    superAdminOnly: false,
-  },
-]
+import AdminCardGrid from './_components/AdminCardGrid'
+import { ADMIN_MODULES } from './_modules'
 
 export default async function AdminPage() {
   const session = await getSession()
   const isSuperAdmin = session?.role === 'super_admin'
   const isViewer = session?.role === 'viewer'
-  const actions = ALL_ACTIONS.filter((a) => !a.superAdminOnly || isSuperAdmin)
+
+  // Oculta módulo que exige super_admin e também aquele cujas telas, depois de
+  // filtradas, ficariam todas de fora — para não haver card que abre em página vazia.
+  const modules = ADMIN_MODULES
+    .filter((m) => !m.superAdminOnly || isSuperAdmin)
+    .filter((m) => m.actions.some((a) => !a.superAdminOnly || isSuperAdmin))
 
   return (
     <div className="form-bg min-h-screen flex flex-col items-center justify-center p-6">
@@ -106,30 +53,8 @@ export default async function AdminPage() {
           </Text>
         </div>
 
-        {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {actions.map(({ href, icon: Icon, title, description, color }) => (
-            <Link key={href} href={href} className="group">
-              <div
-                className="bg-white rounded-2xl border border-gray-200 shadow-sm group-hover:shadow-md transition-all duration-200 p-6 h-full flex flex-col border-t-4"
-                style={{ borderTopColor: color }}
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: color }}
-                >
-                  <Icon className="text-white w-6 h-6" />
-                </div>
-                <Text as="h2" variant="heading-sm" className="text-dark mb-1.5 block">
-                  {title}
-                </Text>
-                <Text variant="body-sm" className="text-gray-300 flex-1 block">
-                  {description}
-                </Text>
-              </div>
-            </Link>
-          ))}
-        </div>
+        {/* Setores (Administrativo, Patrimônio, Higienização e Limpeza) */}
+        <AdminCardGrid items={modules} />
 
       </div>
     </div>
