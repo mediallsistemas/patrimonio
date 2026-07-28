@@ -25,16 +25,20 @@ export interface TicketTrilogo {
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────
-// Os dois ciclos de vida coincidem, então o mapa é 1:1.
+// O único valor de status do Trílogo confirmado neste repositório é 'Aberto' —
+// as telas /admin/patrimonio e /viewer/patrimonio contam os abertos comparando
+// `currentStatus.actionDescription === 'Aberto'`. Os demais valores da API
+// ninguém aqui viu.
+//
+// Por isso não existe mapa de tradução: importamos apenas o que reconhecemos
+// como aberto e mandamos o resto para triagem, registrando o texto literal do
+// status. A primeira execução, portanto, revela quais valores existem de fato
+// na base do cliente — em vez de a gente adivinhar e importar errado.
+//
+// Importar um ticket já concluído como chamado aberto seria pior do que não
+// importar: cria trabalho fantasma numa fila que a equipe usa para se organizar.
 
-const STATUS_POR_DESCRICAO: Record<string, StatusChamado> = {
-  'aberto': 'aberto',
-  'em andamento': 'em_execucao',
-  'em execucao': 'em_execucao',
-  'concluido': 'finalizado',
-  'finalizado': 'finalizado',
-  'cancelado': 'cancelado',
-}
+const STATUS_ABERTO = 'aberto'
 
 function normalizar(texto: string): string {
   return texto
@@ -44,15 +48,23 @@ function normalizar(texto: string): string {
     .toLowerCase()
 }
 
-/** Status desconhecido vira 'aberto': é o estado seguro — aparece para alguém tratar. */
-export function mapearStatus(descricao: string | null | undefined): StatusChamado {
-  if (!descricao) return 'aberto'
-  return STATUS_POR_DESCRICAO[normalizar(descricao)] ?? 'aberto'
+/** true só para o status que sabemos representar trabalho ainda por fazer. */
+export function statusEhAberto(descricao: string | null | undefined): boolean {
+  return normalizar(descricao ?? '') === STATUS_ABERTO
 }
 
 // ── Prioridade ──────────────────────────────────────────────────────────────
-// A escala numérica do Trílogo não está documentada no repositório; este mapa é a
-// leitura mais provável (1 = mais baixa) e precisa de confirmação com o time.
+// A escala vem do PRIORITY_LABEL já usado nas telas de patrimônio
+// (admin/patrimonio/page.tsx e viewer/patrimonio/page.tsx):
+//   1 Baixa · 2 Média · 3 Alta · 4 Urgente
+// que é exatamente a escala de prioridade dos chamados. Não é palpite: é o que
+// o próprio sistema já mostra ao usuário hoje.
+//
+// Nota: o contador de "urgentes" daquelas telas usa `priority >= 3`, o que
+// diverge do rótulo que elas mesmas exibem para o 3 ("Alta"). O rótulo é a
+// leitura boa; o contador é que está largo. Não mexo nele aqui — mudaria o
+// número que a tela mostra hoje.
+//
 // Valor fora da faixa cai em 'media' — nunca em 'urgente', para não inflar fila.
 
 export function mapearPrioridade(priority: number | null | undefined): PrioridadeChamado {
@@ -126,6 +138,18 @@ export function converterTicket(ticket: TicketTrilogo): ResultadoConversao {
     return { ok: false, motivo: 'ticket sem id numérico' }
   }
 
+  // Só entra o que reconhecemos como aberto. Qualquer outro status vai para a
+  // triagem com o texto literal, que é como descobrimos os valores reais.
+  const statusOrigem = (ticket.currentStatus?.actionDescription ?? '').trim()
+  if (!statusEhAberto(statusOrigem)) {
+    return {
+      ok: false,
+      motivo: statusOrigem
+        ? `status "${statusOrigem}" não reconhecido como aberto`
+        : 'ticket sem status na origem',
+    }
+  }
+
   const descricao = (ticket.description ?? '').trim()
   if (!descricao) {
     return { ok: false, motivo: 'ticket sem descrição' }
@@ -151,7 +175,11 @@ export function converterTicket(ticket: TicketTrilogo): ResultadoConversao {
       descricao,
       tipo: mapearTipo(ticket.buildingServiceTypeDescription),
       prioridade: mapearPrioridade(ticket.priority),
-      status: mapearStatus(ticket.currentStatus?.actionDescription),
+      // Sempre 'aberto': é o único status que chega até aqui, e é o estado a
+      // partir do qual o operador consegue assumir o chamado. Importar em
+      // 'em_execucao' criaria um chamado sem responsável que ninguém pode
+      // assumir — `assumir` exige status 'aberto'.
+      status: 'aberto' as StatusChamado,
       prazo,
       criadoEm,
       trilogoAssetId: ticket.assetId ?? null,
@@ -172,23 +200,47 @@ export interface VinculoTenant {
   trilogoProjectName: string | null
 }
 
+/**
+ * `projeto` — o nome do projeto do tenant aparece no endereço do departamento.
+ * É a evidência forte: liga o ticket àquela unidade especificamente.
+ *
+ * `empresa` — casou só pelo companyId, porque o tenant não tem projeto
+ * configurado. Evidência fraca: se a empresa tiver um hospital que NÃO está
+ * cadastrado como tenant, os tickets dele caem no tenant cadastrado, e o
+ * índice único impede reimportar corrigido depois. Por isso a origem do
+ * casamento sai no resultado da sincronização, em vez de sumir.
+ */
+export type OrigemVinculo = 'projeto' | 'empresa'
+
+export interface ResolucaoTenant {
+  tenantId: string
+  origem: OrigemVinculo
+}
+
 export function resolverTenant(
   ticket: TicketTrilogo,
   vinculos: VinculoTenant[],
-): string | null {
+): ResolucaoTenant | null {
   const companyId = Number(ticket.companyId)
   if (!Number.isFinite(companyId)) return null
 
   const endereco = String(ticket.departmentFullAddress ?? '').toUpperCase()
+  const daEmpresa = vinculos.filter((v) => v.trilogoCompanyId === companyId)
 
-  const candidatos = vinculos.filter((v) => {
-    if (v.trilogoCompanyId !== companyId) return false
-    if (!v.trilogoProjectName) return true
-    return endereco.includes(v.trilogoProjectName.toUpperCase())
-  })
+  // Casamento por projeto tem precedência: se algum tenant da empresa bate pelo
+  // nome do projeto, é ele — não importa quantos outros existam sem projeto.
+  const porProjeto = daEmpresa.filter(
+    (v) => v.trilogoProjectName && endereco.includes(v.trilogoProjectName.toUpperCase()),
+  )
+  if (porProjeto.length === 1) return { tenantId: porProjeto[0].tenantId, origem: 'projeto' }
+  if (porProjeto.length > 1) return null // dois projetos no mesmo endereço: ambíguo
 
-  // Empate (dois tenants na mesma empresa sem projeto que os distinga) é ambiguidade
-  // real: preferimos mandar para triagem a escolher um hospital no chute.
-  if (candidatos.length !== 1) return null
-  return candidatos[0].tenantId
+  // Sem casamento por projeto, sobra a empresa. Só vale se houver exatamente um
+  // tenant nela — empate é ambiguidade real e vai para triagem, não para o chute.
+  const semProjeto = daEmpresa.filter((v) => !v.trilogoProjectName)
+  if (semProjeto.length === 1 && daEmpresa.length === 1) {
+    return { tenantId: semProjeto[0].tenantId, origem: 'empresa' }
+  }
+
+  return null
 }

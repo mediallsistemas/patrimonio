@@ -448,3 +448,32 @@ model RespostaFormulario {
   @@index([tenantId, criadoEm])
   @@map("respostas_formulario")
 }
+
+/// Tickets do Trilogo que a sincronizacao NAO conseguiu virar chamado.
+///
+/// Existe porque a janela de busca e movel (7 dias): sem persistir, um ticket
+/// recusado sumia do relatorio da execucao seguinte e, passada a janela, deixava
+/// de ser buscado — perdido em silencio. Aqui ele fica ate alguem resolver.
+///
+/// Nao guarda dado do Trilogo alem do necessario para a triagem: e uma fila de
+/// pendencias, nao um espelho.
+model TicketTrilogoTriagem {
+  trilogoTicketId Int       @id
+  /// Por que nao entrou. Para status desconhecido, traz o texto literal da origem.
+  motivo          String
+  /// currentStatus.actionDescription cru, quando havia. E como descobrimos
+  /// quais valores de status existem de fato na base do cliente.
+  statusOrigem    String?
+  descricao       String?
+  endereco        String?
+  companyId       Int?
+  primeiraVezEm   DateTime  @default(now())
+  ultimaVezEm     DateTime  @updatedAt
+  /// Quantas execucoes ja recusaram este ticket. Repeticao alta = regra a ajustar.
+  ocorrencias     Int       @default(1)
+  /// Preenchido quando o ticket finalmente virou chamado.
+  resolvidoEm     DateTime?
+
+  @@index([resolvidoEm, ultimaVezEm])
+  @@map("tickets_trilogo_triagem")
+}

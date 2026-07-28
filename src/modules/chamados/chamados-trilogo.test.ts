@@ -3,10 +3,10 @@ import { describe, it, expect } from 'vitest'
 import {
   converterTicket,
   mapearPrioridade,
-  mapearStatus,
   mapearTipo,
   mapearTitulo,
   resolverTenant,
+  statusEhAberto,
   type TicketTrilogo,
 } from './chamados-trilogo'
 
@@ -22,31 +22,33 @@ const TICKET_BASE: TicketTrilogo = {
   departmentName: 'Enfermaria 2',
   departmentFullAddress: 'HRPG - ALA NORTE - ENFERMARIA 2',
   priority: 3,
-  currentStatus: { actionDescription: 'Em andamento' },
+  currentStatus: { actionDescription: 'Aberto' },
   buildingServiceTypeDescription: 'Elétrica predial',
 }
 
-describe('mapearStatus', () => {
-  it('mapeia os quatro status do Trílogo', () => {
-    expect(mapearStatus('Aberto')).toBe('aberto')
-    expect(mapearStatus('Em andamento')).toBe('em_execucao')
-    expect(mapearStatus('Concluído')).toBe('finalizado')
-    expect(mapearStatus('Cancelado')).toBe('cancelado')
+describe('statusEhAberto', () => {
+  // 'Aberto' é o único valor de status do Trílogo confirmado no repositório —
+  // as telas de patrimônio contam os abertos comparando com essa string.
+  it('reconhece o único status confirmado', () => {
+    expect(statusEhAberto('Aberto')).toBe(true)
   })
 
-  it('ignora acento e caixa', () => {
-    expect(mapearStatus('CONCLUÍDO')).toBe('finalizado')
-    expect(mapearStatus('concluido')).toBe('finalizado')
+  it('ignora acento, caixa e espaço', () => {
+    expect(statusEhAberto('  ABERTO ')).toBe(true)
+    expect(statusEhAberto('abertó')).toBe(true)
   })
 
-  // Status novo do lado do Trílogo não pode sumir da fila — 'aberto' garante que alguém vê.
-  it('status desconhecido ou vazio vira aberto', () => {
-    expect(mapearStatus('Aguardando peça')).toBe('aberto')
-    expect(mapearStatus(null)).toBe('aberto')
+  it('qualquer outro status não é aberto', () => {
+    expect(statusEhAberto('Em andamento')).toBe(false)
+    expect(statusEhAberto('Concluído')).toBe(false)
+    expect(statusEhAberto('Aguardando peça')).toBe(false)
+    expect(statusEhAberto(null)).toBe(false)
+    expect(statusEhAberto('')).toBe(false)
   })
 })
 
 describe('mapearPrioridade', () => {
+  // Escala tirada do PRIORITY_LABEL das telas de patrimônio, não de suposição.
   it('converte a escala numérica', () => {
     expect(mapearPrioridade(1)).toBe('baixa')
     expect(mapearPrioridade(2)).toBe('media')
@@ -100,7 +102,7 @@ describe('mapearTitulo', () => {
 })
 
 describe('converterTicket', () => {
-  it('converte um ticket completo', () => {
+  it('converte um ticket aberto', () => {
     const r = converterTicket(TICKET_BASE)
     expect(r.ok).toBe(true)
     if (!r.ok) return
@@ -109,13 +111,36 @@ describe('converterTicket', () => {
       titulo: 'Ar-condicionado Split 12000',
       tipo: 'eletrica',
       prioridade: 'alta',
-      status: 'em_execucao',
+      status: 'aberto',
       trilogoAssetId: 987,
       patrimony: 'PAT-00123',
       ambienteNomeSnapshot: 'Enfermaria 2',
     })
     expect(r.chamado.prazo.toISOString()).toBe('2026-07-27T10:00:00.000Z')
     expect(r.chamado.criadoEm.toISOString()).toBe('2026-07-20T10:00:00.000Z')
+  })
+
+  // Importar um ticket já resolvido como chamado aberto criaria trabalho
+  // fantasma numa fila que a equipe usa para se organizar.
+  it('recusa status não reconhecido e devolve o texto literal', () => {
+    const r = converterTicket({
+      ...TICKET_BASE,
+      currentStatus: { actionDescription: 'Em andamento' },
+    })
+    expect(r).toEqual({ ok: false, motivo: 'status "Em andamento" não reconhecido como aberto' })
+  })
+
+  it('recusa ticket sem status na origem', () => {
+    expect(converterTicket({ ...TICKET_BASE, currentStatus: null }))
+      .toEqual({ ok: false, motivo: 'ticket sem status na origem' })
+  })
+
+  // O status entra no chamado sempre como 'aberto': é o estado a partir do qual
+  // o operador consegue assumir (`assumir` exige status 'aberto').
+  it('o chamado nasce sempre em aberto', () => {
+    const r = converterTicket(TICKET_BASE)
+    if (!r.ok) throw new Error('deveria converter')
+    expect(r.chamado.status).toBe('aberto')
   })
 
   // Recusar é melhor que inventar: estes vão para a fila de triagem com o motivo.
@@ -150,12 +175,18 @@ describe('resolverTenant', () => {
   ]
 
   it('resolve pelo projeto contido no endereço', () => {
-    expect(resolverTenant(TICKET_BASE, VINCULOS)).toBe('t-hrpg')
+    expect(resolverTenant(TICKET_BASE, VINCULOS)).toEqual({
+      tenantId: 't-hrpg',
+      origem: 'projeto',
+    })
   })
 
-  it('resolve por companyId quando o tenant não tem projeto', () => {
+  // Casamento fraco: nada além do companyId confirma a unidade. Continua sendo
+  // importado, mas a origem sai no resultado da sincronização para conferência —
+  // se a empresa tiver um hospital não cadastrado, é aqui que ele erra.
+  it('resolve por companyId quando o tenant não tem projeto, marcando a origem', () => {
     const t = { ...TICKET_BASE, companyId: 200, departmentFullAddress: 'QUALQUER LUGAR' }
-    expect(resolverTenant(t, VINCULOS)).toBe('t-solo')
+    expect(resolverTenant(t, VINCULOS)).toEqual({ tenantId: 't-solo', origem: 'empresa' })
   })
 
   it('empresa sem tenant correspondente não resolve', () => {
@@ -174,5 +205,27 @@ describe('resolverTenant', () => {
       { tenantId: 't-b', trilogoCompanyId: 168, trilogoProjectName: null },
     ]
     expect(resolverTenant(TICKET_BASE, ambiguo)).toBeNull()
+  })
+
+  it('projeto que casa vence quem não tem projeto na mesma empresa', () => {
+    const misto = [
+      { tenantId: 't-com', trilogoCompanyId: 168, trilogoProjectName: 'HRPG' },
+      { tenantId: 't-sem', trilogoCompanyId: 168, trilogoProjectName: null },
+    ]
+    expect(resolverTenant(TICKET_BASE, misto)).toEqual({ tenantId: 't-com', origem: 'projeto' })
+  })
+
+  // Antes o tenant sem projeto abocanhava tudo que não casasse por projeto.
+  it('sem casar projeto, tenant sem projeto na empresa dividida vai para triagem', () => {
+    const misto = [
+      { tenantId: 't-com', trilogoCompanyId: 168, trilogoProjectName: 'HRPG' },
+      { tenantId: 't-sem', trilogoCompanyId: 168, trilogoProjectName: null },
+    ]
+    const t = { ...TICKET_BASE, departmentFullAddress: 'OUTRO ENDERECO QUALQUER' }
+    expect(resolverTenant(t, misto)).toBeNull()
+  })
+
+  it('ticket sem companyId não resolve', () => {
+    expect(resolverTenant({ ...TICKET_BASE, companyId: null }, VINCULOS)).toBeNull()
   })
 })

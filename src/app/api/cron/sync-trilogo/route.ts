@@ -20,6 +20,8 @@ const JANELA_DIAS = 7
 // Havia aqui um atalho que aceitava qualquer requisição com x-vercel-cron-signature
 // preenchido, sem conferir o conteúdo. Como header de requisição é livre e o
 // middleware libera /api/*, um curl com o header em qualquer valor executava o cron.
+// Com a importação de chamados, esta rota deixou de só apagar ambientes e passou
+// a criar registro em todas as unidades — mais um motivo para a porta ser uma só.
 function autenticado(req: Request): boolean {
   if (!CRON_SECRET) return false
 
@@ -79,12 +81,15 @@ async function handler(req: Request): Promise<Response> {
       blocosRemovidos,
       erros,
       tenantsSincronizados: tenants.length,
+      // Só as contagens: a fila de triagem em si fica na tabela
+      // tickets_trilogo_triagem, então nada se perde por não vir na resposta.
       chamados: chamados
         ? {
             buscados: chamados.buscados,
             criados: chamados.criados,
             jaExistiam: chamados.jaExistiam,
-            emTriagem: chamados.triagem.length,
+            emTriagem: chamados.emTriagem,
+            vinculadosSoPorEmpresa: chamados.vinculadosSoPorEmpresa,
             janela: chamados.janela,
           }
         : { erro: erroChamados },
