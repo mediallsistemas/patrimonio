@@ -118,3 +118,43 @@ describe('listar — ordem da fila', () => {
     expect(findMany).toHaveBeenCalledTimes(1)
   })
 })
+
+// O filtro de unidade vem da query string. Se ele fosse aplicado por spread
+// sobre o where do escopo, o valor do usuario SOBRESCREVERIA o tenant da sessao
+// e um tenant_admin leria os chamados de outro hospital. Por isso entra com AND.
+describe('listar — filtro de unidade nao escapa do escopo', () => {
+  const ESCOPO_GLOBAL = { tenantId: null }          // super_admin
+  const ESCOPO_UNIDADE = { tenantId: 'tenant-1' }   // tenant_admin
+
+  beforeEach(() => findMany.mockResolvedValue([] as never))
+
+  it('super_admin filtrando uma unidade recebe where com aquela unidade', async () => {
+    await listar(ESCOPO_GLOBAL, 'super_admin', { tenantId: 'tenant-9' })
+    const where = findMany.mock.calls[0][0]!.where as Record<string, unknown>
+    expect(where.AND).toEqual([{}, { tenantId: 'tenant-9' }])
+  })
+
+  it('tenant_admin pedindo outra unidade nao troca de escopo — as duas condicoes valem', async () => {
+    await listar(ESCOPO_UNIDADE, 'tenant_admin', { tenantId: 'tenant-9' })
+    const where = findMany.mock.calls[0][0]!.where as Record<string, unknown>
+    // O tenant da sessao continua na condicao; a interseccao nao casa com nada.
+    expect(where.AND).toEqual([{ tenantId: 'tenant-1' }, { tenantId: 'tenant-9' }])
+    expect(where.tenantId).toBeUndefined()
+  })
+
+  it('sem filtro, o where do escopo passa direto', async () => {
+    await listar(ESCOPO_UNIDADE, 'tenant_admin', {})
+    const where = findMany.mock.calls[0][0]!.where as Record<string, unknown>
+    expect(where.tenantId).toBe('tenant-1')
+    expect(where.AND).toBeUndefined()
+  })
+
+  it('o filtro alcanca as duas consultas da fila (vivos e terminais)', async () => {
+    await listar(ESCOPO_GLOBAL, 'super_admin', { tenantId: 'tenant-9' })
+    expect(findMany).toHaveBeenCalledTimes(2)
+    for (const chamada of findMany.mock.calls) {
+      const where = chamada[0]!.where as Record<string, unknown>
+      expect(where.AND).toEqual([{}, { tenantId: 'tenant-9' }])
+    }
+  })
+})

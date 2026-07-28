@@ -81,8 +81,18 @@ export async function listar(
         : { status: { in: [...STATUS_ABERTOS] }, prazo: { lt: agora } }
     }
 
+    // O filtro de unidade entra por AND, e não por spread, de propósito. Com
+    // spread, `{...tenantFilter(escopo), tenantId: filtros.tenantId}` deixaria o
+    // valor da query string SOBRESCREVER o tenant da sessão — um tenant_admin
+    // passando ?tenantId= de outro hospital leria os chamados de lá. Com AND, a
+    // condição se soma: pedir unidade fora do próprio escopo devolve lista vazia.
+    const escopoWhere = tenantFilter(escopo)
+    const unidadeWhere = filtros.tenantId
+      ? { AND: [escopoWhere, { tenantId: filtros.tenantId }] }
+      : escopoWhere
+
     const whereComum = {
-      ...tenantFilter(escopo),
+      ...unidadeWhere,
       ...(filtros.prioridade ? { prioridade: filtros.prioridade } : {}),
       ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
       ...(filtros.responsavelId ? { responsavelId: filtros.responsavelId } : {}),
@@ -176,11 +186,16 @@ export async function buscarFotos(
 export async function dashboard(
   escopo: EscopoTenant,
   periodo?: { de?: Date; ate?: Date },
+  tenantId?: string,
 ): Promise<DashboardChamados> {
   try {
     const agora = new Date()
+    // Mesma disciplina da listagem: AND, nunca spread — o valor da query string
+    // não pode sobrescrever o tenant da sessão. Sem isto os números dos tiles
+    // divergiriam da lista quando houvesse filtro, além do risco de escopo.
+    const escopoWhere = tenantFilter(escopo)
     const whereBase = {
-      ...tenantFilter(escopo),
+      ...(tenantId ? { AND: [escopoWhere, { tenantId }] } : escopoWhere),
       ...(periodo?.de || periodo?.ate
         ? { criadoEm: { ...(periodo.de ? { gte: periodo.de } : {}), ...(periodo.ate ? { lte: periodo.ate } : {}) } }
         : {}),

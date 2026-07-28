@@ -78,6 +78,8 @@ export interface FiltrosChamados {
   tipo?: TipoChamado
   responsavelId?: string
   atrasados?: boolean
+  /** Unidade escolhida — restringe dentro do escopo, nunca amplia. */
+  tenantId?: string
   /** Só chamados com bem patrimonial vinculado. */
   comBem?: boolean
 }
@@ -93,6 +95,7 @@ export async function listar(filtros: FiltrosChamados = {}): Promise<ChamadoResu
   if (filtros.tipo) params.set('tipo', filtros.tipo)
   if (filtros.responsavelId) params.set('responsavelId', filtros.responsavelId)
   if (filtros.atrasados) params.set('atrasados', 'true')
+  if (filtros.tenantId) params.set('tenantId', filtros.tenantId)
   if (filtros.comBem) params.set('comBem', 'true')
   const qs = params.toString()
   return unwrap(await api.get<{ data: ChamadoResumo[] }>(`chamados${qs ? `?${qs}` : ''}`))
@@ -181,10 +184,13 @@ export async function buscarFotos(
   )
 }
 
-export async function dashboard(periodo?: { de?: string; ate?: string }): Promise<DashboardChamados> {
+export async function dashboard(
+  periodo?: { de?: string; ate?: string; tenantId?: string },
+): Promise<DashboardChamados> {
   const params = new URLSearchParams()
   if (periodo?.de) params.set('de', periodo.de)
   if (periodo?.ate) params.set('ate', periodo.ate)
+  if (periodo?.tenantId) params.set('tenantId', periodo.tenantId)
   const qs = params.toString()
   return unwrap(
     await api.get<{ data: DashboardChamados }>(`chamados/dashboard${qs ? `?${qs}` : ''}`),

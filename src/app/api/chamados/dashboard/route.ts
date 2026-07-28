@@ -9,6 +9,8 @@ import { ROLES_ADMIN_CHAMADOS } from '@/modules/chamados/chamados.rules'
 const PeriodoSchema = z.object({
   de: z.coerce.date().optional(),
   ate: z.coerce.date().optional(),
+  // Unidade escolhida no filtro — restringe dentro do escopo, nunca amplia.
+  tenantId: z.string().uuid().optional(),
 })
 
 // Painel gerencial de chamados — exclusivo de admin (inclui valor gasto).
@@ -23,7 +25,8 @@ export async function GET(req: Request): Promise<Response> {
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
 
   try {
-    const dados = await chamadosQuery.dashboard(escopoSessao(session), parsed.data)
+    const { tenantId, ...periodo } = parsed.data
+    const dados = await chamadosQuery.dashboard(escopoSessao(session), periodo, tenantId)
     return ok(dados)
   } catch {
     return serverError('dashboard chamados failed')
