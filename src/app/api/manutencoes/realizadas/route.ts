@@ -1,4 +1,5 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
+import { escopoLeitura } from '@/modules/auth/tenant-filter'
 import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
 import { listarRealizadasPorAssets } from '@/modules/manutencoes/manutencoes.service'
 
@@ -18,7 +19,7 @@ export async function GET(req: Request): Promise<Response> {
   if (assetIds.length === 0) return badRequest('assetIds inválidos')
 
   try {
-    const realizadas = await listarRealizadasPorAssets(assetIds)
+    const realizadas = await listarRealizadasPorAssets(assetIds, escopoLeitura(session))
     return ok(realizadas)
   } catch {
     return serverError('listarRealizadasPorAssets failed')

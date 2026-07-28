@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
-import { tenantFilter } from '@/modules/auth/tenant-filter'
+import { tenantFilter, filtroEscopo } from '@/modules/auth/tenant-filter'
+import type { EscopoLeitura } from '@/modules/auth/tenant-filter'
 import type { IniciarManutencaoInput, FinalizarManutencaoInput } from './manutencoes.types'
 
 export async function iniciar(
@@ -82,10 +83,17 @@ export async function finalizar(
   }
 }
 
-// Lista manutenções concluídas para um conjunto de bens (cross-tenant).
-// Usado tanto no modal /admin/bens quanto na página pública /bem/[token].
+// Lista manutenções concluídas para um conjunto de bens, restrita às unidades
+// do solicitante. Usado no modal /admin/bens e na página de QR /bem/[token].
 // Fotos não são incluídas aqui — a leitura individual é feita sob demanda.
-export async function listarRealizadasPorAssets(trilogoAssetIds: number[]) {
+//
+// O escopo é obrigatório de propósito: os ids de bem do Trílogo são inteiros
+// sequenciais de uma instância compartilhada entre os hospitais, então sem
+// filtro de unidade o parâmetro assetIds vira uma varredura enumerável.
+export async function listarRealizadasPorAssets(
+  trilogoAssetIds: number[],
+  escopo: EscopoLeitura,
+) {
   try {
     if (trilogoAssetIds.length === 0) return []
     return await prisma.manutencaoRealizada.findMany({
@@ -93,6 +101,7 @@ export async function listarRealizadasPorAssets(trilogoAssetIds: number[]) {
         tipo: 'patrimonio',
         status: 'concluida',
         trilogoAssetId: { in: trilogoAssetIds },
+        ...filtroEscopo(escopo),
       },
       orderBy: { finalizadaEm: 'desc' },
       select: {
@@ -146,10 +155,11 @@ export async function listarHistorico(tenantId: string | null, tenantIds?: strin
 
 // Lê uma manutenção individual com as fotos. Usado pelo endpoint de detalhe
 // (modal de bem público e drill-down do relatório de manutenções).
-export async function buscarRealizadaComFotos(id: string) {
+// Escopo obrigatório: as fotos antes/depois são o dado mais sensível da tabela.
+export async function buscarRealizadaComFotos(id: string, escopo: EscopoLeitura) {
   try {
     return await prisma.manutencaoRealizada.findFirst({
-      where: { id },
+      where: { id, ...filtroEscopo(escopo) },
       select: {
         id: true,
         tipo: true,
