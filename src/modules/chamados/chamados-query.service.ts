@@ -17,6 +17,13 @@ export type { DashboardChamados }
 type Role = JWTPayload['role']
 type EscopoTenant = { tenantId: string | null; tenantIds?: string[] }
 
+const STATUS_TERMINAIS: StatusChamado[] = ['finalizado', 'cancelado']
+
+// Tetos separados: o histórico concluído importado do Trílogo pode ser grande e
+// não pode espremer os chamados que ainda pedem trabalho.
+const LIMITE_VIVOS = 200
+const LIMITE_TERMINAIS = 100
+
 // Select das listas — sem fotos (base64 pesado fica no endpoint de foto)
 const SELECT_LISTA = {
   id: true,
@@ -32,6 +39,7 @@ const SELECT_LISTA = {
   patrimony: true,
   descricaoBemSnapshot: true,
   trilogoTicketId: true,
+  trilogoStatusOrigem: true,
   assumidoEm: true,
   finalizadoEm: true,
   criadoEm: true,
@@ -73,19 +81,49 @@ export async function listar(
         : { status: { in: [...STATUS_ABERTOS] }, prazo: { lt: agora } }
     }
 
-    const chamados = await prisma.chamado.findMany({
-      where: {
-        ...tenantFilter(escopo),
-        ...statusWhere,
-        ...(filtros.prioridade ? { prioridade: filtros.prioridade } : {}),
-        ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
-        ...(filtros.responsavelId ? { responsavelId: filtros.responsavelId } : {}),
-      },
-      orderBy: [{ status: 'asc' }, { prazo: 'asc' }],
-      take: 200,
-      select: SELECT_LISTA,
-    })
-    return chamados.map((c) => sanitizarParaRole(comAtraso(c, agora), role))
+    const whereComum = {
+      ...tenantFilter(escopo),
+      ...(filtros.prioridade ? { prioridade: filtros.prioridade } : {}),
+      ...(filtros.tipo ? { tipo: filtros.tipo } : {}),
+      ...(filtros.responsavelId ? { responsavelId: filtros.responsavelId } : {}),
+    }
+
+    // Com filtro de status explícito não há o que separar: uma consulta só.
+    if (filtros.status || filtros.atrasados) {
+      const chamados = await prisma.chamado.findMany({
+        where: { ...whereComum, ...statusWhere },
+        orderBy: [{ prazo: 'asc' }],
+        take: LIMITE_VIVOS + LIMITE_TERMINAIS,
+        select: SELECT_LISTA,
+      })
+      return chamados.map((c) => sanitizarParaRole(comAtraso(c, agora), role))
+    }
+
+    // Sem filtro, a fila é o que pede trabalho — os terminais vão para o fim.
+    //
+    // São duas consultas de propósito. O `status: 'asc'` anterior era ordem
+    // alfabética, que põe 'cancelado' logo depois de 'aberto', na frente de
+    // 'em_execucao'; e o take cortava por essa mesma ordem, então uma unidade com
+    // muitos cancelados empurrava os chamados vivos para fora da lista.
+    // Com a importação do Trílogo trazendo o histórico concluído, isso deixaria
+    // de ser detalhe.
+    const [vivos, terminais] = await Promise.all([
+      prisma.chamado.findMany({
+        where: { ...whereComum, status: { in: [...STATUS_ABERTOS] } },
+        orderBy: [{ prazo: 'asc' }],
+        take: LIMITE_VIVOS,
+        select: SELECT_LISTA,
+      }),
+      prisma.chamado.findMany({
+        where: { ...whereComum, status: { in: STATUS_TERMINAIS } },
+        // Mais recentes primeiro: histórico velho não interessa no topo do rodapé.
+        orderBy: [{ finalizadoEm: 'desc' }, { criadoEm: 'desc' }],
+        take: LIMITE_TERMINAIS,
+        select: SELECT_LISTA,
+      }),
+    ])
+
+    return [...vivos, ...terminais].map((c) => sanitizarParaRole(comAtraso(c, agora), role))
   } catch (error) {
     console.error('[chamados-query.service] listar:', error)
     throw error

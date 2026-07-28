@@ -161,6 +161,14 @@ function ChamadoCardBase({
                 <Download className="w-3.5 h-3.5" />
                 Origem · Trílogo #{c.trilogoTicketId}
               </span>
+              {/* Status cru da origem. Aparece porque a tradução para o nosso
+                  ciclo de vida é interpretação — aqui dá para conferir o que o
+                  Trílogo realmente dizia no momento da importação. */}
+              {c.trilogoStatusOrigem && (
+                <span className="ml-2 text-xs text-sky-600 font-sans">
+                  · no Trílogo: {c.trilogoStatusOrigem}
+                </span>
+              )}
             </div>
           )}
 

@@ -149,6 +149,8 @@ export interface ChamadoListaItem {
   descricaoBemSnapshot: string | null
   /** Preenchido quando o chamado nasceu de um ticket do Trílogo. Nulo = aberto no sistema. */
   trilogoTicketId: number | null
+  /** Status cru na origem, para chamados importados. Nulo = aberto no sistema. */
+  trilogoStatusOrigem: string | null
   assumidoEm: Date | null
   finalizadoEm: Date | null
   criadoEm: Date

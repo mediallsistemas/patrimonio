@@ -143,16 +143,42 @@ describe('importação', () => {
 })
 
 describe('triagem', () => {
-  it('ticket com status não reconhecido é persistido com o texto literal', async () => {
+  // Mudança de comportamento: status desconhecido era recusado, agora entra.
+  it('status desconhecido não vai para a fila — entra guardando o texto cru', async () => {
     responderTrilogo([ticket({ id: 9, currentStatus: { actionDescription: 'Aguardando peça' } })])
+    const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
+
+    expect(r.criados).toBe(1)
+    expect(r.emTriagem).toBe(0)
+    expect(triagem.upsert).not.toHaveBeenCalled()
+    expect(chamado.createMany.mock.calls[0][0].data[0]).toMatchObject({
+      status: 'aberto',
+      trilogoStatusOrigem: 'Aguardando peça',
+    })
+  })
+
+  it('ticket concluído na origem entra como finalizado', async () => {
+    responderTrilogo([ticket({ id: 9, currentStatus: { actionDescription: 'Concluído' } })])
+    const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
+
+    expect(r.criados).toBe(1)
+    expect(chamado.createMany.mock.calls[0][0].data[0]).toMatchObject({
+      status: 'finalizado',
+      trilogoStatusOrigem: 'Concluído',
+    })
+  })
+
+  it('ticket sem prazo válido é persistido na fila com o motivo', async () => {
+    responderTrilogo([ticket({ id: 9, deadline: null })])
     const r = await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
 
     expect(r.criados).toBe(0)
     expect(r.emTriagem).toBe(1)
     const gravado = triagem.upsert.mock.calls[0][0]
     expect(gravado.where).toEqual({ trilogoTicketId: 9 })
-    expect(gravado.create.statusOrigem).toBe('Aguardando peça')
-    expect(gravado.create.motivo).toContain('Aguardando peça')
+    expect(gravado.create.motivo).toContain('prazo')
+    // O status cru vai para a fila mesmo quando a recusa foi por outro motivo.
+    expect(gravado.create.statusOrigem).toBe('Aberto')
   })
 
   it('ticket sem unidade resolvida entra na fila', async () => {
@@ -166,7 +192,7 @@ describe('triagem', () => {
 
   // Reaparecer é sinal de regra a ajustar: o contador mostra isso.
   it('recusa repetida incrementa o contador em vez de duplicar', async () => {
-    responderTrilogo([ticket({ id: 9, currentStatus: { actionDescription: 'X' } })])
+    responderTrilogo([ticket({ id: 9, description: '   ' })])
     await sincronizarChamadosTrilogo('2026-07-20', '2026-07-27')
 
     expect(triagem.upsert.mock.calls[0][0].update.ocorrencias).toEqual({ increment: 1 })

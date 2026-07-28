@@ -25,20 +25,30 @@ export interface TicketTrilogo {
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────
-// O único valor de status do Trílogo confirmado neste repositório é 'Aberto' —
-// as telas /admin/patrimonio e /viewer/patrimonio contam os abertos comparando
-// `currentStatus.actionDescription === 'Aberto'`. Os demais valores da API
-// ninguém aqui viu.
+// Todo ticket é importado, concluído inclusive — a fila mostra os terminais por
+// último (ver `listar` em chamados-query.service).
 //
-// Por isso não existe mapa de tradução: importamos apenas o que reconhecemos
-// como aberto e mandamos o resto para triagem, registrando o texto literal do
-// status. A primeira execução, portanto, revela quais valores existem de fato
-// na base do cliente — em vez de a gente adivinhar e importar errado.
+// ATENÇÃO ao mexer neste mapa. O único valor confirmado no repositório é
+// 'Aberto': as telas /admin/patrimonio e /viewer/patrimonio contam os abertos
+// comparando `currentStatus.actionDescription === 'Aberto'`. Os outros três são
+// a leitura mais provável e ainda não foram vistos vindo da API.
 //
-// Importar um ticket já concluído como chamado aberto seria pior do que não
-// importar: cria trabalho fantasma numa fila que a equipe usa para se organizar.
+// O que torna isso seguro é `trilogoStatusOrigem`: o texto cru vai junto para o
+// banco em toda importação. Se um destes estiver errado, a correção é um UPDATE
+// sobre os chamados afetados — não informação perdida. E o valor real aparece
+// no filtro de status de /admin/patrimonio, que é montado a partir dos dados.
+//
+// Status desconhecido cai em 'aberto' de propósito: aparece na fila para alguém
+// tratar. O inverso — sumir como finalizado — esconderia trabalho de verdade.
 
-const STATUS_ABERTO = 'aberto'
+const STATUS_POR_DESCRICAO: Record<string, StatusChamado> = {
+  'aberto': 'aberto',
+  'em andamento': 'em_execucao',
+  'em execucao': 'em_execucao',
+  'concluido': 'finalizado',
+  'finalizado': 'finalizado',
+  'cancelado': 'cancelado',
+}
 
 function normalizar(texto: string): string {
   return texto
@@ -48,9 +58,14 @@ function normalizar(texto: string): string {
     .toLowerCase()
 }
 
-/** true só para o status que sabemos representar trabalho ainda por fazer. */
-export function statusEhAberto(descricao: string | null | undefined): boolean {
-  return normalizar(descricao ?? '') === STATUS_ABERTO
+export function mapearStatus(descricao: string | null | undefined): StatusChamado {
+  if (!descricao) return 'aberto'
+  return STATUS_POR_DESCRICAO[normalizar(descricao)] ?? 'aberto'
+}
+
+/** Status em que o chamado ainda pede trabalho. Usado para ordenar a fila. */
+export function ehTerminal(status: StatusChamado): boolean {
+  return status === 'finalizado' || status === 'cancelado'
 }
 
 // ── Prioridade ──────────────────────────────────────────────────────────────
@@ -106,6 +121,8 @@ export function mapearTitulo(ticket: TicketTrilogo): string {
 
 export interface ChamadoImportado {
   trilogoTicketId: number
+  /** Texto cru do status na origem — o que permite corrigir o mapa depois. */
+  trilogoStatusOrigem: string | null
   titulo: string
   descricao: string
   tipo: TipoChamado
@@ -138,18 +155,6 @@ export function converterTicket(ticket: TicketTrilogo): ResultadoConversao {
     return { ok: false, motivo: 'ticket sem id numérico' }
   }
 
-  // Só entra o que reconhecemos como aberto. Qualquer outro status vai para a
-  // triagem com o texto literal, que é como descobrimos os valores reais.
-  const statusOrigem = (ticket.currentStatus?.actionDescription ?? '').trim()
-  if (!statusEhAberto(statusOrigem)) {
-    return {
-      ok: false,
-      motivo: statusOrigem
-        ? `status "${statusOrigem}" não reconhecido como aberto`
-        : 'ticket sem status na origem',
-    }
-  }
-
   const descricao = (ticket.description ?? '').trim()
   if (!descricao) {
     return { ok: false, motivo: 'ticket sem descrição' }
@@ -167,19 +172,23 @@ export function converterTicket(ticket: TicketTrilogo): ResultadoConversao {
     return { ok: false, motivo: 'ticket sem prazo (deadline) válido' }
   }
 
+  const statusOrigem = (ticket.currentStatus?.actionDescription ?? '').trim() || null
+  const status = mapearStatus(statusOrigem)
+
   return {
     ok: true,
     chamado: {
       trilogoTicketId: ticket.id,
+      trilogoStatusOrigem: statusOrigem,
       titulo: mapearTitulo(ticket),
       descricao,
       tipo: mapearTipo(ticket.buildingServiceTypeDescription),
       prioridade: mapearPrioridade(ticket.priority),
-      // Sempre 'aberto': é o único status que chega até aqui, e é o estado a
-      // partir do qual o operador consegue assumir o chamado. Importar em
-      // 'em_execucao' criaria um chamado sem responsável que ninguém pode
-      // assumir — `assumir` exige status 'aberto'.
-      status: 'aberto' as StatusChamado,
+      // 'em_execucao' importado vira 'aberto': o responsável do Trílogo não é
+      // usuário daqui, e `assumir` exige status 'aberto'. Um chamado em execução
+      // sem responsável ninguém consegue pegar. Os terminais entram como estão —
+      // a fila os mostra por último.
+      status: status === 'em_execucao' ? 'aberto' : status,
       prazo,
       criadoEm,
       trilogoAssetId: ticket.assetId ?? null,

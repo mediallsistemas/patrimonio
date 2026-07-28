@@ -355,6 +355,11 @@ model Chamado {
   // Unico: e a chave de idempotencia — reexecutar a sincronizacao nao duplica.
   // Nulo = chamado aberto pelo proprio sistema.
   trilogoTicketId      Int?      @unique
+  // currentStatus.actionDescription cru, como veio do Trilogo no momento da
+  // importacao. Guardado porque a traducao para o nosso ciclo de vida e uma
+  // interpretacao: com o texto original, um mapeamento errado e corrigivel
+  // depois com um UPDATE, em vez de ser perda de informacao.
+  trilogoStatusOrigem  String?
 
   // Foto na abertura (base64, mesmo teto ~1.5MB dos demais fluxos)
   fotoAbertura         String?

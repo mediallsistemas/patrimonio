@@ -5,8 +5,9 @@ import {
   mapearPrioridade,
   mapearTipo,
   mapearTitulo,
+  mapearStatus,
+  ehTerminal,
   resolverTenant,
-  statusEhAberto,
   type TicketTrilogo,
 } from './chamados-trilogo'
 
@@ -26,24 +27,39 @@ const TICKET_BASE: TicketTrilogo = {
   buildingServiceTypeDescription: 'Elétrica predial',
 }
 
-describe('statusEhAberto', () => {
-  // 'Aberto' é o único valor de status do Trílogo confirmado no repositório —
-  // as telas de patrimônio contam os abertos comparando com essa string.
-  it('reconhece o único status confirmado', () => {
-    expect(statusEhAberto('Aberto')).toBe(true)
+describe('mapearStatus', () => {
+  // 'Aberto' e o unico valor confirmado no repositorio (as telas de patrimonio
+  // contam abertos comparando com ele). Os outros tres sao a leitura mais
+  // provavel — por isso o texto cru vai junto para o banco.
+  it('reconhece o status confirmado', () => {
+    expect(mapearStatus('Aberto')).toBe('aberto')
   })
 
   it('ignora acento, caixa e espaço', () => {
-    expect(statusEhAberto('  ABERTO ')).toBe(true)
-    expect(statusEhAberto('abertó')).toBe(true)
+    expect(mapearStatus('  ABERTO ')).toBe('aberto')
+    expect(mapearStatus('CONCLUÍDO')).toBe('finalizado')
+    expect(mapearStatus('concluido')).toBe('finalizado')
   })
 
-  it('qualquer outro status não é aberto', () => {
-    expect(statusEhAberto('Em andamento')).toBe(false)
-    expect(statusEhAberto('Concluído')).toBe(false)
-    expect(statusEhAberto('Aguardando peça')).toBe(false)
-    expect(statusEhAberto(null)).toBe(false)
-    expect(statusEhAberto('')).toBe(false)
+  it('mapeia os demais status esperados', () => {
+    expect(mapearStatus('Em andamento')).toBe('em_execucao')
+    expect(mapearStatus('Cancelado')).toBe('cancelado')
+  })
+
+  // Sumir como finalizado esconderia trabalho de verdade; aparecer na fila, não.
+  it('status desconhecido ou vazio cai em aberto', () => {
+    expect(mapearStatus('Aguardando peça')).toBe('aberto')
+    expect(mapearStatus(null)).toBe('aberto')
+    expect(mapearStatus('')).toBe('aberto')
+  })
+})
+
+describe('ehTerminal', () => {
+  it('separa o que ainda pede trabalho do que não pede', () => {
+    expect(ehTerminal('aberto')).toBe(false)
+    expect(ehTerminal('em_execucao')).toBe(false)
+    expect(ehTerminal('finalizado')).toBe(true)
+    expect(ehTerminal('cancelado')).toBe(true)
   })
 })
 
@@ -120,27 +136,48 @@ describe('converterTicket', () => {
     expect(r.chamado.criadoEm.toISOString()).toBe('2026-07-20T10:00:00.000Z')
   })
 
-  // Importar um ticket já resolvido como chamado aberto criaria trabalho
-  // fantasma numa fila que a equipe usa para se organizar.
-  it('recusa status não reconhecido e devolve o texto literal', () => {
+  // Todo ticket entra, concluído inclusive — a fila os mostra por último.
+  it('importa ticket concluído guardando o texto cru do status', () => {
+    const r = converterTicket({
+      ...TICKET_BASE,
+      currentStatus: { actionDescription: 'Concluído' },
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.chamado.status).toBe('finalizado')
+    expect(r.chamado.trilogoStatusOrigem).toBe('Concluído')
+  })
+
+  it('guarda o texto cru mesmo quando o status não é reconhecido', () => {
+    const r = converterTicket({
+      ...TICKET_BASE,
+      currentStatus: { actionDescription: 'Aguardando peça' },
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.chamado.status).toBe('aberto')
+    expect(r.chamado.trilogoStatusOrigem).toBe('Aguardando peça')
+  })
+
+  it('ticket sem status na origem entra como aberto, com origem nula', () => {
+    const r = converterTicket({ ...TICKET_BASE, currentStatus: null })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.chamado.status).toBe('aberto')
+    expect(r.chamado.trilogoStatusOrigem).toBeNull()
+  })
+
+  // O responsável do Trílogo não é usuário daqui, e `assumir` exige 'aberto' —
+  // um chamado em execução sem responsável ninguém consegue pegar.
+  it('em execução na origem vira aberto aqui', () => {
     const r = converterTicket({
       ...TICKET_BASE,
       currentStatus: { actionDescription: 'Em andamento' },
     })
-    expect(r).toEqual({ ok: false, motivo: 'status "Em andamento" não reconhecido como aberto' })
-  })
-
-  it('recusa ticket sem status na origem', () => {
-    expect(converterTicket({ ...TICKET_BASE, currentStatus: null }))
-      .toEqual({ ok: false, motivo: 'ticket sem status na origem' })
-  })
-
-  // O status entra no chamado sempre como 'aberto': é o estado a partir do qual
-  // o operador consegue assumir (`assumir` exige status 'aberto').
-  it('o chamado nasce sempre em aberto', () => {
-    const r = converterTicket(TICKET_BASE)
-    if (!r.ok) throw new Error('deveria converter')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
     expect(r.chamado.status).toBe('aberto')
+    expect(r.chamado.trilogoStatusOrigem).toBe('Em andamento')
   })
 
   // Recusar é melhor que inventar: estes vão para a fila de triagem com o motivo.
