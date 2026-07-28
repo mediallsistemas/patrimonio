@@ -7,9 +7,19 @@ import { sincronizarChamadosTrilogo, janelaPadrao } from '@/modules/chamados/cha
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
 
-// Janela de busca de tickets. Maior que o intervalo do cron (diário) de propósito:
-// dá margem para uma execução falhar sem que os tickets do dia se percam.
-const JANELA_DIAS = 7
+// Janela de busca de tickets.
+//
+// Um ano, e não alguns dias, porque a API do Trílogo devolve o histórico inteiro
+// praticamente de graça: medido em produção, 7 dias custam 1,0s e 365 dias custam
+// 2,5s — a diferença é menor que a variação entre duas chamadas. A base toda tem
+// ~2.600 tickets.
+//
+// Isso elimina a necessidade de um backfill manual e faz a sincronização se
+// curar sozinha: execução perdida, ticket corrigido no Trílogo depois de ter
+// sido recusado, ou regra de conversão ajustada — tudo é reprocessado na noite
+// seguinte. O índice único em trilogoTicketId garante que reprocessar não
+// duplica, e a gravação em lote só insere o que falta.
+const JANELA_DIAS = 365
 
 // Porta única: Authorization: Bearer <CRON_SECRET>.
 //

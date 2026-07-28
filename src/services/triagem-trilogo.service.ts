@@ -21,16 +21,6 @@ export interface FilaTriagem {
   itens: TicketEmTriagem[]
 }
 
-export interface ResultadoSincronizacao {
-  buscados: number
-  criados: number
-  jaExistiam: number
-  emTriagem: number
-  vinculadosSoPorEmpresa: number
-  janela: { inicio: string; fim: string }
-  simulacao: boolean
-}
-
 function unwrap<T>(res: { data: T }): T {
   return res.data
 }
@@ -38,19 +28,4 @@ function unwrap<T>(res: { data: T }): T {
 export async function listarTriagem(incluirResolvidos = false): Promise<FilaTriagem> {
   const qs = incluirResolvidos ? '?resolvidos=true' : ''
   return unwrap(await api.get<{ data: FilaTriagem }>(`admin/chamados/triagem${qs}`))
-}
-
-export async function sincronizar(params: {
-  inicio: string
-  fim: string
-  simular: boolean
-}): Promise<ResultadoSincronizacao> {
-  const qs = new URLSearchParams({
-    inicio: params.inicio,
-    fim: params.fim,
-    ...(params.simular ? { simular: 'true' } : {}),
-  })
-  return unwrap(
-    await api.post<{ data: ResultadoSincronizacao }>(`admin/chamados/sincronizar?${qs}`, {}),
-  )
 }
