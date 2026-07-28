@@ -339,7 +339,10 @@ model Chamado {
   tipo                 String
   prioridade           String    @default("media") // 'baixa' | 'media' | 'alta' | 'urgente'
   status               String    @default("aberto") // 'aberto' | 'em_execucao' | 'finalizado' | 'cancelado'
-  prazo                DateTime
+  // Opcional: ticket do Trilogo frequentemente nao traz deadline (219 de 868 na
+  // amostra de producao). Inventar um prazo produziria atraso falso; sem prazo,
+  // estaAtrasado devolve false e a tela mostra "—".
+  prazo                DateTime?
 
   // Ambiente (snapshot preserva histórico se o ambiente for removido)
   ambienteId           String?
@@ -350,6 +353,16 @@ model Chamado {
   trilogoAssetId       Int?
   patrimony            String?
   descricaoBemSnapshot String?
+
+  // Ticket de origem no Trilogo, quando o chamado nasceu de uma sincronizacao.
+  // Unico: e a chave de idempotencia — reexecutar a sincronizacao nao duplica.
+  // Nulo = chamado aberto pelo proprio sistema.
+  trilogoTicketId      Int?      @unique
+  // currentStatus.actionDescription cru, como veio do Trilogo no momento da
+  // importacao. Guardado porque a traducao para o nosso ciclo de vida e uma
+  // interpretacao: com o texto original, um mapeamento errado e corrigivel
+  // depois com um UPDATE, em vez de ser perda de informacao.
+  trilogoStatusOrigem  String?
 
   // Foto na abertura (base64, mesmo teto ~1.5MB dos demais fluxos)
   fotoAbertura         String?
@@ -442,4 +455,33 @@ model RespostaFormulario {
   @@index([tenantId, setor])
   @@index([tenantId, criadoEm])
   @@map("respostas_formulario")
+}
+
+/// Tickets do Trilogo que a sincronizacao NAO conseguiu virar chamado.
+///
+/// Existe porque a janela de busca e movel (7 dias): sem persistir, um ticket
+/// recusado sumia do relatorio da execucao seguinte e, passada a janela, deixava
+/// de ser buscado — perdido em silencio. Aqui ele fica ate alguem resolver.
+///
+/// Nao guarda dado do Trilogo alem do necessario para a triagem: e uma fila de
+/// pendencias, nao um espelho.
+model TicketTrilogoTriagem {
+  trilogoTicketId Int       @id
+  /// Por que nao entrou. Para status desconhecido, traz o texto literal da origem.
+  motivo          String
+  /// currentStatus.actionDescription cru, quando havia. E como descobrimos
+  /// quais valores de status existem de fato na base do cliente.
+  statusOrigem    String?
+  descricao       String?
+  endereco        String?
+  companyId       Int?
+  primeiraVezEm   DateTime  @default(now())
+  ultimaVezEm     DateTime  @updatedAt
+  /// Quantas execucoes ja recusaram este ticket. Repeticao alta = regra a ajustar.
+  ocorrencias     Int       @default(1)
+  /// Preenchido quando o ticket finalmente virou chamado.
+  resolvidoEm     DateTime?
+
+  @@index([resolvidoEm, ultimaVezEm])
+  @@map("tickets_trilogo_triagem")
 }

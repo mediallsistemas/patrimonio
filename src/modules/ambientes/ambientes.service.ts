@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
 import { prismaAuth } from '@/lib/db-auth'
+import { pertenceAoTenant } from '@/modules/trilogo/escopo'
 import type { CreateAmbienteInput } from './ambientes.types'
 
 const TRILOGO_TOKEN = process.env.TRILOGO_TOKEN ?? ''
@@ -28,19 +29,24 @@ export async function sincronizarTenant(
 ): Promise<{ blocosCriados: number; ambientesCriados: number; ambientesRemovidos: number; blocosRemovidos: number } | null> {
   const tenant = await prismaAuth.tenant.findUnique({
     where: { id: tenantId },
-    select: { trilogoCompanyId: true, trilogoProjectName: true },
+    select: { slug: true, nome: true, trilogoCompanyId: true, trilogoProjectName: true },
   })
   if (!tenant?.trilogoCompanyId) return null
   if (!TRILOGO_TOKEN) throw new Error('TRILOGO_TOKEN não configurado')
 
   const all = await fetchAllTrilogoAssets()
 
-  const assets = all.filter((a) => {
-    if (Number(a['companyId']) !== tenant.trilogoCompanyId) return false
-    if (!tenant.trilogoProjectName) return true
-    const addr = String(a['departmentFullAddress'] ?? '').toUpperCase()
-    return addr.includes(tenant.trilogoProjectName.toUpperCase())
-  })
+  // Mesma regra da importação de chamados (modules/trilogo/escopo): fecha
+  // quando nada identifica a unidade. Antes, tenant sem projeto configurado
+  // puxava os bens de toda a empresa para dentro dos próprios ambientes — e a
+  // sincronização APAGA o que nao vem na lista, entao errar aqui e destrutivo.
+  const vinculo = {
+    trilogoCompanyId: tenant.trilogoCompanyId,
+    trilogoProjectName: tenant.trilogoProjectName,
+    slug: tenant.slug,
+    nome: tenant.nome,
+  }
+  const assets = all.filter((a) => pertenceAoTenant(a, vinculo))
 
   return sincronizarAmbientesTrilogo(tenantId, assets)
 }

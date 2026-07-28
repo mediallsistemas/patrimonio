@@ -4,7 +4,7 @@ import { memo, useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
-  ChevronDown, ChevronUp, MapPin, User, Package, CalendarClock, UserPlus, Ban, Building2,
+  ChevronDown, ChevronUp, MapPin, User, Package, CalendarClock, UserPlus, Ban, Building2, Download,
 } from 'lucide-react'
 
 import Button from '@/components/ui/Button'
@@ -42,7 +42,8 @@ interface ChamadoCardProps {
   ) => void
 }
 
-function fmtData(iso: string) {
+function fmtData(iso: string | null) {
+  if (!iso) return '—'
   return format(new Date(iso), 'dd/MM/yyyy HH:mm', { locale: ptBR })
 }
 
@@ -114,7 +115,7 @@ function ChamadoCardBase({
             </span>
             <span className="inline-flex items-center gap-1">
               <CalendarClock className="w-3 h-3" />
-              Prazo {fmtData(c.prazo)}
+              {c.prazo ? `Prazo ${fmtData(c.prazo)}` : 'Sem prazo'}
             </span>
             {c.responsavel && (
               <span className="inline-flex items-center gap-1">
@@ -149,6 +150,25 @@ function ChamadoCardBase({
               </span>
               {c.descricaoBemSnapshot && (
                 <Text variant="body-sm" className="text-dark block mt-0.5">{c.descricaoBemSnapshot}</Text>
+              )}
+            </div>
+          )}
+
+          {/* Origem — só aparece em chamado vindo do Trílogo. Sem isso, ninguém consegue
+              distinguir na tela o que nasceu aqui do que veio da sincronização. */}
+          {c.trilogoTicketId !== null && (
+            <div className="px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-200">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 uppercase tracking-wide font-sans">
+                <Download className="w-3.5 h-3.5" />
+                Origem · Trílogo #{c.trilogoTicketId}
+              </span>
+              {/* Status cru da origem. Aparece porque a tradução para o nosso
+                  ciclo de vida é interpretação — aqui dá para conferir o que o
+                  Trílogo realmente dizia no momento da importação. */}
+              {c.trilogoStatusOrigem && (
+                <span className="ml-2 text-xs text-sky-600 font-sans">
+                  · no Trílogo: {c.trilogoStatusOrigem}
+                </span>
               )}
             </div>
           )}

@@ -20,12 +20,17 @@ export interface ChamadoResumo {
   tipo: TipoChamado
   prioridade: PrioridadeChamado
   status: StatusChamado
-  prazo: string
+  /** Nulo quando a origem não informou deadline. */
+  prazo: string | null
   atrasado: boolean
   ambienteNomeSnapshot: string | null
   blocoNomeSnapshot: string | null
   patrimony: string | null
   descricaoBemSnapshot: string | null
+  /** Preenchido quando o chamado nasceu de um ticket do Trílogo. Nulo = aberto no sistema. */
+  trilogoTicketId: number | null
+  /** Status cru na origem, para chamados importados. Nulo = aberto no sistema. */
+  trilogoStatusOrigem: string | null
   assumidoEm: string | null
   finalizadoEm: string | null
   criadoEm: string
@@ -73,6 +78,8 @@ export interface FiltrosChamados {
   tipo?: TipoChamado
   responsavelId?: string
   atrasados?: boolean
+  /** Só chamados com bem patrimonial vinculado. */
+  comBem?: boolean
 }
 
 function unwrap<T>(res: { data: T }): T {
@@ -86,6 +93,7 @@ export async function listar(filtros: FiltrosChamados = {}): Promise<ChamadoResu
   if (filtros.tipo) params.set('tipo', filtros.tipo)
   if (filtros.responsavelId) params.set('responsavelId', filtros.responsavelId)
   if (filtros.atrasados) params.set('atrasados', 'true')
+  if (filtros.comBem) params.set('comBem', 'true')
   const qs = params.toString()
   return unwrap(await api.get<{ data: ChamadoResumo[] }>(`chamados${qs ? `?${qs}` : ''}`))
 }

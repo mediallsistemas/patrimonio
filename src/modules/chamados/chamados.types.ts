@@ -112,6 +112,11 @@ export const FiltrosChamadosSchema = z.object({
   atrasados: z
     .preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean())
     .optional(),
+  // Só chamados com bem patrimonial vinculado — é o recorte das telas de
+  // patrimônio, que antes liam o Trílogo ao vivo.
+  comBem: z
+    .preprocess((v) => (v === undefined ? undefined : v === true || v === 'true'), z.boolean())
+    .optional(),
 })
 export type FiltrosChamados = z.infer<typeof FiltrosChamadosSchema>
 
@@ -141,12 +146,17 @@ export interface ChamadoListaItem {
   tipo: string
   prioridade: string
   status: string
-  prazo: Date
+  /** Nulo quando a origem não informou deadline — ver estaAtrasado. */
+  prazo: Date | null
   atrasado: boolean
   ambienteNomeSnapshot: string | null
   blocoNomeSnapshot: string | null
   patrimony: string | null
   descricaoBemSnapshot: string | null
+  /** Preenchido quando o chamado nasceu de um ticket do Trílogo. Nulo = aberto no sistema. */
+  trilogoTicketId: number | null
+  /** Status cru na origem, para chamados importados. Nulo = aberto no sistema. */
+  trilogoStatusOrigem: string | null
   assumidoEm: Date | null
   finalizadoEm: Date | null
   criadoEm: Date

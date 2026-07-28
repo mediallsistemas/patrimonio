@@ -138,3 +138,22 @@ describe('chamados.rules — sanitização de campos fiscais', () => {
     }
   })
 })
+
+// Sem prazo não há atraso — o chamado importado do Trílogo pode não ter deadline
+// na origem, e marcar como atrasado o que não tem prazo seria inventar o dado.
+describe('estaAtrasado — chamado sem prazo', () => {
+  const agora = new Date('2026-07-28T12:00:00Z')
+
+  it('prazo nulo nunca está atrasado, mesmo aberto', () => {
+    expect(estaAtrasado({ status: 'aberto', prazo: null }, agora)).toBe(false)
+    expect(estaAtrasado({ status: 'em_execucao', prazo: null }, agora)).toBe(false)
+  })
+
+  it('prazo vencido em status vivo continua atrasado', () => {
+    expect(estaAtrasado({ status: 'aberto', prazo: new Date('2026-07-01') }, agora)).toBe(true)
+  })
+
+  it('status terminal nunca está atrasado', () => {
+    expect(estaAtrasado({ status: 'finalizado', prazo: new Date('2026-07-01') }, agora)).toBe(false)
+  })
+})

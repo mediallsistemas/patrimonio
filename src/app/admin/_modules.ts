@@ -100,6 +100,15 @@ export const ADMIN_MODULES: AdminModule[] = [
         color: '#0891b2',
         superAdminOnly: false,
       },
+      {
+        href: '/admin/chamados/triagem',
+        icon: Inbox,
+        title: 'Triagem do Trílogo',
+        description: 'Tickets que a sincronização não conseguiu virar chamado, e importação manual',
+        color: '#d97706',
+        // A fila atravessa todas as unidades, igual às rotas que a alimentam.
+        superAdminOnly: true,
+      },
     ],
   },
   {
