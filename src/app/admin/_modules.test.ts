@@ -2,14 +2,18 @@ import { describe, it, expect } from 'vitest'
 
 import { ADMIN_MODULES, getModule } from './_modules'
 
-// Contrato do reagrupamento: as mesmas 7 telas da lista plana anterior, com os mesmos
+// Contrato do reagrupamento: as telas da lista plana anterior, com os mesmos
 // `superAdminOnly`. Se alguém adicionar uma tela nova, este teste falha de propósito —
 // para a decisão de em qual setor ela entra ser consciente, e não acidental.
+//
+// A triagem do Trílogo é a primeira adição desde o reagrupamento e passou por aqui:
+// entra em Patrimônio, restrita a super_admin porque a fila atravessa as unidades.
 const TELAS_ESPERADAS: Record<string, boolean> = {
   '/admin/tenants': true,
   '/admin/usuarios': false,
   '/admin/rondas': false,
   '/admin/chamados': false,
+  '/admin/chamados/triagem': true,
   '/admin/patrimonio': false,
   '/admin/bens': false,
   '/admin/dashboard': true,
