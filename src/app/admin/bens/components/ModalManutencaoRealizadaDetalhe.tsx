@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, Wrench, User, Calendar } from 'lucide-react'
 import * as manutencoesService from '@/services/manutencoes.service'
+import FotoLightbox from '@/components/ui/FotoLightbox'
 import type { ManutencaoRealizadaDetalhe } from '@/services/manutencoes.service'
 
 interface Props {
@@ -24,7 +25,14 @@ export default function ModalManutencaoRealizadaDetalhe({ id, onClose }: Props) 
     queryFn: () => manutencoesService.buscarRealizadaDetalhe(id),
     staleTime: 5 * 60 * 1000,
   })
-  const [fotoAmpliada, setFotoAmpliada] = useState<{ src: string; titulo: string } | null>(null)
+  const [fotoAmpliada, setFotoAmpliada] = useState<number | null>(null)
+
+  // Antes sempre existe (é obrigatória ao iniciar a manutenção); depois só
+  // quando a manutenção foi finalizada. A ordem aqui define a das setas.
+  const fotosAmpliaveis = [
+    ...(data?.fotoAntes ? [{ src: data.fotoAntes, legenda: 'Antes' }] : []),
+    ...(data?.fotoDepois ? [{ src: data.fotoDepois, legenda: 'Depois' }] : []),
+  ]
 
   return (
     <div
@@ -90,7 +98,7 @@ export default function ModalManutencaoRealizadaDetalhe({ id, onClose }: Props) 
                   <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Antes</p>
                   <button
                     type="button"
-                    onClick={() => setFotoAmpliada({ src: data.fotoAntes, titulo: 'Antes' })}
+                    onClick={() => setFotoAmpliada(0)}
                     className="w-full rounded-lg border border-amber-100 overflow-hidden block hover:opacity-90 transition-opacity cursor-zoom-in"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -102,7 +110,7 @@ export default function ModalManutencaoRealizadaDetalhe({ id, onClose }: Props) 
                   {data.fotoDepois ? (
                     <button
                       type="button"
-                      onClick={() => setFotoAmpliada({ src: data.fotoDepois!, titulo: 'Depois' })}
+                      onClick={() => setFotoAmpliada(fotosAmpliaveis.length - 1)}
                       className="w-full rounded-lg border border-emerald-100 overflow-hidden block hover:opacity-90 transition-opacity cursor-zoom-in"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -126,31 +134,12 @@ export default function ModalManutencaoRealizadaDetalhe({ id, onClose }: Props) 
         </div>
       </div>
 
-      {fotoAmpliada && (
-        <div
-          className="fixed inset-0 bg-black/85 flex items-center justify-center z-70 p-4 cursor-zoom-out"
-          onClick={() => setFotoAmpliada(null)}
-        >
-          <button
-            type="button"
-            onClick={() => setFotoAmpliada(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-            aria-label="Fechar"
-          >
-            <X size={20} />
-          </button>
-          <div className="absolute top-4 left-4 text-white/80 text-xs font-semibold uppercase tracking-wide">
-            {fotoAmpliada.titulo}
-          </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={fotoAmpliada.src}
-            alt={fotoAmpliada.titulo}
-            onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-full object-contain rounded-lg cursor-default"
-          />
-        </div>
-      )}
+      <FotoLightbox
+        fotos={fotosAmpliaveis}
+        indice={fotoAmpliada}
+        onFechar={() => setFotoAmpliada(null)}
+        onNavegar={setFotoAmpliada}
+      />
     </div>
   )
 }
