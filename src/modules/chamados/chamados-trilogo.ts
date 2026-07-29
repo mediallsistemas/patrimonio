@@ -86,16 +86,13 @@ export function ehTerminal(status: StatusChamado): boolean {
 }
 
 // ── Prioridade ──────────────────────────────────────────────────────────────
-// A escala vem do PRIORITY_LABEL já usado nas telas de patrimônio
-// (admin/patrimonio/page.tsx e viewer/patrimonio/page.tsx):
-//   1 Baixa · 2 Média · 3 Alta · 4 Urgente
-// que é exatamente a escala de prioridade dos chamados. Não é palpite: é o que
-// o próprio sistema já mostra ao usuário hoje.
+// A escala veio do PRIORITY_LABEL das telas de patrimônio, que existiam quando
+// isto foi escrito: 1 Baixa · 2 Média · 3 Alta · 4 Urgente. Elas foram removidas
+// depois (viraram redundantes com o painel de chamados), mas a escala continua
+// valendo — era o que o próprio sistema mostrava ao usuário.
 //
-// Nota: o contador de "urgentes" daquelas telas usa `priority >= 3`, o que
-// diverge do rótulo que elas mesmas exibem para o 3 ("Alta"). O rótulo é a
-// leitura boa; o contador é que está largo. Não mexo nele aqui — mudaria o
-// número que a tela mostra hoje.
+// Na prática a API devolve `priority: 2` em todos os tickets: 868 de 868 na
+// amostra de produção. O mapa existe para o dia em que isso mudar.
 //
 // Valor fora da faixa cai em 'media' — nunca em 'urgente', para não inflar fila.
 

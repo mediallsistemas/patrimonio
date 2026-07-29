@@ -288,7 +288,10 @@ model ManutencaoRealizada {
   id                    String    @id @default(uuid())
   tenantId              String
   criadoPorId           String
-  // 'eletrica' | 'hidraulica' | 'patrimonio'
+  // 'eletrica' | 'hidraulica' | 'predial' | 'patrimonio'
+  // 'predial' vem do LinenSistem e continua sendo gravado — 29 registros em
+  // producao. Ja esteve fora desta lista, o que fez a tela de manutencoes
+  // renderizar essas linhas sem rotulo.
   tipo                  String
   status                String    @default("em_andamento") // 'em_andamento' | 'concluida'
 

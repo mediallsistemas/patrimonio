@@ -101,11 +101,14 @@ export const COLUNAS_MANUTENCOES_PDF: ColunaPdf[] = [
 const TIPO_MANUTENCAO_LABEL: Record<string, string> = {
   eletrica: 'Elétrica',
   hidraulica: 'Hidráulica',
+  predial: 'Predial',
   patrimonio: 'Patrimônio',
 }
 
 interface ManutencaoParaPdf {
   tipo: string
+  /** Preenchido só no relatório cross-tenant do admin. */
+  tenant?: { nome: string }
   status: string
   ambienteNomeSnapshot: string | null
   patrimony: string | null
@@ -125,6 +128,9 @@ export function linhaManutencaoPdf(m: ManutencaoParaPdf): Record<string, string 
     : (m.ambienteNomeSnapshot ?? 'Ambiente')
 
   return {
+    // A coluna Unidade só existe em COLUNAS_MANUTENCOES_ADMIN_PDF; nas demais a
+    // chave sobra e é ignorada pelo gerador, que monta a linha pelas colunas.
+    unidade: m.tenant?.nome ?? '—',
     tipo: TIPO_MANUTENCAO_LABEL[m.tipo] ?? m.tipo,
     local,
     dataHora: format(new Date(m.iniciadaEm), 'dd/MM/yyyy HH:mm'),
@@ -135,6 +141,12 @@ export function linhaManutencaoPdf(m: ManutencaoParaPdf): Record<string, string 
 }
 
 // ── Inspeções de gases ───────────────────────────────────────────────────────
+
+// Mesmo relatório, com a unidade na frente — o painel do admin atravessa tenants.
+export const COLUNAS_MANUTENCOES_ADMIN_PDF: ColunaPdf[] = [
+  { header: 'Unidade', key: 'unidade' },
+  ...COLUNAS_MANUTENCOES_PDF,
+]
 
 export const COLUNAS_INSPECOES_PDF: ColunaPdf[] = [
   { header: 'Data/Hora', key: 'dataHora' },
