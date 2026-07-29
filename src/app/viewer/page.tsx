@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Activity, Users, Package, ShieldCheck, Wrench } from 'lucide-react'
+import { Activity, Users, Package, ShieldCheck } from 'lucide-react'
 import Text from '@/components/ui/Text'
 import LogoutButton from '@/components/ui/LogoutButton'
 import { getSession } from '@/lib/auth'
@@ -26,13 +26,6 @@ const ACTIONS = [
     title: 'Bens Patrimoniais',
     description: 'Visualize o patrimônio cadastrado no Trílogo por unidade e ambiente',
     color: '#7c3aed',
-  },
-  {
-    href: '/viewer/patrimonio',
-    icon: Wrench,
-    title: 'Tickets de Manutenção',
-    description: 'Visualize tickets de manutenção com bens patrimoniais via Trílogo',
-    color: '#b45309',
   },
 ]
 

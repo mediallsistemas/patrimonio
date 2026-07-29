@@ -2,16 +2,22 @@ import { describe, it, expect } from 'vitest'
 
 import { ADMIN_MODULES, MODULOS_VISIVEIS, TELAS_OCULTAS, getModule } from './_modules'
 
-// Contrato do reagrupamento: as telas da lista plana anterior, com os mesmos
-// `superAdminOnly`. Se alguém adicionar uma tela nova, este teste falha de propósito —
-// para a decisão de em qual setor ela entra ser consciente, e não acidental.
+// Contrato do painel: as telas que ele oferece, com os respectivos
+// `superAdminOnly`. Se alguém adicionar ou remover uma tela, este teste falha de
+// propósito — para a decisão ser consciente, e não acidental.
+//
+// Nota de origem: a versão inicial desta lista dizia reproduzir "as mesmas telas
+// de antes" e tinha 7 entradas, mas o painel anterior tinha 8 — faltava
+// /admin/manutencoes. O teste travou o erro junto, dando a ele cara de decisão.
+// Vale como aviso: este arquivo prova consistência interna, não que a lista
+// esteja completa.
 const TELAS_ESPERADAS: Record<string, boolean> = {
   '/admin/tenants': true,
   '/admin/usuarios': false,
   '/admin/rondas': false,
   '/admin/chamados': false,
-  '/admin/patrimonio': false,
   '/admin/bens': false,
+  '/admin/manutencoes': false,
   '/admin/dashboard': true,
 }
 

@@ -1,6 +1,6 @@
 import {
   Building2, Users, Activity, LayoutDashboard, Package,
-  Settings, Boxes, Sparkles, Inbox,
+  Settings, Boxes, Sparkles, Inbox, Wrench,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -93,19 +93,19 @@ export const ADMIN_MODULES: AdminModule[] = [
         superAdminOnly: false,
       },
       {
-        href: '/admin/patrimonio',
-        icon: Package,
-        title: 'Tickets de Patrimônio',
-        description: 'Visualize tickets de manutenção com bens patrimoniais vinculados via Trílogo',
-        color: '#7c3aed',
-        superAdminOnly: false,
-      },
-      {
         href: '/admin/bens',
         icon: Package,
         title: 'Bens por Ambiente',
         description: 'Consulte todos os bens patrimoniais cadastrados por setor e ambiente',
         color: '#0891b2',
+        superAdminOnly: false,
+      },
+      {
+        href: '/admin/manutencoes',
+        icon: Wrench,
+        title: 'Manutenções Elétrica, Hidráulica e Predial',
+        description: 'Histórico das manutenções realizadas, com fotos antes e depois',
+        color: '#f59e0b',
         superAdminOnly: false,
       },
     ],
