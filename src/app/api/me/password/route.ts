@@ -13,6 +13,7 @@ interface UsuarioRow {
   tenantId: string | null
   tenantSlug: string | null
   sistemas: string[]
+  tenantsExtras: string[]
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -33,6 +34,7 @@ export async function POST(req: Request): Promise<Response> {
     const result = await authPool.query<UsuarioRow>(
       `SELECT u.id, u."senhaHash", u.email, u.nome, u.role, u."tenantId",
               COALESCE(u.sistemas, ARRAY[]::text[]) AS sistemas,
+              COALESCE(u."tenantsExtras", ARRAY[]::text[]) AS "tenantsExtras",
               t.slug AS "tenantSlug"
        FROM usuarios u
        LEFT JOIN tenants t ON t.id = u."tenantId"
@@ -48,7 +50,15 @@ export async function POST(req: Request): Promise<Response> {
       [novoHash, usuario.id],
     )
 
-    // Reemite o cookie JWT com mustChangePassword = false
+    // Reemite o cookie JWT com mustChangePassword = false.
+    // IMPORTANTE: reconstrói tenantIds igual ao login — sem isso o admin_multi
+    // que troca a senha "perdia" as unidades extras e todos os seletores
+    // colapsavam para a unidade primária.
+    const tenantsExtras = usuario.tenantsExtras ?? []
+    const tenantIds = tenantsExtras.length > 0
+      ? [usuario.tenantId, ...tenantsExtras].filter((id): id is string => id !== null)
+      : undefined
+
     const newSession: SessionPayload = {
       sub:                usuario.id,
       userId:             usuario.id,
@@ -59,6 +69,7 @@ export async function POST(req: Request): Promise<Response> {
       tenantSlug:         usuario.tenantSlug,
       sistemas:           usuario.sistemas,
       mustChangePassword: false,
+      ...(tenantIds ? { tenantIds } : {}),
     }
     await setSessionCookie(newSession)
 
