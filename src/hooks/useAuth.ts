@@ -38,7 +38,9 @@ export function useAuth() {
   const isLoading = state.status === 'loading'
   const user = state.status === 'authenticated' ? state.user : null
   const isSuperAdmin = user?.role === 'super_admin'
+  // viewer = alias legado de admin_multi (ver auth.types.ts)
+  const isAdminMulti = user?.role === 'admin_multi' || user?.role === 'viewer'
   const isViewer = (user?.role as string) === 'viewer'
 
-  return { state, user, isLoading, isSuperAdmin, isViewer, logout, refresh: fetchMe }
+  return { state, user, isLoading, isSuperAdmin, isAdminMulti, isViewer, logout, refresh: fetchMe }
 }

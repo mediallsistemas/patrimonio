@@ -12,6 +12,7 @@ type Role = JWTPayload['role']
 export const ROLES_RELATORIO_MANUTENCOES: Role[] = [
   'super_admin',
   'tenant_admin',
+  'admin_multi',
   'operator_patrimonio',
   'viewer',
 ]

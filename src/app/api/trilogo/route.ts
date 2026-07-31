@@ -1,4 +1,5 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
+import { allowedTenantIds } from '@/modules/auth/tenant-filter'
 import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
 import { prismaAuth } from '@/lib/db-auth'
 import { visivelPara, type VinculoTrilogo } from '@/modules/trilogo/escopo'
@@ -7,7 +8,7 @@ const TRILOGO_TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio', 'viewer'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'admin_multi', 'operator_patrimonio', 'viewer'])
   if (!session) return forbidden()
 
   if (!TRILOGO_TOKEN) return serverError('TRILOGO_TOKEN não configurado')
@@ -20,18 +21,12 @@ export async function GET(req: Request): Promise<Response> {
     return badRequest('startDate e endDate devem estar no formato YYYY-MM-DD')
   }
 
-  // viewer: filtra pelos projetos de todos os seus tenants vinculados
+  // admin_multi/viewer: filtra pelos projetos de todos os seus tenants vinculados
   // tenant_admin / operator_patrimonio: filtra pelo próprio tenant
   let vinculos: VinculoTrilogo[] = []
 
   if (session.role !== 'super_admin') {
-    const tenantIds =
-      session.tenantIds && session.tenantIds.length > 0
-        ? session.tenantIds
-        : session.tenantId
-          ? [session.tenantId]
-          : []
-
+    const tenantIds = allowedTenantIds(session)
     if (tenantIds.length === 0) return forbidden()
 
     const tenants = await prismaAuth.tenant.findMany({

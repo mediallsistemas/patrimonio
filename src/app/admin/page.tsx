@@ -8,7 +8,8 @@ import { MODULOS_VISIVEIS } from './_modules'
 export default async function AdminPage() {
   const session = await getSession()
   const isSuperAdmin = session?.role === 'super_admin'
-  const isViewer = session?.role === 'viewer'
+  // viewer = alias legado de admin_multi (admin multi-unidade)
+  const isAdminMulti = session?.role === 'admin_multi' || session?.role === 'viewer'
 
   // Oculta módulo que exige super_admin e também aquele cujas telas, depois de
   // filtradas, ficariam todas de fora — para não haver card que abre em página vazia.
@@ -27,7 +28,7 @@ export default async function AdminPage() {
               <ShieldCheck className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-semibold font-sans text-gray-400 uppercase tracking-wide">
-              {isSuperAdmin ? 'Super Admin' : isViewer ? 'Admin Regional' : 'Admin'}
+              {isSuperAdmin ? 'Super Admin' : isAdminMulti ? 'Admin Multi-Unidade' : 'Admin'}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -47,7 +48,7 @@ export default async function AdminPage() {
           <Text variant="body-md" className="text-gray-300">
             {isSuperAdmin
               ? 'Gerencie o sistema, unidades e usuários'
-              : isViewer
+              : isAdminMulti
                 ? 'Gerencie usuários e monitore as unidades vinculadas'
                 : 'Gerencie usuários e monitore sua unidade'}
           </Text>

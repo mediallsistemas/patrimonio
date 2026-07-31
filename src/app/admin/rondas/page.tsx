@@ -192,9 +192,9 @@ export default function AdminRondasPage() {
     rondaSelecionada ? [rondaSelecionada] : rondasFiltradas,
   )
 
-  // KPIs — sobre todas as rondas
-  const totalRondas        = rondas.length
-  const totalComOcorrencia = rondas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
+  // KPIs — acompanham o filtro de unidade (os cards e a lista andam juntos)
+  const totalRondas        = rondasFiltradas.length
+  const totalComOcorrencia = rondasFiltradas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
 
   const emAndamento = rondasFiltradas.filter((r) => r.finalizadoEm === null)
   const exibirNormais = !soOcorrencias
@@ -237,11 +237,11 @@ export default function AdminRondasPage() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href="/admin"
+              href="/admin/m/patrimonio"
               className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Admin
+              Patrimônio
             </Link>
             <span className="text-gray-200">/</span>
             <div className="flex items-center gap-2.5">

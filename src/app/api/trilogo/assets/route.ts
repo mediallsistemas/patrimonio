@@ -1,4 +1,5 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
+import { allowedTenantIds } from '@/modules/auth/tenant-filter'
 import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
 import { prismaAuth } from '@/lib/db-auth'
 import { visivelPara, type VinculoTrilogo } from '@/modules/trilogo/escopo'
@@ -74,7 +75,7 @@ async function fetchEmpresas(): Promise<{ id: number; nome: string }[]> {
 if (TOKEN) fetchAll().catch(() => { /* silencioso — próximo request tentará novamente */ })
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio', 'viewer'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'admin_multi', 'operator_patrimonio', 'viewer'])
   if (!session) return forbidden()
 
   if (!TOKEN) return serverError('TRILOGO_TOKEN não configurado')
@@ -83,11 +84,9 @@ export async function GET(req: Request): Promise<Response> {
   const companyId = searchParams.get('companyId')
 
   try {
-    // viewer: pode ter múltiplos tenants — valida que o companyId pedido está entre os seus
-    if (session.role === 'viewer') {
-      const tenantIds = session.tenantIds && session.tenantIds.length > 0
-        ? session.tenantIds
-        : session.tenantId ? [session.tenantId] : []
+    // admin_multi/viewer: podem ter múltiplos tenants — valida que o companyId pedido está entre os seus
+    if (session.role === 'admin_multi' || session.role === 'viewer') {
+      const tenantIds = allowedTenantIds(session)
       if (tenantIds.length === 0) return forbidden()
 
       const tenants = await prismaAuth.tenant.findMany({

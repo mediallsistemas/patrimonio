@@ -54,7 +54,8 @@ export default function NovoChamadoPage({
   const router = useRouter()
   const { user } = useAuth()
 
-  const ehAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin'
+  const ehAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin' ||
+    user?.role === 'admin_multi' || user?.role === 'viewer'
   const { blocosChamado, blocosCarregando, usuarios, criar } = useChamados({ ehAdmin, comBlocos: true })
 
   // Abrir chamado é separado de operar: operator opera mas não cria.

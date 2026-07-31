@@ -355,11 +355,12 @@ interface JWTPayload {
   sub: string               // userId
   email: string
   nome: string
-  role: 'super_admin' | 'tenant_admin' | 'operator' | 'operator_patrimonio' | 'operator_forms' | 'viewer'
+  role: 'super_admin' | 'tenant_admin' | 'admin_multi' | 'operator' | 'operator_patrimonio' | 'operator_forms' | 'viewer'
   tenantId: string | null   // null = super_admin
   tenantSlug: string | null
   sistemas: string[]        // ['linensistem', 'feedbackforms']
   mustChangePassword?: boolean
+  tenantIds?: string[]      // admin_multi/viewer: [tenantId, ...tenantsExtras] resolvido no login
   iat?: number
   exp?: number
 }
@@ -372,16 +373,24 @@ JWT expires in 4 hours. Signed with HS256, stored in httpOnly cookie `ls_session
 
 ## Role Access Matrix
 
+**Princípio: papéis administrativos têm as MESMAS telas e rotas; muda apenas o
+ALCANCE (quais tenants).** Detalhes completos, helpers de escopo e histórico em
+`docs/PERMISSOES.md` — leia antes de mexer em auth/permissões.
+
 | Role | Reads | Writes | Scope |
 |------|-------|--------|-------|
 | `super_admin` | all | all | cross-tenant |
+| `admin_multi` | seus tenants | igual a tenant_admin, por tenant | N tenants (`tenantIds[]`) |
 | `tenant_admin` | own tenant | own tenant | single tenant |
-| `operator` | own tenant | rondas, inspeção, hotelaria | single tenant |
+| `operator` | own tenant | rondas, inspeção, manutenção | single tenant |
 | `operator_patrimonio` | own tenant | assets, maintenance | single tenant |
 | `operator_forms` | own tenant | feedback forms | single tenant |
-| `viewer` | own tenant | none | single tenant — read-only |
+| `viewer` | **alias LEGADO de `admin_multi`** (rename pendente no banco) | idem admin_multi, exceto admin de chamados | N tenants |
 
-`viewer` is always read-only — never allow writes even with a valid JWT.
+Escopo de tenant SEMPRE via helpers de `modules/auth/tenant-filter.ts`
+(`escopoLeitura`, `allowedTenantIds`, `canScopeTenant`, `resolveActiveTenantId`)
+— nunca reconstruído inline em rotas. Allowlists de rota vêm de constantes
+compartilhadas (`*.rules.ts`), consumidas por UI + rota + guard juntas.
 
 ---
 

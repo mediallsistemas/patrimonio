@@ -72,7 +72,10 @@ const APP_ROUTES = [
 ]
 
 // Roles com acesso ao módulo de manutenção
-const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin', 'operator'])
+const MANUTENCAO_ROLES = new Set(['super_admin', 'manutencao_admin', 'manutencao_user', 'tenant_admin', 'admin_multi', 'operator'])
+
+// Roles com acesso ao painel /admin (viewer = alias legado de admin_multi)
+const ADMIN_PANEL_ROLES = new Set(['super_admin', 'tenant_admin', 'admin_multi', 'viewer'])
 
 // ── Rate limiting simples em memória ──────────────────────────────────────────
 // Nota: em produção com múltiplas instâncias, usar Redis (upstash/redis ou similar).
@@ -215,7 +218,7 @@ export async function middleware(req: NextRequest) {
 
   // ── Rota raiz "/" ─────────────────────────────────────────────────────────
   if (pathname === '/') {
-    if (role === 'super_admin' || role === 'tenant_admin' || role === 'viewer') {
+    if (ADMIN_PANEL_ROLES.has(role)) {
       return NextResponse.redirect(new URL('/admin', req.url))
     }
     if (MANUTENCAO_ROLES.has(role) && tenantSlug) {
@@ -232,9 +235,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // ── /admin/* — super_admin, tenant_admin e viewer ─────────────────────────
+  // ── /admin/* — papéis administrativos (escopo aplicado no backend) ────────
   if (pathname.startsWith('/admin')) {
-    if (role !== 'super_admin' && role !== 'tenant_admin' && role !== 'viewer') {
+    if (!ADMIN_PANEL_ROLES.has(role)) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
     return NextResponse.next()
@@ -259,6 +262,10 @@ export async function middleware(req: NextRequest) {
     }
 
     if (role === 'super_admin') return NextResponse.next()
+
+    // admin_multi navega entre as unidades que administra pelo slug da URL;
+    // a validação fina (slug ∈ tenantIds) fica no SSR/API via tenantIds[].
+    if (role === 'admin_multi' || role === 'viewer') return NextResponse.next()
 
     if (tenantSlug !== slugFromPath) {
       const dest = tenantSlug

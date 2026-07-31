@@ -1,10 +1,14 @@
 import { ApiError } from '@/lib/error-message'
+import { getActiveTenantId } from '@/services/active-tenant'
 
 const API_BASE = '/api'
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const activeTenantId = getActiveTenantId()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    // Unidade ativa (admin_multi); o servidor valida o acesso e ignora p/ os demais.
+    ...(activeTenantId ? { 'x-tenant-id': activeTenantId } : {}),
     ...((options.headers as Record<string, string>) ?? {}),
   }
 

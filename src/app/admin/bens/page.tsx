@@ -21,9 +21,14 @@ const PAGE_SIZE = 50
 export default function BensPage() {
   const { user, isLoading: authLoading } = useAuth()
   const isSuperAdmin = user?.role === 'super_admin'
-  const isViewer = user?.role === 'viewer'
+  // Multi-unidade: admin_multi (viewer = alias legado) — escolhe entre os seus
+  // tenants; o fluxo abaixo (meusTenants/empresasViewer) serve aos dois papéis.
+  const isViewer = user?.role === 'viewer' || user?.role === 'admin_multi'
 
   const [empresaSel, setEmpresaSel] = useState<Empresa | null>(null)
+  // admin_multi: unidade selecionada (tenant, não empresa — duas unidades podem
+  // dividir a MESMA empresa Trílogo e se distinguem pelo trilogoProjectName)
+  const [tenantSelId, setTenantSelId] = useState('')
   const [search,     setSearch]     = useState('')
   const [tipo,       setTipo]       = useState('')
   const [projeto,    setProjeto]    = useState('')
@@ -73,24 +78,28 @@ export default function BensPage() {
     staleTime: 60 * 60 * 1000,
   })
 
-  // Para viewer: converte tenants em lista de Empresa para o seletor
-  const empresasViewer = meusTenants
-    .filter((t) => t.trilogoCompanyId !== null)
-    .map((t) => ({ id: t.trilogoCompanyId!, nome: t.nome }))
-
-  // Auto-seleciona se viewer tem apenas 1 tenant com trilogoCompanyId
-  const viewerAutoEmpresa = empresasViewer.length === 1 ? empresasViewer[0] : null
+  // admin_multi: o seletor é por TENANT (unidade). Selecionar por empresa não
+  // funciona quando duas unidades dividem o mesmo trilogoCompanyId — as opções
+  // colidiam e a segunda unidade sumia do seletor.
+  const tenantsMulti = meusTenants.filter((t) => t.trilogoCompanyId !== null)
+  const tenantAuto = tenantsMulti.length === 1 ? tenantsMulti[0] : null
+  const tenantSel = tenantsMulti.find((t) => t.id === tenantSelId) ?? tenantAuto
 
   // companyId efetivo
   const effectiveCompanyId = isSuperAdmin
     ? (empresaSel?.id ?? null)
     : isViewer
-      ? ((empresaSel ?? viewerAutoEmpresa)?.id ?? null)
+      ? (tenantSel?.trilogoCompanyId ?? null)
       : (myTenant?.trilogoCompanyId ?? null)
 
-  // projectName: aplicado para tenant_admin — filtra bens do projeto específico
-  // viewer não filtra por projeto (vê tudo da empresa selecionada)
-  const effectiveProjectName = (!isSuperAdmin && !isViewer) ? (myTenant?.trilogoProjectName ?? null) : null
+  // projectName: recorta os bens da UNIDADE dentro da empresa. Vale para
+  // tenant_admin (o seu) e admin_multi (o da unidade selecionada); super_admin
+  // vê a empresa inteira.
+  const effectiveProjectName = isSuperAdmin
+    ? null
+    : isViewer
+      ? (tenantSel?.trilogoProjectName ?? null)
+      : (myTenant?.trilogoProjectName ?? null)
 
   const { data: bensRaw = [], isLoading: loadBens } = useQuery({
     queryKey: ['trilogo-assets', effectiveCompanyId],
@@ -171,7 +180,7 @@ export default function BensPage() {
       <div className="space-y-6" style={{ maxWidth: painelW ? 'none' : '80rem', margin: '0 auto' }}>
 
         <div className="flex items-center gap-4">
-          <Link href="/admin" className="text-gray-400 hover:text-gray-600"><ArrowLeft size={20} /></Link>
+          <Link href="/admin/m/patrimonio" className="text-gray-400 hover:text-gray-600"><ArrowLeft size={20} /></Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Bens por Ambiente</h1>
             <p className="text-sm text-gray-500">Patrimônio cadastrado no Trílogo por setor</p>
@@ -183,21 +192,38 @@ export default function BensPage() {
           <div className="space-y-3">
             {/* Filtros */}
             <div className="flex flex-wrap gap-2 items-center">
-              {/* Seletor de unidade — super_admin ou viewer com >1 empresa */}
-              {(isSuperAdmin || (isViewer && empresasViewer.length > 1)) && (
+              {/* Seletor de unidade — super_admin escolhe empresa Trílogo;
+                  admin_multi escolhe entre os SEUS tenants (por id de tenant,
+                  já que unidades podem dividir a mesma empresa) */}
+              {isSuperAdmin && (
                 <select
-                  value={(empresaSel ?? viewerAutoEmpresa)?.id ?? ''}
+                  value={empresaSel?.id ?? ''}
                   onChange={e => {
-                    const lista = isSuperAdmin ? empresas : empresasViewer
-                    setEmpresaSel(lista.find(x => x.id === Number(e.target.value)) ?? null)
+                    setEmpresaSel(empresas.find(x => x.id === Number(e.target.value)) ?? null)
                     setProjeto(''); setAmbiente(''); setTipo(''); setSearch(''); setStatusFiltro(''); setVisiveis(PAGE_SIZE)
                   }}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
-                  disabled={isSuperAdmin ? loadEmpresas : loadMeusTenants}
+                  disabled={loadEmpresas}
                 >
-                  <option value="">{(isSuperAdmin ? loadEmpresas : loadMeusTenants) ? 'Carregando...' : 'Selecione a unidade'}</option>
-                  {(isSuperAdmin ? empresas : empresasViewer).map(e => (
+                  <option value="">{loadEmpresas ? 'Carregando...' : 'Selecione a unidade'}</option>
+                  {empresas.map(e => (
                     <option key={e.id} value={e.id}>{e.nome}</option>
+                  ))}
+                </select>
+              )}
+              {isViewer && tenantsMulti.length > 1 && (
+                <select
+                  value={tenantSel?.id ?? ''}
+                  onChange={e => {
+                    setTenantSelId(e.target.value)
+                    setProjeto(''); setAmbiente(''); setTipo(''); setSearch(''); setStatusFiltro(''); setVisiveis(PAGE_SIZE)
+                  }}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white"
+                  disabled={loadMeusTenants}
+                >
+                  <option value="">{loadMeusTenants ? 'Carregando...' : 'Selecione a unidade'}</option>
+                  {tenantsMulti.map(t => (
+                    <option key={t.id} value={t.id}>{t.nome}</option>
                   ))}
                 </select>
               )}
@@ -214,11 +240,17 @@ export default function BensPage() {
                   <option value="">Todos os tipos</option>
                   {tipos.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <select value={projeto} onChange={e => { setProjeto(e.target.value); setAmbiente(''); setVisiveis(PAGE_SIZE) }}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
-                  <option value="">Todos os projetos</option>
-                  {projetos.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                {/* Filtro de projeto só quando a unidade NÃO define um projeto
+                    (super_admin vendo a empresa toda). Para tenant_admin e
+                    admin_multi o recorte já é o projeto da unidade — mostrar
+                    este dropdown seria um segundo seletor redundante. */}
+                {!effectiveProjectName && (
+                  <select value={projeto} onChange={e => { setProjeto(e.target.value); setAmbiente(''); setVisiveis(PAGE_SIZE) }}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
+                    <option value="">Todos os projetos</option>
+                    {projetos.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                )}
                 <select value={ambiente} onChange={e => { setAmbiente(e.target.value); setVisiveis(PAGE_SIZE) }}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
                   <option value="">Todos os ambientes</option>

@@ -94,7 +94,7 @@ describe('criar', () => {
           tenantId: TENANT,
           ativo: true,
           // responsável precisa ter role que executa chamados (nunca viewer)
-          role: { in: ['super_admin', 'tenant_admin', 'operator', 'operator_patrimonio'] },
+          role: { in: ['super_admin', 'tenant_admin', 'admin_multi', 'operator', 'operator_patrimonio'] },
         }),
       }),
     )

@@ -1,4 +1,5 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
+import { canScopeTenant } from '@/modules/auth/tenant-filter'
 import { ok, forbidden, serverError, created, notFound, badRequest } from '@/lib/api-response'
 import { buscarTenantPorSlug } from '@/modules/tenants/tenants.service'
 import { CreateAmbienteSchema } from '@/modules/ambientes/ambientes.types'
@@ -8,7 +9,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator', 'operator_patrimonio'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'admin_multi', 'viewer', 'operator', 'operator_patrimonio'])
   if (!session) return forbidden()
 
   const { slug } = await params
@@ -17,7 +18,8 @@ export async function GET(
     const tenant = await buscarTenantPorSlug(slug)
     if (!tenant) return notFound('Tenant')
 
-    if (session.role !== 'super_admin' && session.tenantId !== tenant.id) return forbidden()
+    // admin_multi acessa qualquer um dos seus tenants (tenantIds)
+    if (!canScopeTenant(session, tenant.id)) return forbidden()
 
     const ambientes = await listarAmbientes(tenant.id)
     return ok(ambientes)
@@ -31,7 +33,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'admin_multi', 'viewer'])
   if (!session) return forbidden()
 
   const { slug } = await params
@@ -40,7 +42,8 @@ export async function POST(
     const tenant = await buscarTenantPorSlug(slug)
     if (!tenant) return notFound('Tenant')
 
-    if (session.role !== 'super_admin' && session.tenantId !== tenant.id) return forbidden()
+    // admin_multi acessa qualquer um dos seus tenants (tenantIds)
+    if (!canScopeTenant(session, tenant.id)) return forbidden()
 
     const parsed = CreateAmbienteSchema.safeParse(await req.json())
     if (!parsed.success) return badRequest(JSON.stringify(parsed.error.flatten().fieldErrors))

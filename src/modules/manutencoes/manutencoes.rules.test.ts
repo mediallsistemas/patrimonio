@@ -10,6 +10,7 @@ describe('manutencoes.rules — Relatório de Manutenções', () => {
   it('gestão e leitura veem o relatório', () => {
     expect(podeVerRelatorio('super_admin')).toBe(true)
     expect(podeVerRelatorio('tenant_admin')).toBe(true)
+    expect(podeVerRelatorio('admin_multi')).toBe(true)
     expect(podeVerRelatorio('operator_patrimonio')).toBe(true)
     expect(podeVerRelatorio('viewer')).toBe(true)
   })
