@@ -126,7 +126,7 @@ export default function DashboardChamadosPage() {
 
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Link href="/admin" className="text-gray-400 hover:text-gray-600">
+          <Link href="/admin/m/patrimonio" className="text-gray-400 hover:text-gray-600">
             <ArrowLeft size={20} />
           </Link>
           <div>

@@ -237,11 +237,11 @@ export default function AdminRondasPage() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href="/admin"
+              href="/admin/m/patrimonio"
               className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Admin
+              Patrimônio
             </Link>
             <span className="text-gray-200">/</span>
             <div className="flex items-center gap-2.5">

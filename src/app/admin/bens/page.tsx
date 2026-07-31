@@ -180,7 +180,7 @@ export default function BensPage() {
       <div className="space-y-6" style={{ maxWidth: painelW ? 'none' : '80rem', margin: '0 auto' }}>
 
         <div className="flex items-center gap-4">
-          <Link href="/admin" className="text-gray-400 hover:text-gray-600"><ArrowLeft size={20} /></Link>
+          <Link href="/admin/m/patrimonio" className="text-gray-400 hover:text-gray-600"><ArrowLeft size={20} /></Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Bens por Ambiente</h1>
             <p className="text-sm text-gray-500">Patrimônio cadastrado no Trílogo por setor</p>

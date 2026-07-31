@@ -18,9 +18,9 @@ export default function TenantsPage() {
       <div className="w-full max-w-3xl">
 
         <div className="flex items-center mb-8">
-          <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors">
+          <Link href="/admin/m/administrativo" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Painel Admin
+            Administrativo
           </Link>
         </div>
 

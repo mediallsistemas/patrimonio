@@ -92,9 +92,9 @@ export default function UsuariosPage() {
       <div className="w-full max-w-3xl">
 
         <div className="flex items-center justify-between mb-8">
-          <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors">
+          <Link href="/admin/m/administrativo" className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-dark font-sans transition-colors">
             <ArrowLeft className="w-4 h-4" />
-            Painel Admin
+            Administrativo
           </Link>
           {loggedUsername && (
             <span className="text-xs text-gray-300 font-mono">{loggedUsername}</span>
