@@ -85,10 +85,14 @@ export async function criarUsuario(input: CreateUsuarioInput): Promise<UsuarioRo
     const ehMulti = input.role === 'admin_multi' || input.role === 'viewer'
     const tenantsExtras = ehMulti && input.tenantsExtras ? input.tenantsExtras : []
 
+    // SEM "ON CONFLICT DO UPDATE": email/username repetido deve estourar a
+    // unique violation e virar 409 na rota. O ON CONFLICT antigo transformava
+    // o INSERT num update silencioso só de username — mantinha senha, role e
+    // tenant do registro velho e devolvia 201 como se tivesse criado (bug que
+    // mascarou um usuário pré-existente com tenantId órfão).
     const result = await authPool.query<UsuarioRow>(
       `INSERT INTO usuarios (id, email, username, nome, "senhaHash", role, "tenantId", "tenantsExtras", sistemas, ativo, "mustChangePassword", "criadoEm", "atualizadoEm")
        VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, ARRAY['linensistem'], true, false, NOW(), NOW())
-       ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username, "atualizadoEm" = NOW()
        RETURNING id, email, nome, role, ativo, "criadoEm", "tenantId", NULL::json AS tenant`,
       [email, username, nome, senhaHash, input.role, tenantId, tenantsExtras],
     )
