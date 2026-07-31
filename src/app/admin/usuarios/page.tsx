@@ -15,10 +15,11 @@ const ROLE_LABEL: Record<string, string> = {
   manutencao_admin:    'Admin Manutenção',
   manutencao_user:     'Usuário Manutenção',
   tenant_admin:        'Admin Unidade',
+  admin_multi:         'Admin Multi-Unidade',
   operator:            'Operador',
   operator_patrimonio: 'Op. Patrimônio',
   operator_forms:      'Op. Formulários',
-  viewer:              'Visualizador',
+  viewer:              'Admin Multi-Unidade', // alias legado de admin_multi
 }
 
 const ROLE_COLOR: Record<string, string> = {
@@ -26,13 +27,14 @@ const ROLE_COLOR: Record<string, string> = {
   manutencao_admin:    'bg-blue-50 text-blue-700',
   manutencao_user:     'bg-sky-50 text-sky-700',
   tenant_admin:        'bg-indigo-50 text-indigo-700',
+  admin_multi:         'bg-fuchsia-50 text-fuchsia-700',
   operator:            'bg-orange-50 text-orange-700',
   operator_patrimonio: 'bg-amber-50 text-amber-700',
   operator_forms:      'bg-teal-50 text-teal-700',
-  viewer:              'bg-gray-100 text-gray-500',
+  viewer:              'bg-fuchsia-50 text-fuchsia-700', // alias legado de admin_multi
 }
 
-const ADMIN_ROLES = new Set(['super_admin', 'manutencao_admin', 'tenant_admin'])
+const ADMIN_ROLES = new Set(['super_admin', 'manutencao_admin', 'tenant_admin', 'admin_multi', 'viewer'])
 
 function toUsername(email: string): string {
   return email.replace(/@sistema\.local$/, '').replace(/@noreply\.local$/, '')
@@ -54,11 +56,12 @@ export default function UsuariosPage() {
   const { usuarios, loading, reload } = useUsuarios()
   const isTenantAdmin = user?.role === 'tenant_admin'
   const isSuperAdmin = user?.role === 'super_admin'
-  const isViewer = user?.role === 'viewer'
+  // viewer = alias legado de admin_multi
+  const isAdminMulti = user?.role === 'admin_multi' || user?.role === 'viewer'
   const fixedTenantId = isTenantAdmin && user?.tenantId ? user.tenantId : undefined
 
-  // super_admin vê todos os tenants; viewer vê apenas os seus (API já filtra)
-  const { tenants } = useTenants(isSuperAdmin || isViewer)
+  // super_admin vê todos os tenants; admin_multi vê apenas os seus (API já filtra)
+  const { tenants } = useTenants(isSuperAdmin || isAdminMulti)
 
   const filtered = useMemo(() => {
     return usuarios.filter((u) => {
@@ -121,7 +124,7 @@ export default function UsuariosPage() {
 
         {/* Filtros */}
         <div className="flex flex-wrap gap-3 mb-5">
-          {(isSuperAdmin || isViewer) && tenants.length > 0 && (
+          {(isSuperAdmin || isAdminMulti) && tenants.length > 0 && (
             <select
               value={filterTenant}
               onChange={(e) => setFilterTenant(e.target.value)}
@@ -153,6 +156,7 @@ export default function UsuariosPage() {
           defaultRole={modal.defaultRole}
           fixedTenantId={fixedTenantId}
           showUnitSelector={!isTenantAdmin}
+          allowAdminMulti={isSuperAdmin}
           onClose={() => setModal({ open: false })}
           onCreated={reload}
         />
@@ -183,7 +187,9 @@ export default function UsuariosPage() {
                       </span>
                     </div>
                   </div>
-                  {(isSuperAdmin || isViewer) && (
+                  {/* Reset de senha: todos os papéis admin — a API restringe ao
+                      próprio alcance (unidades administradas, nunca super_admin) */}
+                  {(isSuperAdmin || isAdminMulti || isTenantAdmin) && (
                     <button
                       title="Resetar senha"
                       onClick={() => setResetState({ status: 'confirming', id: u.id, nome: u.nome })}

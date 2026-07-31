@@ -41,12 +41,13 @@ export default function DashboardChamadosPage() {
 
   const { user } = useAuth()
   const isSuperAdmin = user?.role === 'super_admin'
-  const isViewer = user?.role === 'viewer'
+  // viewer = alias legado de admin_multi
+  const isAdminMulti = user?.role === 'admin_multi' || user?.role === 'viewer'
 
   // Filtro de unidade só faz sentido para quem enxerga mais de uma. O
   // tenant_admin já está preso à própria unidade pelo escopo da sessão —
   // oferecer um seletor com uma opção só seria ruído.
-  const podeFiltrarUnidade = isSuperAdmin || isViewer
+  const podeFiltrarUnidade = isSuperAdmin || isAdminMulti
   const [unidadeId, setUnidadeId] = useState('')
 
   // /api/admin/tenants já devolve o recorte certo: todas para o super_admin,
@@ -132,9 +133,9 @@ export default function DashboardChamadosPage() {
             <h1 className="text-2xl font-bold text-gray-800">Painel de Chamados</h1>
             <p className="text-sm text-gray-500">Indicadores dos chamados de manutenção da unidade</p>
           </div>
-          {/* Abrir chamado pelo painel — exclusivo do super_admin, que escolhe
-              o hospital no fluxo dedicado (não tem tenant próprio). */}
-          {isSuperAdmin && (
+          {/* Abrir chamado pelo painel — super_admin e admin_multi escolhem
+              o hospital no fluxo dedicado (as listas já vêm escopadas). */}
+          {(isSuperAdmin || isAdminMulti) && (
             <Link
               href="/admin/chamados/novo"
               className="ml-auto inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-700 transition-colors"
@@ -269,7 +270,7 @@ export default function DashboardChamadosPage() {
                   chamado={c}
                   podeEscrever
                   ehAdmin
-                  mostrarTenant={isSuperAdmin}
+                  mostrarTenant={isSuperAdmin || isAdminMulti}
                   usuarios={usuariosDoTenant(c.tenant.id)}
                   busy={busyIds.has(c.id)}
                   onAssumir={handleAssumir}

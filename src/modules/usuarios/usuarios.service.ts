@@ -80,13 +80,17 @@ export async function criarUsuario(input: CreateUsuarioInput): Promise<UsuarioRo
     const senhaHash = await hashPassword(input.senha)
     const tenantId = input.tenantId ?? null
     const nome = input.nome.trim()
+    // tenantsExtras só faz sentido para admin_multi (viewer = alias legado):
+    // são as unidades além da primária, que viram tenantIds no JWT ao logar.
+    const ehMulti = input.role === 'admin_multi' || input.role === 'viewer'
+    const tenantsExtras = ehMulti && input.tenantsExtras ? input.tenantsExtras : []
 
     const result = await authPool.query<UsuarioRow>(
-      `INSERT INTO usuarios (id, email, username, nome, "senhaHash", role, "tenantId", sistemas, ativo, "mustChangePassword", "criadoEm", "atualizadoEm")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, ARRAY['linensistem'], true, false, NOW(), NOW())
+      `INSERT INTO usuarios (id, email, username, nome, "senhaHash", role, "tenantId", "tenantsExtras", sistemas, ativo, "mustChangePassword", "criadoEm", "atualizadoEm")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, ARRAY['linensistem'], true, false, NOW(), NOW())
        ON CONFLICT (email) DO UPDATE SET username = EXCLUDED.username, "atualizadoEm" = NOW()
        RETURNING id, email, nome, role, ativo, "criadoEm", "tenantId", NULL::json AS tenant`,
-      [email, username, nome, senhaHash, input.role, tenantId],
+      [email, username, nome, senhaHash, input.role, tenantId, tenantsExtras],
     )
     return result.rows[0]
   } catch (error) {
@@ -104,6 +108,7 @@ export async function atualizarUsuario(id: string, input: UpdateUsuarioInput): P
     if (input.nome !== undefined) { fields.push(`nome = $${idx++}`); values.push(input.nome.trim()) }
     if (input.ativo !== undefined) { fields.push(`ativo = $${idx++}`); values.push(input.ativo) }
     if (input.role !== undefined) { fields.push(`role = $${idx++}`); values.push(input.role) }
+    if (input.tenantsExtras !== undefined) { fields.push(`"tenantsExtras" = $${idx++}`); values.push(input.tenantsExtras) }
 
     if (fields.length === 0) return buscarUsuario(id)
 
@@ -119,10 +124,14 @@ export async function atualizarUsuario(id: string, input: UpdateUsuarioInput): P
   }
 }
 
-export function viewerOwnsUser(viewerTenantIds: string[], userTenantId: string | null): boolean {
+/** true se o usuário-alvo pertence a uma das unidades administradas (admin_multi/viewer). */
+export function adminMultiOwnsUser(adminTenantIds: string[], userTenantId: string | null): boolean {
   if (!userTenantId) return false
-  return viewerTenantIds.includes(userTenantId)
+  return adminTenantIds.includes(userTenantId)
 }
+
+/** @deprecated alias legado — use adminMultiOwnsUser */
+export const viewerOwnsUser = adminMultiOwnsUser
 
 export async function deletarUsuario(id: string): Promise<void> {
   try {

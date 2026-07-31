@@ -11,7 +11,7 @@ import { listarManutencoesAdmin } from '@/modules/manutencoes/manutencoes.servic
  * distingue "vê tudo" de "sem unidade", que em `tenantFilter` são o mesmo null).
  */
 export async function GET(req: Request): Promise<Response> {
-  const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'viewer'])
+  const auth = await verifyAuthDetailed(req, ['super_admin', 'tenant_admin', 'admin_multi', 'viewer'])
   if (!auth.ok) return auth.reason === 'unauthenticated' ? unauthorized() : forbidden()
 
   try {

@@ -24,7 +24,8 @@ export function useLogin(): UseLoginResult {
         return
       }
 
-      const isAdmin = usuario.role === 'super_admin' || usuario.role === 'tenant_admin'
+      const isAdmin = usuario.role === 'super_admin' || usuario.role === 'tenant_admin' ||
+        usuario.role === 'admin_multi' || usuario.role === 'viewer'
       const defaultDest = isAdmin
         ? '/admin'
         : usuario.tenantSlug

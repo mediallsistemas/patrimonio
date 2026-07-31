@@ -183,7 +183,9 @@ export async function expirarRondasAbertas(): Promise<{ expiradas: number }> {
 
 export async function listarRondasAdmin(limit = 100, tenantId?: string, tenantIds?: string[]) {
   try {
-    const where = tenantIds && tenantIds.length > 1
+    // > 0 (e não > 1): com 1 id o `in` equivale à igualdade — antes o caso de
+    // exatamente 1 tenantId caía no fallback e, sem tenantId, abria o filtro.
+    const where = tenantIds && tenantIds.length > 0
       ? { tenantId: { in: tenantIds } }
       : tenantId ? { tenantId } : undefined
     return await prisma.rondaOcorrencia.findMany({

@@ -21,7 +21,9 @@ const PAGE_SIZE = 50
 export default function BensPage() {
   const { user, isLoading: authLoading } = useAuth()
   const isSuperAdmin = user?.role === 'super_admin'
-  const isViewer = user?.role === 'viewer'
+  // Multi-unidade: admin_multi (viewer = alias legado) — escolhe entre os seus
+  // tenants; o fluxo abaixo (meusTenants/empresasViewer) serve aos dois papéis.
+  const isViewer = user?.role === 'viewer' || user?.role === 'admin_multi'
 
   const [empresaSel, setEmpresaSel] = useState<Empresa | null>(null)
   const [search,     setSearch]     = useState('')

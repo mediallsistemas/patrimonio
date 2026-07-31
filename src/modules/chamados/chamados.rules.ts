@@ -9,6 +9,7 @@ type Role = JWTPayload['role']
 export const ROLES_LEITURA_CHAMADOS: Role[] = [
   'super_admin',
   'tenant_admin',
+  'admin_multi',
   'operator',
   'operator_patrimonio',
   'viewer',
@@ -19,6 +20,7 @@ export const ROLES_LEITURA_CHAMADOS: Role[] = [
 export const ROLES_ESCRITA_CHAMADOS: Role[] = [
   'super_admin',
   'tenant_admin',
+  'admin_multi',
   'operator',
   'operator_patrimonio',
 ]
@@ -28,10 +30,12 @@ export const ROLES_ESCRITA_CHAMADOS: Role[] = [
 export const ROLES_CRIACAO_CHAMADOS: Role[] = [
   'super_admin',
   'tenant_admin',
+  'admin_multi',
   'operator_patrimonio',
 ]
 
-export const ROLES_ADMIN_CHAMADOS: Role[] = ['super_admin', 'tenant_admin']
+// admin_multi = mesmo poder de admin do tenant_admin, sobre as unidades de tenantIds
+export const ROLES_ADMIN_CHAMADOS: Role[] = ['super_admin', 'tenant_admin', 'admin_multi']
 
 export function ehAdmin(role: Role): boolean {
   return ROLES_ADMIN_CHAMADOS.includes(role)

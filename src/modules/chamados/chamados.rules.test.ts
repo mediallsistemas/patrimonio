@@ -14,11 +14,14 @@ import {
 import type { StatusChamado } from './chamados.types'
 
 describe('chamados.rules — permissões por role', () => {
-  it('admin: tenant_admin e super_admin', () => {
+  it('admin: tenant_admin, super_admin e admin_multi', () => {
     expect(ehAdmin('tenant_admin')).toBe(true)
     expect(ehAdmin('super_admin')).toBe(true)
+    expect(ehAdmin('admin_multi')).toBe(true)
     expect(ehAdmin('operator')).toBe(false)
     expect(ehAdmin('operator_patrimonio')).toBe(false)
+    // viewer (nome legado de admin_multi) segue congelado como leitura em
+    // chamados — a paridade total exige o rename p/ admin_multi no banco.
     expect(ehAdmin('viewer')).toBe(false)
   })
 
@@ -39,7 +42,7 @@ describe('chamados.rules — permissões por role', () => {
   })
 
   it('admins têm todas as permissões', () => {
-    for (const role of ['tenant_admin', 'super_admin'] as const) {
+    for (const role of ['tenant_admin', 'super_admin', 'admin_multi'] as const) {
       expect(podeEscrever(role)).toBe(true)
       expect(podeAtribuir(role)).toBe(true)
       expect(podeCancelar(role)).toBe(true)
@@ -50,6 +53,7 @@ describe('chamados.rules — permissões por role', () => {
   it('criar chamado: admins e operator_patrimonio sim; operator não', () => {
     expect(podeCriar('super_admin')).toBe(true)
     expect(podeCriar('tenant_admin')).toBe(true)
+    expect(podeCriar('admin_multi')).toBe(true)
     expect(podeCriar('operator_patrimonio')).toBe(true)
     // operator opera (assume/finaliza) mas NÃO abre chamado
     expect(podeCriar('operator')).toBe(false)

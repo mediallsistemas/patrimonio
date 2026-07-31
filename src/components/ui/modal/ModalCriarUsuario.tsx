@@ -13,6 +13,8 @@ interface Props {
   defaultRole?: 'tenant_admin' | 'operator'
   fixedTenantId?: string
   showUnitSelector?: boolean
+  /** super_admin pode criar Admin Multi-Unidade (papel + unidades extras) */
+  allowAdminMulti?: boolean
   onClose: () => void
   onCreated: () => void
 }
@@ -22,23 +24,37 @@ const ROLE_OPTIONS = [
   { value: 'tenant_admin', label: 'Admin da Unidade' },
 ]
 
-export default function ModalCriarUsuario({ open, defaultRole, fixedTenantId, showUnitSelector = true, onClose, onCreated }: Props) {
-  const [form, setForm] = useState({
+const ROLE_ADMIN_MULTI = { value: 'admin_multi', label: 'Admin Multi-Unidade' }
+
+export default function ModalCriarUsuario({ open, defaultRole, fixedTenantId, showUnitSelector = true, allowAdminMulti = false, onClose, onCreated }: Props) {
+  const [form, setForm] = useState<{
+    nome: string
+    username: string
+    senha: string
+    role: 'operator' | 'tenant_admin' | 'admin_multi'
+    tenantId: string
+  }>({
     nome: '',
     username: '',
     senha: '',
     role: defaultRole ?? 'operator',
     tenantId: fixedTenantId ?? '',
   })
+  // Unidades extras do admin_multi (além da primária em tenantId)
+  const [tenantsExtras, setTenantsExtras] = useState<string[]>([])
   const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({})
 
-const { tenants } = useTenants(open && !fixedTenantId)
+  const { tenants } = useTenants(open && !fixedTenantId)
   const { submitting, error: serverError, criar } = useCreateUsuario()
+
+  const roleOptions = allowAdminMulti ? [...ROLE_OPTIONS, ROLE_ADMIN_MULTI] : ROLE_OPTIONS
+  const ehAdminMulti = form.role === 'admin_multi'
 
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden'
       setForm({ nome: '', username: '', senha: '', role: defaultRole ?? 'operator', tenantId: fixedTenantId ?? '' })
+      setTenantsExtras([])
       setErrors({})
     } else {
       document.body.style.overflow = ''
@@ -57,6 +73,12 @@ const { tenants } = useTenants(open && !fixedTenantId)
     return Object.keys(e).length === 0
   }
 
+  function toggleExtra(id: string) {
+    setTenantsExtras((atual) =>
+      atual.includes(id) ? atual.filter((t) => t !== id) : [...atual, id],
+    )
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
@@ -66,6 +88,8 @@ const { tenants } = useTenants(open && !fixedTenantId)
       senha: form.senha,
       role: form.role,
       ...(form.tenantId ? { tenantId: form.tenantId } : {}),
+      // extras nunca incluem a unidade primária
+      ...(ehAdminMulti ? { tenantsExtras: tenantsExtras.filter((id) => id !== form.tenantId) } : {}),
     })
     if (ok) {
       onCreated()
@@ -136,7 +160,7 @@ const { tenants } = useTenants(open && !fixedTenantId)
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as typeof form.role, tenantId: '' }))}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white font-sans text-dark text-sm focus:outline-none focus:ring-2 focus:ring-red-base focus:ring-offset-0 transition-all"
             >
-              {ROLE_OPTIONS.filter((o) => !fixedTenantId || o.value !== 'super_admin').map((o) => (
+              {roleOptions.filter((o) => !fixedTenantId || o.value !== 'super_admin').map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
@@ -144,7 +168,9 @@ const { tenants } = useTenants(open && !fixedTenantId)
 
           {showUnitSelector && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-gray-400 font-sans">Unidade</label>
+              <label className="text-sm font-semibold text-gray-400 font-sans">
+                {ehAdminMulti ? 'Unidade principal' : 'Unidade'}
+              </label>
               <select
                 value={form.tenantId}
                 onChange={(e) => setForm((f) => ({ ...f, tenantId: e.target.value }))}
@@ -156,6 +182,26 @@ const { tenants } = useTenants(open && !fixedTenantId)
                 ))}
               </select>
               {errors.tenantId && <span className="text-xs text-red-base font-sans">{errors.tenantId}</span>}
+            </div>
+          )}
+
+          {/* admin_multi: unidades extras além da principal */}
+          {ehAdminMulti && showUnitSelector && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-gray-400 font-sans">Unidades adicionais</label>
+              <div className="max-h-36 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100">
+                {tenants.filter((t) => t.id !== form.tenantId).map((t) => (
+                  <label key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm font-sans text-dark cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={tenantsExtras.includes(t.id)}
+                      onChange={() => toggleExtra(t.id)}
+                      className="rounded border-gray-300"
+                    />
+                    {t.nome}
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

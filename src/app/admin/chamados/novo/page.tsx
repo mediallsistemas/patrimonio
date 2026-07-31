@@ -67,10 +67,15 @@ export default function NovoChamadoAdminPage() {
   const [responsavelId, setResponsavelId] = useState('')
   const [erro, setErro] = useState<string | null>(null)
 
+  // Papéis que abrem chamado pelo painel escolhendo a unidade; a API
+  // /admin/tenants já devolve o recorte certo (todas p/ super, as suas p/ multi)
+  const podeEscolherUnidade = user?.role === 'super_admin' ||
+    user?.role === 'admin_multi' || user?.role === 'viewer'
+
   const { data: tenants = [] } = useQuery({
     queryKey: ['admin-tenants'],
     queryFn: listarTenants,
-    enabled: user?.role === 'super_admin',
+    enabled: podeEscolherUnidade,
   })
 
   const { data: blocos = [], isLoading: blocosCarregando } = useQuery({
@@ -82,7 +87,7 @@ export default function NovoChamadoAdminPage() {
   const { data: usuarios = [] } = useQuery({
     queryKey: ['admin-usuarios-chamado'],
     queryFn: listarUsuarios,
-    enabled: user?.role === 'super_admin',
+    enabled: podeEscolherUnidade,
   })
 
   // Só ambientes de manutenção predial (não-gases), como no fluxo do tenant

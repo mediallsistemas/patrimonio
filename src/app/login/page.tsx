@@ -41,15 +41,17 @@ function LoginForm() {
         return
       }
 
-      const defaultDest =
-        usuario.role === 'super_admin' || usuario.role === 'tenant_admin' || usuario.role === 'viewer'
-          ? '/admin'
-          : `/${usuario.tenantSlug}/manutencao`
+      // viewer = alias legado de admin_multi
+      const ehAdminPanel =
+        usuario.role === 'super_admin' || usuario.role === 'tenant_admin' ||
+        usuario.role === 'admin_multi' || usuario.role === 'viewer'
+
+      const defaultDest = ehAdminPanel ? '/admin' : `/${usuario.tenantSlug}/manutencao`
 
       // Só respeita o `from` se for compatível com o role
       const fromIsCompatible =
         from === '/' ? false :
-        (usuario.role === 'super_admin' || usuario.role === 'tenant_admin' || usuario.role === 'viewer') ? from.startsWith('/admin') :
+        ehAdminPanel ? from.startsWith('/admin') :
         from.startsWith(`/${usuario.tenantSlug}`)
 
       const dest = fromIsCompatible ? from : defaultDest

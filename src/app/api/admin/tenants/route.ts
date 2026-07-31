@@ -1,4 +1,5 @@
 import { verifyAuth } from '@/modules/auth/auth.guards'
+import { allowedTenantIds } from '@/modules/auth/tenant-filter'
 import { ok, created, badRequest, conflict, forbidden, serverError } from '@/lib/api-response'
 import { CreateTenantSchema } from '@/modules/tenants/tenants.types'
 import * as tenantsService from '@/modules/tenants/tenants.service'
@@ -9,12 +10,13 @@ const TOKEN = process.env.TRILOGO_TOKEN ?? ''
 const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'viewer'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'admin_multi', 'viewer'])
   if (!session) return forbidden()
 
   try {
-    if (session.role === 'viewer') {
-      const ids = session.tenantIds ?? (session.tenantId ? [session.tenantId] : [])
+    // Não-super vê apenas as unidades que administra (alimenta seletores de página)
+    if (session.role !== 'super_admin') {
+      const ids = allowedTenantIds(session)
       const tenants = await prisma.tenant.findMany({
         where: { id: { in: ids } },
         select: { id: true, slug: true, nome: true },

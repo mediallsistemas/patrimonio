@@ -23,6 +23,8 @@ export interface CreateUsuarioInput {
   senha: string
   role: string
   tenantId?: string
+  /** admin_multi: unidades além da primária */
+  tenantsExtras?: string[]
 }
 
 export async function listarUsuarios(): Promise<Usuario[]> {

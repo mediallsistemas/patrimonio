@@ -4,7 +4,7 @@ import { ok, badRequest, unauthorized, serverError } from '@/lib/api-response'
 import { listarRealizadasPorAssets } from '@/modules/manutencoes/manutencoes.service'
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio', 'operator', 'viewer'])
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'admin_multi', 'operator_patrimonio', 'operator', 'viewer'])
   if (!session) return unauthorized()
 
   const { searchParams } = new URL(req.url)

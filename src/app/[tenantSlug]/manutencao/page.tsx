@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth'
 import { podeVerRelatorio } from '@/modules/manutencoes/manutencoes.rules'
 import { redirect } from 'next/navigation'
 import LogoutButton from '@/components/ui/LogoutButton'
+import UnitSelector from './UnitSelector'
 
 export default async function ManutencaoHomePage({
   params,
@@ -15,7 +16,10 @@ export default async function ManutencaoHomePage({
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const isTenantAdmin = session.role === 'tenant_admin'
+  // admin_multi (e viewer, alias legado) administram a unidade ativa — mesma
+  // visão de admin da unidade, com seletor para trocar entre as suas unidades.
+  const isMultiUnidade = session.role === 'admin_multi' || session.role === 'viewer'
+  const isTenantAdmin = session.role === 'tenant_admin' || isMultiUnidade
 
   // Esconder o card é só cosmético — quem protege são o guard de historico/layout.tsx
   // e a API. Os três consultam a mesma regra em manutencoes.rules.ts.
@@ -116,6 +120,8 @@ export default async function ManutencaoHomePage({
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* admin_multi: troca a unidade ativa navegando para outro slug */}
+            {isMultiUnidade && <UnitSelector currentSlug={tenantSlug} />}
             <span className="text-sm text-gray-300 font-sans hidden sm:block">{session.nome}</span>
             <LogoutButton />
           </div>
