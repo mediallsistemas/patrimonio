@@ -240,11 +240,17 @@ export default function BensPage() {
                   <option value="">Todos os tipos</option>
                   {tipos.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <select value={projeto} onChange={e => { setProjeto(e.target.value); setAmbiente(''); setVisiveis(PAGE_SIZE) }}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
-                  <option value="">Todos os projetos</option>
-                  {projetos.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                {/* Filtro de projeto só quando a unidade NÃO define um projeto
+                    (super_admin vendo a empresa toda). Para tenant_admin e
+                    admin_multi o recorte já é o projeto da unidade — mostrar
+                    este dropdown seria um segundo seletor redundante. */}
+                {!effectiveProjectName && (
+                  <select value={projeto} onChange={e => { setProjeto(e.target.value); setAmbiente(''); setVisiveis(PAGE_SIZE) }}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
+                    <option value="">Todos os projetos</option>
+                    {projetos.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                )}
                 <select value={ambiente} onChange={e => { setAmbiente(e.target.value); setVisiveis(PAGE_SIZE) }}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
                   <option value="">Todos os ambientes</option>

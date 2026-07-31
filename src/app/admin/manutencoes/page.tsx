@@ -410,7 +410,7 @@ export default function AdminManutencoesPage() {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <KpiCard
             label="Total registradas"
-            value={manutencoes.length}
+            value={filtradosPorTenant.length}
             icon={Activity}
             iconBg="bg-gray-50"
             iconColor="text-gray-400"

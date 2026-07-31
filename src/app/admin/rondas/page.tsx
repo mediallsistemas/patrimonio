@@ -192,9 +192,9 @@ export default function AdminRondasPage() {
     rondaSelecionada ? [rondaSelecionada] : rondasFiltradas,
   )
 
-  // KPIs — sobre todas as rondas
-  const totalRondas        = rondas.length
-  const totalComOcorrencia = rondas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
+  // KPIs — acompanham o filtro de unidade (os cards e a lista andam juntos)
+  const totalRondas        = rondasFiltradas.length
+  const totalComOcorrencia = rondasFiltradas.filter((r) => r.ambientes.some((a) => a.temOcorrencia)).length
 
   const emAndamento = rondasFiltradas.filter((r) => r.finalizadoEm === null)
   const exibirNormais = !soOcorrencias
