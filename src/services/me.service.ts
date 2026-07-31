@@ -1,6 +1,8 @@
 import { api } from '@/services/api'
 
 export interface MyTenant {
+  id: string
+  slug: string
   trilogoCompanyId: number | null
   trilogoProjectName: string | null
   nome: string
