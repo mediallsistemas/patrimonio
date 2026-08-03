@@ -31,7 +31,10 @@ vi.mock('@/modules/tenants/tenants.service', () => ({
 }))
 
 const UEI = '11111111-1111-4111-8111-111111111111'
-const HRPG = '22222222-2222-4222-8222-222222222222'
+// Id artesanal legado real da hrpg — NÃO é UUID RFC válido (versão 0).
+// Fica aqui de propósito: trava a regressão do Zod 4 rejeitar esse formato
+// (o bug era 400 em qualquer operação mirando a hrpg).
+const HRPG = '00000000-0000-0000-0000-000000000001'
 const FORA_DO_ESCOPO = '33333333-3333-4333-8333-333333333333'
 const AMBIENTE = '44444444-4444-4444-8444-444444444444'
 

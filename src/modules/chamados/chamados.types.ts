@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { TenantIdSchema } from '@/modules/tenants/tenants.types'
+
 // ── Constantes de domínio ───────────────────────────────────────────────────
 
 // Tipos de serviço — mesmos três da ronda/manutenção predial (TipoManutencao
@@ -50,7 +52,7 @@ export const CriarChamadoSchema = z
     // Tenant alvo — super_admin informa sempre (não tem tenant próprio);
     // admin_multi pode informar uma unidade que administra (canScopeTenant).
     // Para os demais roles a rota ignora e usa o tenant da sessão.
-    tenantId: z.string().uuid().optional(),
+    tenantId: TenantIdSchema.optional(),
     titulo: z.string().trim().min(3, 'Informe o título').max(200),
     descricao: z.string().trim().min(3, 'Descreva o problema').max(2000),
     tipo: z.enum(TIPOS_CHAMADO),
@@ -115,7 +117,7 @@ export const FiltrosChamadosSchema = z.object({
     .optional(),
   // Unidade escolhida no filtro. RESTRINGE dentro do escopo da sessão, nunca o
   // amplia — ver como é aplicado em chamados-query.service.
-  tenantId: z.string().uuid().optional(),
+  tenantId: TenantIdSchema.optional(),
   // Só chamados com bem patrimonial vinculado — é o recorte das telas de
   // patrimônio, que antes liam o Trílogo ao vivo.
   comBem: z

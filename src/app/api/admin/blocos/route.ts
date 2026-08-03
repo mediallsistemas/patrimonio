@@ -2,13 +2,14 @@ import { verifyAuth } from '@/modules/auth/auth.guards'
 import { canScopeTenant } from '@/modules/auth/tenant-filter'
 import { ok, badRequest, forbidden, serverError } from '@/lib/api-response'
 import { listarBlocos } from '@/modules/ambientes/ambientes.service'
+import { TenantIdSchema } from '@/modules/tenants/tenants.types'
 import { z } from 'zod'
 
 // Blocos/ambientes de um tenant específico — usado ao abrir um chamado pelo
 // painel admin informando o tenant alvo (super_admin qualquer um; tenant_admin
 // e admin_multi apenas os que administram — canScopeTenant valida).
 // Diferente de /api/me/blocos, que é escopado pelo tenant da sessão.
-const QuerySchema = z.object({ tenantId: z.string().uuid('tenantId inválido') })
+const QuerySchema = z.object({ tenantId: TenantIdSchema })
 
 export async function GET(req: Request): Promise<Response> {
   const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'admin_multi', 'viewer'])

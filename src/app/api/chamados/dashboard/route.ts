@@ -5,12 +5,13 @@ import { z } from 'zod'
 
 import * as chamadosQuery from '@/modules/chamados/chamados-query.service'
 import { ROLES_ADMIN_CHAMADOS } from '@/modules/chamados/chamados.rules'
+import { TenantIdSchema } from '@/modules/tenants/tenants.types'
 
 const PeriodoSchema = z.object({
   de: z.coerce.date().optional(),
   ate: z.coerce.date().optional(),
   // Unidade escolhida no filtro — restringe dentro do escopo, nunca amplia.
-  tenantId: z.string().uuid().optional(),
+  tenantId: TenantIdSchema.optional(),
 })
 
 // Painel gerencial de chamados — exclusivo de admin (inclui valor gasto).
