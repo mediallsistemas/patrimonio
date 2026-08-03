@@ -4,6 +4,14 @@ Multi-tenant platform built with **Next.js 15 (App Router) + Prisma + PostgreSQL
 Combines LinenSistem (linen/hotelaria + incidents + gas inspection) with FeedbackForms
 (patient satisfaction surveys) and Trilogo ERP integration (asset sync).
 
+> **Documentação por módulo:** `docs/README.md` é o índice. Cada `src/modules/*/README.md`,
+> os READMEs de camada (`src/lib`, `src/hooks`, `src/services`, `src/components`, `src/utils`),
+> `docs/ARQUITETURA.md` e `docs/PERMISSOES.md` foram gerados do código real e registram as
+> divergências conhecidas deste arquivo. **Em conflito com os catálogos abaixo (componentes,
+> hooks, roles), confie nos READMEs e no código — nunca recrie componentes/fluxos que os
+> READMEs marcam como removidos** (ex.: `usePatrimonio`, `FiltrosPatrimonio`, `TicketRow`).
+> Antes de mexer num módulo, leia o README dele; ao mudar comportamento, atualize o README junto.
+
 ---
 
 ## What This System Does
