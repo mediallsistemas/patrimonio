@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, Inbox, X, CheckCircle, Package,
 } from 'lucide-react'
+import { addDays, format } from 'date-fns'
 
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -23,7 +24,7 @@ import {
   PRIORIDADE_CHAMADO_LABEL,
   CriarChamadoSchema,
 } from '@/modules/chamados/chamados.types'
-import { podeCriar } from '@/modules/chamados/chamados.rules'
+import { PRAZO_PADRAO_DIAS, podeCriar } from '@/modules/chamados/chamados.rules'
 import type { TipoChamado, PrioridadeChamado } from '@/services/chamados.service'
 
 // ── Tipos do fluxo (discriminated union — sem combinações inválidas) ────────
@@ -75,6 +76,15 @@ export default function NovoChamadoPage({
   const [tipo, setTipo] = useState<TipoChamado>('eletrica')
   const [prioridade, setPrioridade] = useState<PrioridadeChamado>('media')
   const [prazo, setPrazo] = useState('')
+  const [prazoEditado, setPrazoEditado] = useState(false)
+
+  // Prazo padrão segue a prioridade (urgente=hoje, alta=1d, media=2d, baixa=3d)
+  // até o usuário editar a data manualmente — aí a escolha dele prevalece.
+  useEffect(() => {
+    if (!prazoEditado) {
+      setPrazo(format(addDays(new Date(), PRAZO_PADRAO_DIAS[prioridade]), 'yyyy-MM-dd'))
+    }
+  }, [prioridade, prazoEditado])
   const [descricao, setDescricao] = useState('')
   const [foto, setFoto] = useState<string | null>(null)
   const [bem, setBem] = useState<BemVinculado | null>(null)
@@ -231,9 +241,14 @@ export default function NovoChamadoPage({
                   <input
                     type="date"
                     value={prazo}
-                    onChange={(e) => setPrazo(e.target.value)}
+                    onChange={(e) => { setPrazo(e.target.value); setPrazoEditado(true) }}
                     className="w-full px-3 py-3 rounded-xl border border-gray-200 text-sm font-sans text-dark bg-white focus:outline-none focus:ring-2 focus:ring-red-base"
                   />
+                  <Text variant="caption" className="text-gray-300 mt-1 block">
+                    {PRAZO_PADRAO_DIAS[prioridade] === 0
+                      ? 'Prazo hoje'
+                      : `Prazo ${PRAZO_PADRAO_DIAS[prioridade]} dia${PRAZO_PADRAO_DIAS[prioridade] === 1 ? '' : 's'}`}
+                  </Text>
                 </div>
               </div>
 
@@ -330,7 +345,7 @@ export default function NovoChamadoPage({
             <div className="space-y-2 max-w-xs mx-auto">
               <Button
                 onClick={() => {
-                  setTitulo(''); setDescricao(''); setPrazo(''); setFoto(null)
+                  setTitulo(''); setDescricao(''); setPrazo(''); setPrazoEditado(false); setFoto(null)
                   setBem(null); setResponsavelId(''); setErro(null); setSearchAmbiente('')
                   setEstado({ etapa: 'ambiente' })
                 }}

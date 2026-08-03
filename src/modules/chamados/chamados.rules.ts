@@ -1,5 +1,5 @@
 import type { JWTPayload } from '@/modules/auth/auth.types'
-import type { StatusChamado } from './chamados.types'
+import type { PrioridadeChamado, StatusChamado } from './chamados.types'
 
 // Regras puras do domínio de chamados — sem I/O, sem Prisma, sem req/res.
 // Toda decisão de permissão e transição de status vive aqui (testável isolada).
@@ -60,6 +60,17 @@ export function podeCancelar(role: Role): boolean {
 
 export function podeEditarFiscal(role: Role): boolean {
   return ehAdmin(role)
+}
+
+// ── Prazo padrão por prioridade ─────────────────────────────────────────────
+// Pré-preenche o campo de prazo na abertura do chamado (o usuário pode
+// alterar livremente): urgente = hoje, alta = 1 dia, media = 2, baixa = 3.
+
+export const PRAZO_PADRAO_DIAS: Record<PrioridadeChamado, number> = {
+  urgente: 0,
+  alta: 1,
+  media: 2,
+  baixa: 3,
 }
 
 // ── Transições de status ────────────────────────────────────────────────────

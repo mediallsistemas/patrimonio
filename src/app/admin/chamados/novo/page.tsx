@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Inbox, CheckCircle, Building2 } from 'lucide-react'
+import { addDays, format } from 'date-fns'
 
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -24,7 +25,7 @@ import {
   PRIORIDADE_CHAMADO_LABEL,
   CriarChamadoSchema,
 } from '@/modules/chamados/chamados.types'
-import { ROLES_ESCRITA_CHAMADOS } from '@/modules/chamados/chamados.rules'
+import { PRAZO_PADRAO_DIAS, ROLES_ESCRITA_CHAMADOS } from '@/modules/chamados/chamados.rules'
 import type { TipoChamado, PrioridadeChamado } from '@/services/chamados.service'
 import type { JWTPayload } from '@/modules/auth/auth.types'
 
@@ -66,10 +67,19 @@ export default function NovoChamadoAdminPage() {
   const [tipo, setTipo] = useState<TipoChamado>('eletrica')
   const [prioridade, setPrioridade] = useState<PrioridadeChamado>('media')
   const [prazo, setPrazo] = useState('')
+  const [prazoEditado, setPrazoEditado] = useState(false)
   const [descricao, setDescricao] = useState('')
   const [foto, setFoto] = useState<string | null>(null)
   const [responsavelId, setResponsavelId] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+
+  // Prazo padrão segue a prioridade (urgente=hoje, alta=1d, media=2d, baixa=3d)
+  // até o usuário editar a data manualmente — aí a escolha dele prevalece.
+  useEffect(() => {
+    if (!prazoEditado) {
+      setPrazo(format(addDays(new Date(), PRAZO_PADRAO_DIAS[prioridade]), 'yyyy-MM-dd'))
+    }
+  }, [prioridade, prazoEditado])
 
   // Papéis que abrem chamado pelo painel escolhendo a unidade; a API
   // /admin/tenants já devolve o recorte certo (todas p/ super, as suas p/ multi)
@@ -125,7 +135,7 @@ export default function NovoChamadoAdminPage() {
   const nomeTenant = tenants.find((t) => t.id === tenantId)?.nome ?? ''
 
   function reiniciar() {
-    setTitulo(''); setDescricao(''); setPrazo(''); setFoto(null)
+    setTitulo(''); setDescricao(''); setPrazo(''); setPrazoEditado(false); setFoto(null)
     setResponsavelId(''); setErro(null); setSearchAmbiente('')
   }
 
@@ -321,9 +331,14 @@ export default function NovoChamadoAdminPage() {
                   <input
                     type="date"
                     value={prazo}
-                    onChange={(e) => setPrazo(e.target.value)}
+                    onChange={(e) => { setPrazo(e.target.value); setPrazoEditado(true) }}
                     className="w-full px-3 py-3 rounded-xl border border-gray-200 text-sm font-sans text-dark bg-white focus:outline-none focus:ring-2 focus:ring-red-base"
                   />
+                  <Text variant="caption" className="text-gray-300 mt-1 block">
+                    {PRAZO_PADRAO_DIAS[prioridade] === 0
+                      ? 'Prazo hoje'
+                      : `Prazo ${PRAZO_PADRAO_DIAS[prioridade]} dia${PRAZO_PADRAO_DIAS[prioridade] === 1 ? '' : 's'}`}
+                  </Text>
                 </div>
               </div>
 

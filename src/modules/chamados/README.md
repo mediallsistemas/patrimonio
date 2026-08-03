@@ -50,6 +50,7 @@ na raiz), também converte e importa tickets do Trílogo como chamados (insert-o
 - **Atraso derivado** (`estaAtrasado`): status vivo com `prazo < agora`; **prazo `null` nunca atrasa** (ticket do Trílogo pode não ter deadline); exatamente no prazo não atrasa.
 - **Campos fiscais**: `sanitizarParaRole` remove `fornecedor`/`numeroOrdemCompra`/`valorGastoCentavos` de toda leitura não-admin.
 - **Responsável válido**: usuário ativo, do tenant do chamado, com role em `ROLES_ESCRITA_CHAMADOS`.
+- **Prazo padrão por prioridade** (`PRAZO_PADRAO_DIAS`): urgente = hoje, alta = 1 dia, media = 2, baixa = 3 — pré-preenche o campo de prazo nos formulários de abertura (admin e tenant); o usuário pode alterar a data livremente e, após edição manual, o auto-preenchimento para de seguir a prioridade.
 - **Finalizar sem dono vira dono**; responsável já definido nunca é sobrescrito (testado).
 - **Zod**: 3 tipos (`eletrica|hidraulica|patrimonio` — `civil`/`outros` removidos); bem exige `trilogoAssetId`+`patrimony` juntos; foto ≤ 2.000.000 chars (~1,5 MB); `tenantId`/`criadoPorId` injetados são descartados (strip); filtro `atrasados`/`comBem` só ligam com `'true'`.
 - **Filtro de unidade restringe, nunca amplia**: `filtros.tenantId` entra por `AND` com `tenantFilter(escopo)` — spread deixaria a query string sobrescrever o tenant da sessão (comentário explícito no código; vale para `listar` e `dashboard`).
