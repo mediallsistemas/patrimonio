@@ -47,7 +47,8 @@ const fotoBase64 = z
 
 export const CriarChamadoSchema = z
   .object({
-    // Tenant alvo — usado APENAS pelo super_admin (não tem tenant próprio).
+    // Tenant alvo — super_admin informa sempre (não tem tenant próprio);
+    // admin_multi pode informar uma unidade que administra (canScopeTenant).
     // Para os demais roles a rota ignora e usa o tenant da sessão.
     tenantId: z.string().uuid().optional(),
     titulo: z.string().trim().min(3, 'Informe o título').max(200),

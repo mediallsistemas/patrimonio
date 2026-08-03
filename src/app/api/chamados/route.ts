@@ -1,5 +1,5 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
-import { escopoSessao } from '@/modules/auth/tenant-filter'
+import { canScopeTenant, escopoSessao } from '@/modules/auth/tenant-filter'
 import { ok, created, badRequest, unauthorized, forbidden, serverError } from '@/lib/api-response'
 import * as chamadosQuery from '@/modules/chamados/chamados-query.service'
 import * as chamadosCommand from '@/modules/chamados/chamados-command.service'
@@ -41,10 +41,19 @@ export async function POST(req: Request): Promise<Response> {
   const parsed = CriarChamadoSchema.safeParse(await req.json())
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
 
-  // Tenant alvo: super_admin informa no corpo (não tem tenant próprio); os
-  // demais roles usam o tenant da sessão e o tenantId do corpo é ignorado.
-  const tenantAlvo =
-    session.role === 'super_admin' ? parsed.data.tenantId : session.tenantId
+  // Tenant alvo: super_admin informa no corpo (não tem tenant próprio);
+  // admin_multi pode informar qualquer unidade que administra (canScopeTenant
+  // valida — fora do escopo é 403, nunca fallback silencioso); os demais roles
+  // usam o tenant da sessão e o tenantId do corpo é ignorado.
+  let tenantAlvo: string | null | undefined
+  if (session.role === 'super_admin') {
+    tenantAlvo = parsed.data.tenantId
+  } else if (session.role === 'admin_multi' && parsed.data.tenantId) {
+    if (!canScopeTenant(session, parsed.data.tenantId)) return forbidden()
+    tenantAlvo = parsed.data.tenantId
+  } else {
+    tenantAlvo = session.tenantId
+  }
   if (!tenantAlvo) {
     return session.role === 'super_admin'
       ? badRequest({ tenantId: ['Selecione o hospital'] })

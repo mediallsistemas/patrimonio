@@ -38,17 +38,21 @@ type Etapa =
   | { etapa: 'dados'; ambiente: AmbienteSelecionado }
   | { etapa: 'concluido'; numero: number }
 
-// Abertura de chamado pelo super_admin: como ele não tem tenant próprio, o
-// fluxo começa escolhendo o hospital, depois reaproveita a mesma seleção de
-// ambiente e o mesmo formulário do fluxo do tenant. Vincular bem fica de fora
-// aqui — a busca de bens é escopada pela sessão (não cross-tenant).
+// Abertura de chamado escolhendo a unidade: super_admin (qualquer hospital) e
+// admin_multi (somente as unidades que administra — /api/admin/tenants e
+// /api/admin/blocos já devolvem/validam o recorte). O fluxo começa escolhendo
+// o hospital, depois reaproveita a mesma seleção de ambiente e o mesmo
+// formulário do fluxo do tenant. Vincular bem fica de fora aqui — a busca de
+// bens é escopada pela sessão (não cross-tenant).
 export default function NovoChamadoAdminPage() {
   const router = useRouter()
   const qc = useQueryClient()
   const { user } = useAuth()
 
-  // Página exclusiva do super_admin (o seletor de hospital exige cross-tenant)
-  const naoAutorizado = user !== null && user.role !== 'super_admin'
+  // viewer (alias legado de admin_multi) segue congelado sem criar chamados
+  // (fora de ROLES_CRIACAO_CHAMADOS) — a API devolveria 403.
+  const naoAutorizado =
+    user !== null && user.role !== 'super_admin' && user.role !== 'admin_multi'
   useEffect(() => {
     if (naoAutorizado) router.replace('/admin/chamados')
   }, [naoAutorizado, router])
@@ -69,8 +73,8 @@ export default function NovoChamadoAdminPage() {
 
   // Papéis que abrem chamado pelo painel escolhendo a unidade; a API
   // /admin/tenants já devolve o recorte certo (todas p/ super, as suas p/ multi)
-  const podeEscolherUnidade = user?.role === 'super_admin' ||
-    user?.role === 'admin_multi' || user?.role === 'viewer'
+  const podeEscolherUnidade =
+    user?.role === 'super_admin' || user?.role === 'admin_multi'
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['admin-tenants'],
