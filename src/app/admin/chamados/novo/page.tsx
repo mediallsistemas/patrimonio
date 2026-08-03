@@ -37,7 +37,7 @@ type Etapa =
   | { etapa: 'tenant' }
   | { etapa: 'ambiente' }
   | { etapa: 'dados'; ambiente: AmbienteSelecionado }
-  | { etapa: 'concluido'; numero: number }
+  | { etapa: 'concluido'; numero: number; responsavelNome?: string }
 
 // Abertura de chamado escolhendo a unidade: super_admin (qualquer hospital) e
 // admin_multi (somente as unidades que administra — /api/admin/tenants e
@@ -164,7 +164,10 @@ export default function NovoChamadoAdminPage() {
         ...parsed.data,
         prazo: parsed.data.prazo.toISOString(),
       })
-      setEstado({ etapa: 'concluido', numero: r.numero })
+      const responsavelNome = parsed.data.responsavelId
+        ? usuariosAtribuiveis.find((u) => u.id === parsed.data.responsavelId)?.nome
+        : undefined
+      setEstado({ etapa: 'concluido', numero: r.numero, responsavelNome })
     } catch {
       setErro('Falha ao abrir o chamado. Tente novamente.')
     }
@@ -403,7 +406,9 @@ export default function NovoChamadoAdminPage() {
               Chamado #{estado.numero} aberto
             </Text>
             <Text variant="body-md" className="text-gray-300 block mb-6">
-              Ele já aparece no painel para ser assumido
+              {estado.responsavelNome
+                ? `Atribuído a ${estado.responsavelNome} — já está em execução no painel`
+                : 'Ele já aparece no painel para ser assumido'}
             </Text>
 
             <div className="space-y-2 max-w-xs mx-auto">
