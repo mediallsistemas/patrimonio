@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, Zap, Droplet, Package, Wrench,
-  CheckCircle,
+  CheckCircle, Clock,
 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Text from '@/components/ui/Text'
@@ -16,6 +18,7 @@ import LogoutButton from '@/components/ui/LogoutButton'
 import SeletorAmbientePorBloco from '@/components/ui/SeletorAmbientePorBloco'
 import { useManutencao, type TipoManutencao } from '@/hooks/useManutencao'
 import { getSugestoes } from '@/app/admin/bens/bens.types'
+import type { ManutencaoEmAberto } from '@/services/manutencoes.service'
 
 // ── Tipos do fluxo ──────────────────────────────────────────────────────────
 // Estado modelado como discriminated union para evitar combinações inválidas.
@@ -34,6 +37,7 @@ type BemSelecionadoEstado = {
 }
 
 type Etapa =
+  | { etapa: 'inicio' }
   | { etapa: 'ambientes' }
   | { etapa: 'tipo'; ambiente: AmbienteSelecionado }
   | {
@@ -57,6 +61,11 @@ const ACCENT: Record<TipoManutencao, { bg: string; texto: string; nome: string; 
   patrimonio: { bg: '#7c3aed', texto: 'text-purple-700',  nome: 'Patrimônio', Icon: Package },
 }
 
+// Tipo legado 'predial' (LinenSistem) não está no mapa acima. A lista de "em
+// aberto" atravessa registros antigos, então qualquer tipo fora dos três
+// conhecidos cai neste fallback em vez de quebrar a tela (ACCENT[tipo] undefined).
+const ACCENT_FALLBACK = { bg: '#6b7280', texto: 'text-gray-600', nome: 'Manutenção', Icon: Wrench }
+
 export default function RealizarManutencaoPage({
   params,
 }: {
@@ -66,7 +75,7 @@ export default function RealizarManutencaoPage({
   const router = useRouter()
   const manutencao = useManutencao()
 
-  const [estado, setEstado] = useState<Etapa>({ etapa: 'ambientes' })
+  const [estado, setEstado] = useState<Etapa>({ etapa: 'inicio' })
   const [descricao, setDescricao] = useState('')
   const [subtipoPatrimonio, setSubtipoPatrimonio] = useState('')
   const [subtipoCustom, setSubtipoCustom] = useState('')
@@ -88,7 +97,7 @@ export default function RealizarManutencaoPage({
 
   function voltarAoInicio() {
     resetCampos()
-    setEstado({ etapa: 'ambientes' })
+    setEstado({ etapa: 'inicio' })
   }
 
   async function handleIniciar() {
@@ -155,8 +164,10 @@ export default function RealizarManutencaoPage({
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => {
-              if (estado.etapa === 'ambientes' || estado.etapa === 'concluida') {
+              if (estado.etapa === 'inicio' || estado.etapa === 'concluida') {
                 router.push(`/${tenantSlug}/manutencao`)
+              } else if (estado.etapa === 'ambientes') {
+                setEstado({ etapa: 'inicio' })
               } else if (estado.etapa === 'tipo') {
                 setEstado({ etapa: 'ambientes' })
               } else if (estado.etapa === 'iniciar' || estado.etapa === 'finalizar') {
@@ -175,6 +186,39 @@ export default function RealizarManutencaoPage({
         </div>
 
         {/* Conteúdo */}
+        {estado.etapa === 'inicio' && (
+          <TelaInicio
+            emAberto={manutencao.emAberto}
+            emAbertoCarregando={manutencao.emAbertoCarregando}
+            onNova={() => {
+              resetCampos()
+              setEstado({ etapa: 'ambientes' })
+            }}
+            onFinalizarPendente={(m) => {
+              resetCampos()
+              setEstado({
+                etapa: 'finalizar',
+                tipo: m.tipo,
+                manutencaoId: m.id,
+                ambiente: {
+                  id: m.ambienteId ?? '',
+                  nome: m.ambienteNomeSnapshot ?? '—',
+                  blocoNome: m.blocoNomeSnapshot ?? '',
+                },
+                bem:
+                  m.tipo === 'patrimonio' && m.patrimony
+                    ? {
+                        trilogoAssetId: m.trilogoAssetId ?? 0,
+                        patrimony: m.patrimony,
+                        descricaoBem: m.descricaoBemSnapshot ?? '',
+                        assetTypeName: '',
+                      }
+                    : undefined,
+              })
+            }}
+          />
+        )}
+
         {estado.etapa === 'ambientes' && (
           <TelaAmbientes
             blocos={manutencao.blocosManutencao}
@@ -275,6 +319,91 @@ export default function RealizarManutencaoPage({
 
 // ── Telas ───────────────────────────────────────────────────────────────────
 
+function TelaInicio({
+  emAberto, emAbertoCarregando, onNova, onFinalizarPendente,
+}: {
+  emAberto: ManutencaoEmAberto[]
+  emAbertoCarregando: boolean
+  onNova: () => void
+  onFinalizarPendente: (m: ManutencaoEmAberto) => void
+}) {
+  return (
+    <>
+      {/* Cabeçalho */}
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-dark mb-4">
+          <Wrench className="w-8 h-8 text-white" />
+        </div>
+        <Text as="h1" variant="heading-lg" className="text-dark mb-1 block">
+          Manutenção
+        </Text>
+        <Text variant="body-md" className="text-gray-300">
+          Inicie uma nova ou finalize uma em aberto
+        </Text>
+      </div>
+
+      {/* Botão principal — iniciar uma nova manutenção (no topo da tela) */}
+      <Button onClick={onNova} className="w-full mb-8">
+        <Wrench className="w-4 h-4" />
+        Nova manutenção
+      </Button>
+
+      {/* Manutenções em aberto da unidade — retomar e finalizar as pendentes */}
+      {emAbertoCarregando ? (
+        <p className="text-center text-sm text-gray-300 font-sans">Carregando manutenções em aberto...</p>
+      ) : emAberto.length > 0 ? (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="w-4 h-4 text-amber-500" />
+            <Text variant="caption" className="text-gray-500 uppercase tracking-wide font-semibold">
+              Manutenções em aberto ({emAberto.length})
+            </Text>
+          </div>
+
+          <div className="space-y-2">
+            {emAberto.map((m) => {
+              const a = ACCENT[m.tipo] ?? ACCENT_FALLBACK
+              const titulo =
+                m.tipo === 'patrimonio'
+                  ? (m.descricaoBemSnapshot ?? m.patrimony ?? 'Patrimônio')
+                  : (m.ambienteNomeSnapshot ?? '—')
+              return (
+                <div
+                  key={m.id}
+                  className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-3 flex items-center gap-3"
+                >
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: a.bg }}
+                  >
+                    <a.Icon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Text variant="body-sm" className="text-dark font-semibold truncate block">
+                        {titulo}
+                      </Text>
+                      <span className={`text-xs font-medium font-sans ${a.texto}`}>{a.nome}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 font-sans truncate">
+                      {m.blocoNomeSnapshot ? `${m.blocoNomeSnapshot} · ` : ''}
+                      iniciada por {m.criadoPor.nome} ·{' '}
+                      {formatDistanceToNow(new Date(m.iniciadaEm), { locale: ptBR, addSuffix: true })}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="success" onClick={() => onFinalizarPendente(m)}>
+                    Finalizar
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
+    </>
+  )
+}
+
 function TelaAmbientes({
   blocos, carregando, onSelecionar,
 }: {
@@ -336,7 +465,7 @@ function TelaTipo({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {opcoes.map(({ tipo, descricao }) => {
-          const a = ACCENT[tipo]
+          const a = ACCENT[tipo] ?? ACCENT_FALLBACK
           return (
             <button
               key={tipo}
@@ -380,7 +509,7 @@ function TelaIniciar({
   erro: string | null
   onIniciar: () => void
 }) {
-  const a = ACCENT[tipo]
+  const a = ACCENT[tipo] ?? ACCENT_FALLBACK
   const sugestoesSubtipo = tipo === 'patrimonio' && bem ? getSugestoes(bem.assetTypeName) : []
   return (
     <Card shadow="md">
@@ -495,7 +624,7 @@ function TelaFinalizar({
   erro: string | null
   onFinalizar: () => void
 }) {
-  const a = ACCENT[tipo]
+  const a = ACCENT[tipo] ?? ACCENT_FALLBACK
   return (
     <Card shadow="md">
       <div className="flex items-center gap-3 mb-4">
@@ -573,7 +702,7 @@ function TelaConcluida({
   onNovaManutencao: () => void
   voltarHref: string
 }) {
-  const a = ACCENT[tipo]
+  const a = ACCENT[tipo] ?? ACCENT_FALLBACK
   return (
     <Card shadow="md" className="text-center">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-100 mb-4">

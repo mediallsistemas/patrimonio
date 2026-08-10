@@ -20,7 +20,7 @@ export async function POST(
   if (!parsed.success) return badRequest(parsed.error.flatten().fieldErrors)
 
   try {
-    const data = await manutencoesService.finalizar(tenantId, session.sub, id, parsed.data)
+    const data = await manutencoesService.finalizar(tenantId, id, parsed.data)
     if (!data) return notFound('Manutenção')
     return ok(data)
   } catch {

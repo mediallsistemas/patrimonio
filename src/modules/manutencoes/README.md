@@ -23,12 +23,12 @@ gerencial do admin. Permissões do relatório vivem em regras puras (`manutencoe
 | Função | Assinatura real | Descrição |
 |---|---|---|
 | `iniciar` | `iniciar(tenantId: string, criadoPorId: string, input: IniciarManutencaoInput)` | Cria `em_andamento`. `patrimonio`: grava `trilogoAssetId`/`patrimony`/`descricaoBemSnapshot`/`subtipoPatrimonio`. `eletrica\|hidraulica`: resolve ambiente ativo no tenant e grava snapshot de ambiente/bloco |
-| `finalizar` | `finalizar(tenantId: string, criadoPorId: string, id: string, input: FinalizarManutencaoInput)` | Só encontra registro `em_andamento` do **próprio criador** (`where: { id, tenantId, criadoPorId, status: 'em_andamento' }`); grava `fotoDepois`/`observacaoFinal`/`finalizadaEm`; `null` se não achou |
+| `finalizar` | `finalizar(tenantId: string, id: string, input: FinalizarManutencaoInput)` | Encontra qualquer `em_andamento` **da unidade** (`where: { id, tenantId, status: 'em_andamento' }` — sem filtro por criador, de propósito: um operador inicia e outro pode concluir); grava `fotoDepois`/`observacaoFinal`/`finalizadaEm`; `null` se não achou |
 | `listarRealizadasPorAssets` | `listarRealizadasPorAssets(trilogoAssetIds: number[], escopo: EscopoLeitura)` | Concluídas do tipo `patrimonio` por bens, **restritas às unidades do escopo** (obrigatório: ids do Trilogo são inteiros sequenciais — sem filtro seria varredura enumerável); sem fotos |
 | `listarHistorico` | `listarHistorico(tenantId: string \| null, tenantIds?: string[])` | Todas do escopo (`tenantFilter`), qualquer tipo/status, `iniciadaEm desc`; sem fotos |
 | `listarManutencoesAdmin` | `listarManutencoesAdmin(escopo: EscopoLeitura)` | Painel gerencial cross-unidade (`take: 500`), **com** fotos antes/depois e o tenant de cada linha |
 | `buscarRealizadaComFotos` | `buscarRealizadaComFotos(id: string, escopo: EscopoLeitura)` | Detalhe individual com fotos; escopo obrigatório (as fotos são o dado mais sensível da tabela) |
-| `listarEmAndamentoDoUsuario` | `listarEmAndamentoDoUsuario(tenantId: string, criadoPorId: string)` | Pendentes de finalização do próprio usuário (retomada do fluxo) |
+| `listarEmAndamentoDaUnidade` | `listarEmAndamentoDaUnidade(tenantId: string)` | Manutenções `em_andamento` **da unidade** (qualquer operador), para retomar/finalizar; inclui `criadoPor.nome` (quem fez a foto antes), `ambienteId`/`trilogoAssetId` p/ reconstruir a tela de finalizar |
 
 `EscopoLeitura` vem de `modules/auth/tenant-filter` (`escopoLeitura(session)`): distingue "super_admin vê tudo"
 de "sessão sem unidade" (que **fecha** — `tenantId: { in: [] }`), ambiguidade que o `null` de `tenantFilter` tinha.
@@ -36,7 +36,7 @@ de "sessão sem unidade" (que **fecha** — `tenantId: { in: [] }`), ambiguidade
 ## Regras de negócio
 
 - Fluxo em duas fases; `fotoAntes` obrigatória ao iniciar e `fotoDepois` ao finalizar (Zod `min(20)`, máx. 2.000.000 chars ≈ 1,5 MB base64).
-- Só o criador finaliza a própria manutenção (nem `tenant_admin` finaliza a de outro).
+- Qualquer operador da unidade finaliza uma manutenção `em_andamento` (um inicia com a foto antes, outro pode concluir com a foto depois). Escopo por `tenantId` preserva o isolamento; **quem finaliza não é registrado** (o `criadoPor` continua sendo quem iniciou) — se precisar de rastreio, adicionar `finalizadoPorId` (migration).
 - **Relatório** (`manutencoes.rules.ts`, testado): `ROLES_RELATORIO_MANUTENCOES = super_admin, tenant_admin, admin_multi, operator_patrimonio, viewer` — **não** inclui `operator` (ele executa, mas não consulta o consolidado). `podeVerRelatorio` aceita `string` de propósito (o `SessionPayload.role` de lib/auth não é a união tipada).
 - `IniciarManutencaoSchema` é discriminated union por `tipo`: `eletrica`/`hidraulica` exigem `ambienteId` (uuid); `patrimonio` exige `trilogoAssetId`, `patrimony`, `descricaoBem` e `subtipoPatrimonio`.
 - Snapshots preservam histórico se ambiente/bem forem removidos (`onDelete: SetNull`).

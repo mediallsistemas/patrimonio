@@ -56,13 +56,16 @@ export async function iniciar(
 
 export async function finalizar(
   tenantId: string,
-  criadoPorId: string,
   id: string,
   input: FinalizarManutencaoInput,
 ) {
   try {
+    // Qualquer operador da unidade pode finalizar uma manutenção em aberto —
+    // um inicia (foto antes) e outro pode concluir (foto depois). O escopo por
+    // tenantId preserva o isolamento; a ausência do filtro por criadoPorId é
+    // de propósito.
     const existente = await prisma.manutencaoRealizada.findFirst({
-      where: { id, tenantId, criadoPorId, status: 'em_andamento' },
+      where: { id, tenantId, status: 'em_andamento' },
       select: { id: true },
     })
     if (!existente) return null
@@ -223,24 +226,30 @@ export async function buscarRealizadaComFotos(id: string, escopo: EscopoLeitura)
   }
 }
 
-export async function listarEmAndamentoDoUsuario(tenantId: string, criadoPorId: string) {
+// Manutenções em aberto (não finalizadas) da UNIDADE — qualquer operador pode
+// retomar e finalizar. Inclui quem iniciou (fez a foto antes) para dar contexto
+// na tela, agora que a lista atravessa operadores. Escopo obrigatório por tenantId.
+export async function listarEmAndamentoDaUnidade(tenantId: string) {
   try {
     return await prisma.manutencaoRealizada.findMany({
-      where: { tenantId, criadoPorId, status: 'em_andamento' },
+      where: { tenantId, status: 'em_andamento' },
       orderBy: { iniciadaEm: 'desc' },
       select: {
         id: true,
         tipo: true,
         iniciadaEm: true,
         descricao: true,
+        ambienteId: true,
         ambienteNomeSnapshot: true,
         blocoNomeSnapshot: true,
+        trilogoAssetId: true,
         patrimony: true,
         descricaoBemSnapshot: true,
+        criadoPor: { select: { nome: true } },
       },
     })
   } catch (error) {
-    console.error('[manutencoes.service] listarEmAndamentoDoUsuario:', error)
+    console.error('[manutencoes.service] listarEmAndamentoDaUnidade:', error)
     throw error
   }
 }

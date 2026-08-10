@@ -13,7 +13,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!tenantId) return forbidden()
 
   try {
-    const data = await manutencoesService.listarEmAndamentoDoUsuario(tenantId, session.sub)
+    const data = await manutencoesService.listarEmAndamentoDaUnidade(tenantId)
     return ok(data)
   } catch {
     return serverError('listar manutencoes failed')

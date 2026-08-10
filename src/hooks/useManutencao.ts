@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as manutencoesService from '@/services/manutencoes.service'
 import { buscarBlocos, type BlocoAPI } from '@/services/rondas.service'
-import type { IniciarManutencaoInput, FinalizarManutencaoInput, TipoManutencao } from '@/services/manutencoes.service'
+import type { IniciarManutencaoInput, FinalizarManutencaoInput, TipoManutencao, ManutencaoEmAberto } from '@/services/manutencoes.service'
 
 export type { TipoManutencao }
 
@@ -34,6 +34,14 @@ export function useManutencao() {
     .map((b) => ({ ...b, ambientes: b.ambientes.filter((a) => a.tipo !== 'gases') }))
     .filter((b) => b.ambientes.length > 0)
 
+  // Manutenções em aberto da unidade — para retomar/finalizar as pendentes.
+  // Mesma queryKey que as mutations iniciar/finalizar invalidam, então a lista
+  // se atualiza sozinha ao iniciar uma nova ou concluir uma pendente.
+  const { data: emAberto = [], isLoading: emAbertoCarregando } = useQuery<ManutencaoEmAberto[]>({
+    queryKey: ['me-manutencoes'],
+    queryFn: manutencoesService.listarEmAberto,
+  })
+
   // Busca de bem por patrimony — query controlada (só dispara quando há código).
   const [patrimonyQuery, setPatrimonyQuery] = useState('')
   const {
@@ -59,6 +67,8 @@ export function useManutencao() {
   return {
     blocosManutencao,
     blocosCarregando,
+    emAberto,
+    emAbertoCarregando,
     patrimonyQuery,
     setPatrimonyQuery,
     bensEncontrados,

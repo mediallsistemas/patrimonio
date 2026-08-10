@@ -68,6 +68,28 @@ export async function finalizar(
   return unwrap(res)
 }
 
+// Manutenção em aberto (não finalizada) da unidade — qualquer operador finaliza.
+// `tipo` vem do banco como string; na prática as em aberto são elétrica/hidráulica/
+// patrimônio (predial é legado e já concluído), mas a tela trata tipo desconhecido.
+export interface ManutencaoEmAberto {
+  id: string
+  tipo: TipoManutencao
+  iniciadaEm: string
+  descricao: string
+  ambienteId: string | null
+  ambienteNomeSnapshot: string | null
+  blocoNomeSnapshot: string | null
+  trilogoAssetId: number | null
+  patrimony: string | null
+  descricaoBemSnapshot: string | null
+  criadoPor: { nome: string }
+}
+
+export async function listarEmAberto(): Promise<ManutencaoEmAberto[]> {
+  const res = await api.get<{ data: ManutencaoEmAberto[] }>('me/manutencoes')
+  return unwrap(res)
+}
+
 export async function buscarBemPorPatrimonio(patrimony: string): Promise<BemTrilogo[]> {
   const res = await api.get<{ data: BemTrilogo[] }>(
     `me/bens/buscar?patrimony=${encodeURIComponent(patrimony)}`,
