@@ -14,6 +14,30 @@ Combines LinenSistem (linen/hotelaria + incidents + gas inspection) with Feedbac
 
 ---
 
+## ⚠️ Deploy / Produção — Repositório Correto (LEIA ANTES DE SUBIR)
+
+**O que está no ar é ESTE repositório: `patrimonio`.** Existe um segundo repo, `linensistem`,
+que é uma cópia **antiga** (sem o módulo de chamados e outras features). **Nunca fazer deploy
+do `linensistem`** — subir ele derruba features de produção.
+
+| Item | Valor |
+|------|-------|
+| Repo de produção | `github.com/mediallsistemas/patrimonio` — branch **`main`** |
+| Projeto Vercel | `linensistem` · `https://linensistem.vercel.app` · projectId `prj_ab28vEEuA9xo6aNRgCcTzddaKLdR` |
+| Repo a **NÃO** usar | `github.com/mediallsistemas/linensistem` (defasado ~1 mês, sem `chamados`) |
+| Banco (RDS) | mesmo para os dois repos — `DATABASE_URL` (Patrimonio DB) + `AUTH_DATABASE_URL` (Auth DB) |
+
+- **O nome do projeto Vercel (`linensistem`) é histórico** — ele **builda o repo `patrimonio`**,
+  não o repo homônimo. Não deixe o nome confundir.
+- **Deploy = push em `main` do `patrimonio`.** A Vercel builda automaticamente.
+- **Build command:** `node scripts/migrate-producao.mjs && next build`. O passo de migração roda
+  `prisma migrate deploy` **somente em produção** e **aborta o build de propósito se a migração
+  falhar** (`scripts/migrate-producao.mjs`). Se um deploy "não subiu" / produção parece
+  desatualizada, **cheque o log de build/migração na Vercel antes de suspeitar do código** — a
+  Vercel mantém o último deploy que deu certo quando o build falha.
+
+---
+
 ## What This System Does
 
 | Module | Description |
