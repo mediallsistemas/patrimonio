@@ -58,6 +58,11 @@ const PUBLIC_PATHS = [
   '/api/me/password',
   '/bem',
   '/api/public',
+  // Cron do Trílogo: a Vercel (e PM2/curl) chama SEM cookie de sessão, então cairia
+  // no catch-all "sem token → /login" abaixo e nunca chegaria ao handler — era por
+  // isso que a sincronização não rodava. O próprio route exige Authorization:
+  // Bearer <CRON_SECRET>, então liberar aqui não abre nada.
+  '/api/cron',
 ]
 
 // Rotas de primeiro nível que NÃO são tenantSlug

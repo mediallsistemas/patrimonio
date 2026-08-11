@@ -33,10 +33,21 @@ const JANELA_DIAS = 365
 // Com a importação de chamados, esta rota deixou de só apagar ambientes e passou
 // a criar registro em todas as unidades — mais um motivo para a porta ser uma só.
 function autenticado(req: Request): boolean {
-  if (!CRON_SECRET) return false
+  // Falha visível, não silenciosa: um 403 sem rastro escondeu por semanas que o
+  // cron não rodava (CRON_SECRET nunca configurado na Vercel). O warn aparece
+  // nos logs da Vercel e denuncia o problema na primeira execução.
+  if (!CRON_SECRET) {
+    console.warn('[cron/sync-trilogo] CRON_SECRET ausente no ambiente — requisição recusada (403). Configure a env var (inclusive na Vercel) e faça redeploy.')
+    return false
+  }
 
   const auth = req.headers.get('authorization') ?? ''
-  return timingSafeEqual(auth, `Bearer ${CRON_SECRET}`)
+  const autorizado = timingSafeEqual(auth, `Bearer ${CRON_SECRET}`)
+  if (!autorizado) {
+    // Nunca logar o header recebido — pode conter um token. Só o fato da recusa.
+    console.warn('[cron/sync-trilogo] Authorization ausente ou inválido — requisição recusada (403).')
+  }
+  return autorizado
 }
 
 async function handler(req: Request): Promise<Response> {
