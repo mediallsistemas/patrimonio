@@ -10,7 +10,10 @@ const BodySchema = z.object({
 })
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio', 'viewer'])
+  // admin_multi é o nome atual do papel; 'viewer' segue só como alias legado
+  // (o rename já rodou no Auth DB — sem admin_multi aqui, os admins regionais
+  // tomavam 401 e o modal de QR só mostrava "Erro ao gerar QR").
+  const session = await verifyAuth(req, ['super_admin', 'tenant_admin', 'operator_patrimonio', 'admin_multi', 'viewer'])
   if (!session) return unauthorized()
 
   const parsed = BodySchema.safeParse(await req.json())

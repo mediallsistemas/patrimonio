@@ -42,7 +42,7 @@ ambiente)` e lê os agendamentos por asset para as telas públicas.
 
 | Método + caminho | Roles (guard real) | O que faz |
 |---|---|---|
-| `POST /api/bens/link-publico` | `super_admin, tenant_admin, operator_patrimonio, viewer` (`verifyAuth`) | Gera/reusa o token para o ambiente (`{ companyId, projeto, ambiente }` no body) — usado pelo `ModalQrCode` |
+| `POST /api/bens/link-publico` | `super_admin, tenant_admin, operator_patrimonio, admin_multi, viewer` (`verifyAuth`) | Gera/reusa o token para o ambiente (`{ companyId, projeto, ambiente }` no body) — usado pelo `ModalQrCode` |
 | `GET /api/bens/agendamentos-publicos?assetIds=1,2` | `super_admin, tenant_admin, operator_patrimonio, operator` (`verifyAuth`) | Agendamentos por assets (apesar do nome, **exige auth** — a página pública só chama após login) |
 | `GET /api/public/bens/[token]` | **nenhum** (público) | Resolve o token, busca os assets da empresa no Trilogo (cache 10 min por `companyId`), filtra por projeto/ambiente, sanitiza (`sanitizeBem`: id, patrimony, description, brand, model, status, assetTypeName, coverPermalink) e devolve bens + agendamentos |
 
@@ -59,6 +59,10 @@ Além das rotas, a **página** `src/app/bem/[token]/page.tsx` (server component,
 ## Consumo no client
 
 - `src/app/admin/bens/components/ModalQrCode.tsx` — `fetch('/api/bens/link-publico')` direto (sem service dedicado).
+  Compõe o cartão (logo + nome do ambiente + QR) num `<canvas>` desenhado em 3× e oferece **Baixar PNG**,
+  copiar link, abrir e imprimir. As ações só habilitam com `pronto === true` (desenho concluído) — o QR é a
+  última coisa pintada, então liberar antes disso gerava download/impressão de cartão sem QR. O carregamento
+  do logo tem timeout de 3 s: se travar, o cartão sai sem logo em vez de ficar em branco para sempre.
 - `src/app/bem/[token]/BensConteudo.tsx` — fetch de agendamentos públicos + `manutencoes.service.listarRealizadasPorAssets` após login.
 
 ## Padrões aplicados
