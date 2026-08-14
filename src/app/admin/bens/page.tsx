@@ -6,7 +6,7 @@ import * as agendamentosService from '@/services/agendamentos.service'
 import * as anexosService from '@/services/anexos-bens.service'
 import * as trilogoService from '@/services/trilogo.service'
 import * as meService from '@/services/me.service'
-import { ArrowLeft, Package, Layers, Search, X, CalendarPlus, QrCode } from 'lucide-react'
+import { ArrowLeft, Package, Layers, Search, X, CalendarPlus, QrCode, Paperclip } from 'lucide-react'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import type { Empresa, Asset, Agendamento } from './bens.types'
@@ -42,6 +42,7 @@ export default function BensPage() {
   const [qrModal,    setQrModal]    = useState(false)
   const [visiveis,   setVisiveis]   = useState(PAGE_SIZE)
   const [apenasComAgendamento, setApenasComAgendamento] = useState(false)
+  const [apenasComAnexo, setApenasComAnexo] = useState(false)
 
   const { data: agendamentos = [] } = useQuery<Agendamento[]>({
     queryKey: ['agendamentos'],
@@ -164,10 +165,11 @@ export default function BensPage() {
       if (ambiente     && end.ambienteSimples !== ambiente)             return false
       if (statusFiltro && a.status !== Number(statusFiltro))           return false
       if (apenasComAgendamento && !agendamentoMap.has(a.id))           return false
+      if (apenasComAnexo && !anexoMap.has(a.id))                       return false
       if (q && !(a.description.toLowerCase().includes(q) || a.patrimony.toLowerCase().includes(q) || (a.brand ?? '').toLowerCase().includes(q))) return false
       return true
     })
-  }, [bens, search, tipo, projeto, ambiente, statusFiltro, apenasComAgendamento, agendamentoMap])
+  }, [bens, search, tipo, projeto, ambiente, statusFiltro, apenasComAgendamento, agendamentoMap, apenasComAnexo, anexoMap])
 
   const ativos         = filtrado.filter(a => a.status === 1).length
   const manutencao     = filtrado.filter(a => a.status === 4).length
@@ -288,14 +290,18 @@ export default function BensPage() {
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors whitespace-nowrap ${apenasComAgendamento ? 'bg-purple-600 text-white border-purple-600' : 'text-gray-500 border-gray-200 hover:border-purple-300 hover:text-purple-600'}`}>
                   <CalendarPlus size={14} /> Com agendamento
                 </button>
+                <button onClick={() => { setApenasComAnexo(v => !v); setVisiveis(PAGE_SIZE) }}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors whitespace-nowrap ${apenasComAnexo ? 'bg-purple-600 text-white border-purple-600' : 'text-gray-500 border-gray-200 hover:border-purple-300 hover:text-purple-600'}`}>
+                  <Paperclip size={14} /> Com anexo
+                </button>
                 {ambiente && projeto && (
                   <button onClick={() => setQrModal(true)}
                     className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 transition-colors whitespace-nowrap">
                     <QrCode size={14} /> QR do ambiente
                   </button>
                 )}
-                {(search || tipo || projeto || ambiente || statusFiltro || apenasComAgendamento) && (
-                  <button onClick={() => { setSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setStatusFiltro(''); setApenasComAgendamento(false); setVisiveis(PAGE_SIZE) }}
+                {(search || tipo || projeto || ambiente || statusFiltro || apenasComAgendamento || apenasComAnexo) && (
+                  <button onClick={() => { setSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setStatusFiltro(''); setApenasComAgendamento(false); setApenasComAnexo(false); setVisiveis(PAGE_SIZE) }}
                     className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg whitespace-nowrap">
                     <X size={14} /> Limpar
                   </button>
