@@ -31,6 +31,7 @@ model Tenant {
   templatesFormulario    TemplateFormulario[]
   usuarios               Usuario[]
   chamados               Chamado[]
+  anexosBens             AnexoBem[]
 
   @@map("tenants")
 }
@@ -58,6 +59,8 @@ model Usuario {
   rondasCriadas              RondaOcorrencia[]       @relation("RondaCriadaPor")
   chamadosCriados            Chamado[]               @relation("ChamadoCriadoPor")
   chamadosResponsavel        Chamado[]               @relation("ChamadoResponsavel")
+  anexosBensCriados          AnexoBem[]              @relation("AnexoBemCriadoPor")
+  anexosBensRemovidos        AnexoBem[]              @relation("AnexoBemRemovidoPor")
   tenant                     Tenant?                 @relation(fields: [tenantId], references: [id])
 
   @@map("usuarios")
@@ -279,6 +282,42 @@ model AgendamentoManutencao {
   @@index([tenantId])
   @@index([companyId])
   @@map("agendamentos_manutencao")
+}
+
+// Anexos (nota fiscal, manual, laudo, foto...) de um bem do Trilogo.
+// O bem vive no ERP e nao tem tabela local — a chave e o trilogoAssetId, mesma
+// estrategia de AgendamentoManutencao/ManutencaoRealizada. Snapshots de
+// patrimony/companyId preservam a identificacao mesmo se o bem sair do Trilogo.
+//
+// conteudo e base64 puro (sem prefixo data:), seguindo o padrao das demais
+// fotos do sistema. Os tetos de tamanho vivem em anexos-bens.types.ts e sao
+// validados na criacao — o banco nao os impoe.
+model AnexoBem {
+  id             String    @id @default(uuid())
+  tenantId       String?
+  trilogoAssetId Int
+  patrimony      String
+  companyId      Int
+  nome           String
+  mimeType       String
+  tamanhoBytes   Int
+  descricao      String?
+  conteudo       String
+  criadoPorId    String
+  criadoEm       DateTime  @default(now())
+  // Remocao logica: o anexo some da tela e deixa de contar na cota do bem,
+  // mas o registro (quem anexou, quem removeu) permanece para auditoria.
+  deletadoEm     DateTime?
+  deletadoPorId  String?
+
+  criadoPor      Usuario   @relation("AnexoBemCriadoPor", fields: [criadoPorId], references: [id])
+  deletadoPor    Usuario?  @relation("AnexoBemRemovidoPor", fields: [deletadoPorId], references: [id])
+  tenant         Tenant?   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([trilogoAssetId, deletadoEm])
+  @@index([tenantId, trilogoAssetId])
+  @@map("anexos_bens")
 }
 
 // Manutenção realizada pelo operador (elétrica, hidráulica ou patrimônio).

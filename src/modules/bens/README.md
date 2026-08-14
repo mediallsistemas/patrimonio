@@ -32,6 +32,10 @@ filtros em memória. Nada é persistido — o módulo é somente leitura sobre a
 Nenhum próprio. Lê `Tenant` (`trilogoCompanyId Int?`, `trilogoProjectName String?`) via `prismaAuth`
 (`lib/db-auth` — banco de auth, não o `prisma` padrão).
 
+Os campos que o sistema acrescenta ao bem (e que o Trilogo não tem) vivem em módulos próprios,
+sempre chaveados por `trilogoAssetId`: [`anexos-bens`](../anexos-bens/README.md) (documentos e
+fotos), `agendamentos` e `manutencoes`.
+
 ## Rotas de API que usam este módulo
 
 | Método + caminho | Roles (guard real) | O que faz |

@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as agendamentosService from '@/services/agendamentos.service'
+import * as anexosService from '@/services/anexos-bens.service'
 import * as trilogoService from '@/services/trilogo.service'
 import * as meService from '@/services/me.service'
 import { ArrowLeft, Package, Layers, Search, X, CalendarPlus, QrCode } from 'lucide-react'
@@ -12,9 +13,11 @@ import type { Empresa, Asset, Agendamento } from './bens.types'
 import { parseEndereco } from './bens.types'
 import BemRow from './components/BemRow'
 import ModalAgendamento from './components/ModalAgendamento'
+import ModalAnexos from './components/ModalAnexos'
 import ModalQrCode from './components/ModalQrCode'
 import { useAuth } from '@/hooks/useAuth'
 import type { MyTenant } from '@/services/me.service'
+import type { AnexoBem } from '@/services/anexos-bens.service'
 
 const PAGE_SIZE = 50
 
@@ -35,6 +38,7 @@ export default function BensPage() {
   const [ambiente,   setAmbiente]   = useState('')
   const [statusFiltro, setStatusFiltro] = useState<'' | '1' | '2' | '4'>('')
   const [assetModal, setAssetModal] = useState<Asset | null>(null)
+  const [anexosModal, setAnexosModal] = useState<Asset | null>(null)
   const [qrModal,    setQrModal]    = useState(false)
   const [visiveis,   setVisiveis]   = useState(PAGE_SIZE)
   const [apenasComAgendamento, setApenasComAgendamento] = useState(false)
@@ -53,6 +57,23 @@ export default function BensPage() {
     })
     return map
   }, [agendamentos])
+
+  // Só metadados (nome/tamanho/autor) — o conteúdo do anexo é lido sob demanda
+  // no modal, ao baixar.
+  const { data: anexos = [] } = useQuery<AnexoBem[]>({
+    queryKey: ['anexos-bens'],
+    queryFn: () => anexosService.listar(),
+    staleTime: 60 * 1000,
+  })
+
+  const anexoMap = useMemo(() => {
+    const map = new Map<number, AnexoBem[]>()
+    anexos.forEach(anexo => {
+      if (!map.has(anexo.trilogoAssetId)) map.set(anexo.trilogoAssetId, [])
+      map.get(anexo.trilogoAssetId)!.push(anexo)
+    })
+    return map
+  }, [anexos])
 
   // super_admin carrega lista de todas as empresas do Trilogo
   const { data: empresas = [], isLoading: loadEmpresas } = useQuery<Empresa[]>({
@@ -336,12 +357,14 @@ export default function BensPage() {
                           {['', 'Patrimônio', 'Descrição', 'Ambiente', 'Tipo', 'Marca', 'Modelo', 'Nº série', 'Valor', 'Data da compra', 'Status', 'Manutenção', 'Data de Cadastro'].map(h => (
                             <th key={h} className="px-3 py-3">{h}</th>
                           ))}
-                          <th className="px-3 py-3 sticky right-0 bg-gray-50 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)]">Ação</th>
+                          <th className="px-3 py-3 sticky right-0 bg-gray-50 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)]">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filtrado.slice(0, visiveis).map(a => (
-                          <BemRow key={a.id} a={a} agendamentos={agendamentoMap.get(a.id)} onAgendar={setAssetModal} />
+                          <BemRow key={a.id} a={a} agendamentos={agendamentoMap.get(a.id)}
+                            qtdAnexos={anexoMap.get(a.id)?.length ?? 0}
+                            onAgendar={setAssetModal} onAnexos={setAnexosModal} />
                         ))}
                       </tbody>
                     </table>
@@ -367,6 +390,14 @@ export default function BensPage() {
           asset={assetModal}
           agendamentos={agendamentoMap.get(assetModal.id) ?? []}
           onClose={() => setAssetModal(null)}
+        />
+      )}
+
+      {anexosModal && (
+        <ModalAnexos
+          asset={anexosModal}
+          anexos={anexoMap.get(anexosModal.id) ?? []}
+          onClose={() => setAnexosModal(null)}
         />
       )}
 

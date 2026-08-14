@@ -1,14 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Package, CalendarPlus, AlertCircle } from 'lucide-react'
+import { Package, CalendarPlus, AlertCircle, Paperclip } from 'lucide-react'
 import type { Asset, Agendamento } from '../bens.types'
 import { STATUS, parseEndereco, moeda } from '../bens.types'
 
 interface Props {
   a: Asset
   agendamentos?: Agendamento[]
+  qtdAnexos: number
   onAgendar: (a: Asset) => void
+  onAnexos: (a: Asset) => void
 }
 
 function getStatusAgendamento(pendentes: Agendamento[]) {
@@ -18,7 +20,7 @@ function getStatusAgendamento(pendentes: Agendamento[]) {
   return atrasado ? 'atrasado' : 'agendado'
 }
 
-export default function BemRow({ a, agendamentos, onAgendar }: Props) {
+export default function BemRow({ a, agendamentos, qtdAnexos, onAgendar, onAnexos }: Props) {
   const end = parseEndereco(a.departmentFullAddress)
   const st  = STATUS[a.status] ?? { label: String(a.status), color: 'bg-gray-100 text-gray-500' }
   const pendentes = agendamentos?.filter(ag => ag.status === 'pendente') ?? []
@@ -99,17 +101,29 @@ export default function BemRow({ a, agendamentos, onAgendar }: Props) {
           {new Date(a.creationDate ?? '').toLocaleDateString('pt-BR')}
         </span>
       </td>
+      {/* Ações ficam na coluna fixa: a tabela é larga e rola na horizontal —
+          numa coluna comum o botão só apareceria depois de rolar até o fim. */}
       <td className={`px-3 py-2 sticky right-0 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.05)] ${stickyBg}`}>
-        <button onClick={() => onAgendar(a)} title="Agendamento de manutenção"
-          className={
-            atrasado
-              ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-red-600 bg-red-100 hover:bg-red-200 transition-colors whitespace-nowrap'
-              : temAgendamento
-              ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-100 hover:bg-purple-200 transition-colors whitespace-nowrap'
-              : 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-500 border border-gray-200 hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 transition-colors whitespace-nowrap'
-          }>
-          {atrasado ? <AlertCircle size={13} /> : <CalendarPlus size={13} />} Agendamento
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => onAnexos(a)} title={qtdAnexos > 0 ? `${qtdAnexos} anexo(s) neste bem` : 'Anexar documento ao bem'}
+            className={
+              qtdAnexos > 0
+                ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-100 hover:bg-purple-200 transition-colors whitespace-nowrap'
+                : 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-500 border border-gray-200 hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 transition-colors whitespace-nowrap'
+            }>
+            <Paperclip size={13} /> {qtdAnexos > 0 ? qtdAnexos : 'Anexos'}
+          </button>
+          <button onClick={() => onAgendar(a)} title="Agendamento de manutenção"
+            className={
+              atrasado
+                ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-red-600 bg-red-100 hover:bg-red-200 transition-colors whitespace-nowrap'
+                : temAgendamento
+                ? 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-purple-600 bg-purple-100 hover:bg-purple-200 transition-colors whitespace-nowrap'
+                : 'flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-500 border border-gray-200 hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 transition-colors whitespace-nowrap'
+            }>
+            {atrasado ? <AlertCircle size={13} /> : <CalendarPlus size={13} />} Agendamento
+          </button>
+        </div>
       </td>
     </tr>
   )

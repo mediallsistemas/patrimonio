@@ -40,6 +40,7 @@ client, padrões aplicados e observações/gotchas.
 | [manutencoes](../src/modules/manutencoes/README.md) | Manutenções iniciar→finalizar com foto antes/depois |
 | [agendamentos](../src/modules/agendamentos/README.md) | Agendamentos de manutenção por bem Trilogo |
 | [bens](../src/modules/bens/README.md) | Busca de bens no Trilogo |
+| [anexos-bens](../src/modules/anexos-bens/README.md) | Anexos (documentos/fotos) por bem do Trilogo, com tetos de tamanho |
 | [trilogo](../src/modules/trilogo/README.md) | Escopo de leitura por tenant para dados Trilogo (`escopo.ts`) |
 | [links-publicos](../src/modules/links-publicos/README.md) | Links públicos de bens com QR (`/bem/[token]`, sem auth) |
 | [dashboard](../src/modules/dashboard/README.md) | Agregações para o painel |
