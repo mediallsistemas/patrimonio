@@ -30,6 +30,7 @@ não fazem fetch — consomem hooks.
 | `useManutencao.ts` | `useManutencao` | **TanStack Query** + `useState` (busca) | `manutencoes.service`, `rondas.service.buscarBlocos` | `blocosManutencao` (não-gases), busca de bem por patrimony (`patrimonyQuery` → query habilitada só com texto), mutations `iniciar`/`finalizar` (invalidam `['me-manutencoes']`) |
 | `useAdminTenants.ts` | `useTenantsList`, `useCreateTenant`, `useTrilogoEmpresas(enabled)`, `useTrilogoProjetos(companyId)` | `useState` + `useEffect` | `admin-tenants.service`, `trilogo.service` | Lista/criação de tenants; empresas e projetos Trilogo p/ o modal de criação |
 | `useAdminUsuarios.ts` | `useUsuarios`, `useTenants(enabled)`, `useCreateUsuario` | `useState` + `useEffect` | `admin-usuarios.service`, `admin-tenants.service` | Lista/criação de usuários (`CreateUsuarioInput` inclui `tenantsExtras` p/ admin_multi) |
+| `useVersaoApp.ts` | `useVersaoApp` | `useEffect` apenas (sem estado React) | `versao.service.buscarVersaoServidor` | Auto-atualização do client: compara `NEXT_PUBLIC_BUILD_SHA` do bundle com `GET /api/versao` ao montar e ao voltar para aba oculta ≥5min; recarrega a página 1x por versão (guarda anti-loop em `sessionStorage`). Consumido por `components/versao-watcher.tsx` no layout raiz |
 
 Nota de nomenclatura: os arquivos `useAdminTenants.ts` / `useAdminUsuarios.ts`
 **não exportam** hooks com esses nomes — exportam os hooks menores listados acima.

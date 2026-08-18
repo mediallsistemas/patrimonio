@@ -4,6 +4,13 @@ const isDev = process.env.NODE_ENV === 'development'
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['@prisma/client', 'prisma'],
+  // SHA do deploy embutido em build time nos bundles (client e server) — o
+  // watcher de versão compara o do bundle com GET /api/versao e recarrega a
+  // página quando um deploy novo entra no ar. Fora da Vercel cai em 'dev'
+  // (client e servidor iguais → nunca recarrega).
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev',
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

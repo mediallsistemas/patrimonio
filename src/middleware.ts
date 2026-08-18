@@ -58,6 +58,9 @@ const PUBLIC_PATHS = [
   '/api/me/password',
   '/bem',
   '/api/public',
+  // Checagem de versão do build: precisa responder antes do login (a tela de
+  // login também confere) e devolve apenas o SHA do deploy — nada sensível.
+  '/api/versao',
   // Cron do Trílogo: a Vercel (e PM2/curl) chama SEM cookie de sessão, então cairia
   // no catch-all "sem token → /login" abaixo e nunca chegaria ao handler — era por
   // isso que a sincronização não rodava. O próprio route exige Authorization:

@@ -17,6 +17,7 @@ trafegar base64 nas listagens).
 | `camera-view.tsx` (`CameraView`) | `capturing: boolean`, `onDescriptor: (descriptor: number[]) => void`, `onError?`, `label?` | Feed de câmera + extração do descritor facial 128-dim (face-api.js). Efeito colateral WebRTC permitido |
 | `face-api-preloader.tsx` (`FaceApiPreloader`) | — | Pré-carrega os modelos TensorFlow do face-api no mount |
 | `ActiveTenantSync.tsx` | `tenantId: string` | Montado em `[tenantSlug]/layout`; grava a "unidade ativa" (`services/active-tenant`) que vira o header `x-tenant-id` das chamadas — essencial para `admin_multi` |
+| `versao-watcher.tsx` (`VersaoWatcher`) | — | Montado no layout raiz; via `useVersaoApp` compara o SHA do bundle com `GET /api/versao` e recarrega a página quando há deploy novo (1x por versão, sem loop). Renderiza `null` |
 
 ## `ui/` — Primitivos
 
