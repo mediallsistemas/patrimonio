@@ -20,7 +20,7 @@ Toda a lógica de negócio e queries Prisma das rondas de ocorrência. Uma ronda
 |--------|-----------|-----------|
 | `listarRondas` | `(tenantId: string \| null, limit = 50, criadoPorId?: string, tenantIds?: string[])` | Lista com select "light" (sem foto nas ocorrências); filtra por criador quando informado |
 | `buscarRonda` | `(id: string, tenantId: string \| null, tenantIds?: string[])` | Busca uma ronda com ambientes + ocorrências (inclui foto) |
-| `criarRonda` | `(tenantId: string, criadoPorId: string)` | Expira rondas velhas, checa conflito (ronda aberta do mesmo usuário → `{ conflict: true, rondaId }`), cria |
+| `criarRonda` | `(tenantId: string, criadoPorId: string)` | Expira rondas velhas, **encerra rondas abertas do próprio usuário** (apaga as sem registros, finaliza as demais) e cria a nova — não devolve mais conflito |
 | `finalizarRonda` | `(id: string, tenantId: string \| null, tenantIds?: string[])` | Seta `finalizadoEm = now()`; retorna `null` se não achou no escopo do tenant |
 | `registrarAmbiente` | `(rondaId: string, input: RegistroAmbienteInput)` | Cria `RegistroAmbiente` + ocorrências aninhadas (`createMany`); atualiza `atualizadoEm` da ronda via SQL raw |
 | `expirarRondasAbertas` | `(): Promise<{ expiradas: number }>` | `UPDATE` raw: finaliza rondas abertas com `atualizadoEm` > 24h atrás |
@@ -43,7 +43,7 @@ Toda a lógica de negócio e queries Prisma das rondas de ocorrência. Uma ronda
 | Rota | Roles (verifyAuthDetailed) | O que faz |
 |------|---------------------------|-----------|
 | `GET /api/rondas` | `super_admin`, `tenant_admin`, `admin_multi`, `viewer`, `operator` | Lista rondas da **unidade ativa** (`resolveActiveTenantId`; não passa `tenantIds`); operator só vê as próprias via `criadoPorId`; expira rondas velhas antes |
-| `POST /api/rondas` | `tenant_admin`, `admin_multi`, `viewer`, `operator` | Cria ronda na unidade ativa; `409 conflict` se já há ronda em andamento do usuário |
+| `POST /api/rondas` | `tenant_admin`, `admin_multi`, `viewer`, `operator` | Cria ronda na unidade ativa; rondas abertas do usuário são encerradas antes (o antigo `409 conflict` prendia o usuário em loop quando o draft já tinha sido descartado) |
 | `PATCH /api/rondas/[id]` | `super_admin`, `tenant_admin`, `admin_multi`, `viewer`, `operator` | Finaliza a ronda (escopada por unidade ativa + `tenantIds`) |
 | `POST /api/rondas/[id]/ambientes` | `super_admin`, `tenant_admin`, `admin_multi`, `viewer`, `operator` | Valida com `RegistroAmbienteSchema`, checa ronda aberta (409 se finalizada), registra ambiente |
 | `GET/PUT/DELETE /api/rondas/draft` | `super_admin`, `tenant_admin`, `admin_multi`, `viewer`, `operator` | Busca / upsert / descarta o draft; tenant do draft = `resolveActiveTenantId(...) ?? SUPER_ADMIN_TENANT` |

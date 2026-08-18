@@ -1,6 +1,6 @@
 import { verifyAuthDetailed } from '@/modules/auth/auth.guards'
 import { resolveActiveTenantId } from '@/modules/auth/tenant-filter'
-import { ok, created, conflict, unauthorized, forbidden, serverError } from '@/lib/api-response'
+import { ok, created, unauthorized, forbidden, serverError } from '@/lib/api-response'
 import { listarRondas, criarRonda, expirarRondasAbertas } from '@/modules/rondas/rondas.service'
 
 export async function GET(req: Request): Promise<Response> {
@@ -34,11 +34,8 @@ export async function POST(req: Request): Promise<Response> {
   if (!tenantId) return forbidden()
 
   try {
-    const result = await criarRonda(tenantId, session.sub)
-    if ('conflict' in result) {
-      return conflict('Você já possui uma ronda em andamento. Finalize-a antes de iniciar outra.')
-    }
-    return created(result)
+    const ronda = await criarRonda(tenantId, session.sub)
+    return created(ronda)
   } catch {
     return serverError('criarRonda failed')
   }

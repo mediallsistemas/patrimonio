@@ -68,16 +68,34 @@ export async function buscarRonda(id: string, tenantId: string | null, tenantIds
 
 export async function criarRonda(tenantId: string, criadoPorId: string) {
   try {
-    // Fecha rondas abertas há mais de 24h antes de checar conflito, evitando
-    // bloquear o início de uma nova ronda por uma anterior já expirada
+    // Fecha rondas abertas há mais de 24h antes de criar
     await expirarRondasAbertas().catch(() => {})
 
-    const emAndamento = await prisma.rondaOcorrencia.findFirst({
+    // Encerra rondas abertas do próprio usuário em vez de devolver 409: sem o
+    // draft (descartado/perdido) a ronda antiga é inalcançável pela UI, e o
+    // conflito prendia o usuário num loop "ronda expirou" sem saída
+    const abertas = await prisma.rondaOcorrencia.findMany({
       where: { criadoPorId, tenantId, finalizadoEm: null },
-      select: { id: true },
+      select: { id: true, _count: { select: { ambientes: true } } },
     })
-    if (emAndamento) {
-      return { conflict: true, rondaId: emAndamento.id } as const
+    if (abertas.length > 0) {
+      const vazias = abertas.filter((r) => r._count.ambientes === 0).map((r) => r.id)
+      const comRegistros = abertas.filter((r) => r._count.ambientes > 0).map((r) => r.id)
+      console.log(
+        `[rondas.service] criarRonda: usuário ${criadoPorId} tinha ${abertas.length} ronda(s) aberta(s) — ` +
+        `apagando ${vazias.length} vazia(s) e finalizando ${comRegistros.length} com registros`,
+      )
+      await prisma.$transaction([
+        ...(vazias.length > 0
+          ? [prisma.rondaOcorrencia.deleteMany({ where: { id: { in: vazias } } })]
+          : []),
+        ...(comRegistros.length > 0
+          ? [prisma.rondaOcorrencia.updateMany({
+              where: { id: { in: comRegistros } },
+              data: { finalizadoEm: new Date() },
+            })]
+          : []),
+      ])
     }
 
     return await prisma.rondaOcorrencia.create({
