@@ -27,7 +27,7 @@ export async function iniciar(
       })
     }
 
-    // eletrica | hidraulica: snapshot do ambiente e do bloco para histórico
+    // eletrica | hidraulica | predial: snapshot do ambiente e do bloco para histórico
     const ambiente = await prisma.ambienteTenant.findFirst({
       where: { id: input.ambienteId, tenantId, ativo: true },
       select: { id: true, nome: true, bloco: { select: { nome: true } } },

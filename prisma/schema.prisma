@@ -320,21 +320,21 @@ model AnexoBem {
   @@map("anexos_bens")
 }
 
-// Manutenção realizada pelo operador (elétrica, hidráulica ou patrimônio).
-// Para elétrica/hidráulica: vinculada a um ambiente. Para patrimônio: vinculada a um bem do Trilogo.
+// Manutenção realizada pelo operador (elétrica, hidráulica, predial ou patrimônio).
+// Para elétrica/hidráulica/predial: vinculada a um ambiente. Para patrimônio: vinculada a um bem do Trilogo.
 // Snapshots de nome/descrição preservam histórico mesmo se o ambiente/bem for removido.
 model ManutencaoRealizada {
   id                    String    @id @default(uuid())
   tenantId              String
   criadoPorId           String
   // 'eletrica' | 'hidraulica' | 'predial' | 'patrimonio'
-  // 'predial' vem do LinenSistem e continua sendo gravado — 29 registros em
-  // producao. Ja esteve fora desta lista, o que fez a tela de manutencoes
-  // renderizar essas linhas sem rotulo.
+  // 'predial' nasceu no LinenSistem (29 registros legados) e hoje tambem e
+  // iniciado por aqui. Ja esteve fora da lista de tipos, o que fez a tela de
+  // manutencoes renderizar essas linhas sem rotulo — nunca remover da lista.
   tipo                  String
   status                String    @default("em_andamento") // 'em_andamento' | 'concluida'
 
-  // Ambiente (apenas para eletrica/hidraulica)
+  // Ambiente (apenas para eletrica/hidraulica/predial)
   ambienteId            String?
   ambienteNomeSnapshot  String?
   blocoNomeSnapshot     String?

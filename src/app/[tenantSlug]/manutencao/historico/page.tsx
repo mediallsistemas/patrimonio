@@ -20,8 +20,8 @@ import { exportarTabelaPdf, COLUNAS_MANUTENCOES_PDF, linhaManutencaoPdf } from '
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-// Chaveado por string (não por TipoManutencao) porque o histórico também traz
-// registros 'predial' — tipo válido nos dados, mesmo sem opção de criação nova.
+// Chaveado por string (não por TipoManutencao) porque o histórico atravessa
+// registros antigos — tipos fora da lista atual não podem quebrar a tela.
 const TIPO_CONFIG: Record<string, { label: string; icon: typeof Zap; badge: string }> = {
   eletrica:   { label: 'Elétrica',   icon: Zap,       badge: 'bg-yellow-100 text-yellow-700' },
   hidraulica: { label: 'Hidráulica', icon: Droplet,   badge: 'bg-blue-100 text-blue-700' },

@@ -4,7 +4,7 @@ import { useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, Zap, Droplet, Package, Wrench,
+  ChevronLeft, Zap, Droplet, Building2, Package, Wrench,
   CheckCircle, Clock,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -58,12 +58,13 @@ type Etapa =
 const ACCENT: Record<TipoManutencao, { bg: string; texto: string; nome: string; Icon: typeof Zap }> = {
   eletrica:   { bg: '#f59e0b', texto: 'text-amber-700',   nome: 'Elétrica',   Icon: Zap },
   hidraulica: { bg: '#0ea5e9', texto: 'text-sky-700',     nome: 'Hidráulica', Icon: Droplet },
+  predial:    { bg: '#10b981', texto: 'text-emerald-700', nome: 'Predial',    Icon: Building2 },
   patrimonio: { bg: '#7c3aed', texto: 'text-purple-700',  nome: 'Patrimônio', Icon: Package },
 }
 
-// Tipo legado 'predial' (LinenSistem) não está no mapa acima. A lista de "em
-// aberto" atravessa registros antigos, então qualquer tipo fora dos três
-// conhecidos cai neste fallback em vez de quebrar a tela (ACCENT[tipo] undefined).
+// A lista de "em aberto" atravessa registros antigos (LinenSistem), então
+// qualquer tipo fora dos conhecidos cai neste fallback em vez de quebrar a
+// tela (ACCENT[tipo] undefined).
 const ACCENT_FALLBACK = { bg: '#6b7280', texto: 'text-gray-600', nome: 'Manutenção', Icon: Wrench }
 
 export default function RealizarManutencaoPage({
@@ -439,6 +440,7 @@ function TelaTipo({
   const opcoes: { tipo: TipoManutencao; descricao: string }[] = [
     { tipo: 'eletrica',   descricao: 'Manutenção em pontos elétricos do ambiente' },
     { tipo: 'hidraulica', descricao: 'Manutenção em pontos hidráulicos do ambiente' },
+    { tipo: 'predial',    descricao: 'Manutenção na estrutura do ambiente (paredes, pisos, portas)' },
     { tipo: 'patrimonio', descricao: 'Manutenção em bem patrimoniado deste ambiente' },
   ]
 
@@ -463,7 +465,7 @@ function TelaTipo({
         </Text>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {opcoes.map(({ tipo, descricao }) => {
           const a = ACCENT[tipo] ?? ACCENT_FALLBACK
           return (

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const TIPOS_MANUTENCAO = ['eletrica', 'hidraulica', 'patrimonio'] as const
+export const TIPOS_MANUTENCAO = ['eletrica', 'hidraulica', 'predial', 'patrimonio'] as const
 export type TipoManutencao = (typeof TIPOS_MANUTENCAO)[number]
 
 // foto base64 (data URL) — limite ~1.5MB para evitar payloads gigantes (mesmo
@@ -22,6 +22,10 @@ export const IniciarManutencaoSchema = z.discriminatedUnion('tipo', [
   }),
   baseIniciar.extend({
     tipo: z.literal('hidraulica'),
+    ambienteId: z.string().uuid(),
+  }),
+  baseIniciar.extend({
+    tipo: z.literal('predial'),
     ambienteId: z.string().uuid(),
   }),
   baseIniciar.extend({

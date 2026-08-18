@@ -2,10 +2,7 @@ import { api } from '@/services/api'
 
 // Os quatro tipos que existem de fato na tabela, conferidos em produção
 // (28/07/2026): eletrica 75, predial 29, patrimonio 17, hidraulica 12.
-//
-// 'predial' merece atenção: o comentário do schema lista só três tipos e o
-// omite, mas há 29 registros dele no banco. Tirar daqui faria essas linhas
-// caírem sem rótulo e sem cor na tela.
+// Tirar qualquer um daqui faria essas linhas caírem sem rótulo e sem cor na tela.
 export type TipoManutencaoAdmin = 'eletrica' | 'hidraulica' | 'predial' | 'patrimonio'
 
 export interface ManutencaoAdmin {

@@ -1,6 +1,6 @@
 import { api } from '@/services/api'
 
-export type TipoManutencao = 'eletrica' | 'hidraulica' | 'patrimonio'
+export type TipoManutencao = 'eletrica' | 'hidraulica' | 'predial' | 'patrimonio'
 
 interface IniciarBaseInput {
   descricao: string
@@ -8,7 +8,7 @@ interface IniciarBaseInput {
 }
 
 interface IniciarAmbienteInput extends IniciarBaseInput {
-  tipo: 'eletrica' | 'hidraulica'
+  tipo: 'eletrica' | 'hidraulica' | 'predial'
   ambienteId: string
 }
 
@@ -69,8 +69,7 @@ export async function finalizar(
 }
 
 // Manutenção em aberto (não finalizada) da unidade — qualquer operador finaliza.
-// `tipo` vem do banco como string; na prática as em aberto são elétrica/hidráulica/
-// patrimônio (predial é legado e já concluído), mas a tela trata tipo desconhecido.
+// `tipo` vem do banco como string; a tela trata tipo desconhecido com fallback.
 export interface ManutencaoEmAberto {
   id: string
   tipo: TipoManutencao
