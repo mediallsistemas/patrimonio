@@ -2,15 +2,26 @@
 
 import { useState, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import * as agendamentosService from '@/services/agendamentos.service'
 import * as anexosService from '@/services/anexos-bens.service'
 import * as trilogoService from '@/services/trilogo.service'
 import * as meService from '@/services/me.service'
 import { ArrowLeft, Package, Layers, Search, X, CalendarPlus, QrCode, Paperclip } from 'lucide-react'
 import Link from 'next/link'
+import { exportarTabelaPdf, COLUNAS_AGENDAMENTOS_PDF, linhaAgendamentoPdf } from '@/utils/pdf-export'
+import {
+  FILTRO_AGENDAMENTOS_VAZIO,
+  SITUACAO_AGENDAMENTO_LABEL,
+  agendamentoPassaFiltro,
+  filtroAgendamentosAtivo,
+  hojeIso,
+} from '@/modules/agendamentos/agendamentos.rules'
 import Card from '@/components/ui/Card'
+import ExportarPdfButton from '@/components/ui/ExportarPdfButton'
 import type { Empresa, Asset, Agendamento } from './bens.types'
-import { parseEndereco } from './bens.types'
+import { parseEndereco, rotuloUnidade } from './bens.types'
 import BemRow from './components/BemRow'
 import ModalAgendamento from './components/ModalAgendamento'
 import ModalAnexos from './components/ModalAnexos'
@@ -18,6 +29,7 @@ import ModalQrCode from './components/ModalQrCode'
 import { useAuth } from '@/hooks/useAuth'
 import type { MyTenant } from '@/services/me.service'
 import type { AnexoBem } from '@/services/anexos-bens.service'
+import type { FiltroAgendamentos } from '@/modules/agendamentos/agendamentos.rules'
 
 const PAGE_SIZE = 50
 
@@ -43,6 +55,11 @@ export default function BensPage() {
   const [visiveis,   setVisiveis]   = useState(PAGE_SIZE)
   const [apenasComAgendamento, setApenasComAgendamento] = useState(false)
   const [apenasComAnexo, setApenasComAnexo] = useState(false)
+  // Filtros do agendamento (situação + período). Quando ativos, a tabela mostra só
+  // bens com algum agendamento que casa, e o relatório leva só esses agendamentos.
+  const [filtroAg, setFiltroAg] = useState<FiltroAgendamentos>(FILTRO_AGENDAMENTOS_VAZIO)
+  const filtroAgAtivo = filtroAgendamentosAtivo(filtroAg)
+  const hojeStr = hojeIso()
 
   const { data: agendamentos = [] } = useQuery<Agendamento[]>({
     queryKey: ['agendamentos'],
@@ -166,14 +183,59 @@ export default function BensPage() {
       if (statusFiltro && a.status !== Number(statusFiltro))           return false
       if (apenasComAgendamento && !agendamentoMap.has(a.id))           return false
       if (apenasComAnexo && !anexoMap.has(a.id))                       return false
+      if (filtroAgAtivo && !agendamentoMap.get(a.id)?.some(ag => agendamentoPassaFiltro(ag, filtroAg, hojeStr))) return false
       if (q && !(a.description.toLowerCase().includes(q) || a.patrimony.toLowerCase().includes(q) || (a.brand ?? '').toLowerCase().includes(q))) return false
       return true
     })
-  }, [bens, search, tipo, projeto, ambiente, statusFiltro, apenasComAgendamento, agendamentoMap, apenasComAnexo, anexoMap])
+  }, [bens, search, tipo, projeto, ambiente, statusFiltro, apenasComAgendamento, agendamentoMap, apenasComAnexo, anexoMap, filtroAg, filtroAgAtivo, hojeStr])
 
   const ativos         = filtrado.filter(a => a.status === 1).length
   const manutencao     = filtrado.filter(a => a.status === 4).length
   const comAgendamento = filtrado.filter(a => agendamentoMap.get(a.id)?.some(ag => ag.status === 'pendente')).length
+
+  // Relatório segue a tela: agendamentos dos bens filtrados que casam com os
+  // filtros de agendamento, em ordem de data agendada
+  const agendamentosParaExportar = useMemo(
+    () => filtrado
+      .flatMap(a => (agendamentoMap.get(a.id) ?? []).filter(ag => agendamentoPassaFiltro(ag, filtroAg, hojeStr)))
+      .sort((x, y) => x.dataAgendada.localeCompare(y.dataAgendada)),
+    [filtrado, agendamentoMap, filtroAg, hojeStr],
+  )
+
+  function limparFiltros() {
+    setSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setStatusFiltro('')
+    setApenasComAgendamento(false); setApenasComAnexo(false); setFiltroAg(FILTRO_AGENDAMENTOS_VAZIO)
+    setVisiveis(PAGE_SIZE)
+  }
+
+  function exportarPdf() {
+    // Unidade vai no título ("AMAPÁ - Projeto HRPG"), não na lista de filtros.
+    // Projeto: o da unidade (tenant_admin/admin_multi) ou o filtrado (super_admin).
+    const unidade = rotuloUnidade(empresaSel?.nome ?? bensRaw[0]?.companyName, effectiveProjectName ?? projeto)
+    const fmtDia = (iso: string) => format(new Date(`${iso}T12:00:00`), 'dd/MM/yyyy')
+    const periodo = filtroAg.de && filtroAg.ate ? `${fmtDia(filtroAg.de)} a ${fmtDia(filtroAg.ate)}`
+      : filtroAg.de ? `a partir de ${fmtDia(filtroAg.de)}`
+      : filtroAg.ate ? `até ${fmtDia(filtroAg.ate)}`
+      : null
+    const statusBem = statusFiltro ? { '1': 'Bens ativos', '2': 'Bens inativos', '4': 'Bens em manutenção' }[statusFiltro] : null
+    const selecoes = [
+      ambiente,
+      tipo,
+      statusBem,
+      search ? `Busca: "${search}"` : null,
+      apenasComAnexo ? 'Bens com anexo' : null,
+      filtroAg.situacao ? SITUACAO_AGENDAMENTO_LABEL[filtroAg.situacao] : null,
+      periodo,
+    ].filter(Boolean).join(' · ')
+
+    exportarTabelaPdf({
+      titulo: `Agendamentos de Manutenção${unidade ? ` - ${unidade}` : ''} · Total: ${agendamentosParaExportar.length}`,
+      subtitulo: `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}${selecoes ? ` · Filtros: ${selecoes}` : ''}`,
+      colunas: COLUNAS_AGENDAMENTOS_PDF,
+      linhas: agendamentosParaExportar.map(ag => linhaAgendamentoPdf(ag, hojeStr)),
+      nomeArquivo: 'agendamentos-manutencao.pdf',
+    })
+  }
 
   // Resizable panel
   const painelRef = useRef<HTMLDivElement>(null)
@@ -300,8 +362,8 @@ export default function BensPage() {
                     <QrCode size={14} /> QR do ambiente
                   </button>
                 )}
-                {(search || tipo || projeto || ambiente || statusFiltro || apenasComAgendamento || apenasComAnexo) && (
-                  <button onClick={() => { setSearch(''); setTipo(''); setProjeto(''); setAmbiente(''); setStatusFiltro(''); setApenasComAgendamento(false); setApenasComAnexo(false); setVisiveis(PAGE_SIZE) }}
+                {(search || tipo || projeto || ambiente || statusFiltro || apenasComAgendamento || apenasComAnexo || filtroAgAtivo) && (
+                  <button onClick={limparFiltros}
                     className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg whitespace-nowrap">
                     <X size={14} /> Limpar
                   </button>
@@ -309,6 +371,43 @@ export default function BensPage() {
                 </>
               )}
             </div>
+
+            {/* Agendamentos — filtros próprios + relatório. O PDF respeita estes
+                filtros E os filtros de bens acima. */}
+            {!!effectiveCompanyId && !loadBens && (
+              <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-gray-100">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">
+                  <CalendarPlus size={14} /> Agendamentos
+                </span>
+                <select value={filtroAg.situacao}
+                  onChange={e => { setFiltroAg(f => ({ ...f, situacao: e.target.value as FiltroAgendamentos['situacao'] })); setVisiveis(PAGE_SIZE) }}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white">
+                  <option value="">Todas as situações</option>
+                  <option value="agendado">{SITUACAO_AGENDAMENTO_LABEL.agendado}</option>
+                  <option value="atrasado">{SITUACAO_AGENDAMENTO_LABEL.atrasado}</option>
+                  <option value="realizado">{SITUACAO_AGENDAMENTO_LABEL.realizado}</option>
+                </select>
+                <label className="flex items-center gap-2 text-sm text-gray-500">
+                  De
+                  <input type="date" value={filtroAg.de} max={filtroAg.ate || undefined}
+                    onChange={e => { setFiltroAg(f => ({ ...f, de: e.target.value })); setVisiveis(PAGE_SIZE) }}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-500">
+                  Até
+                  <input type="date" value={filtroAg.ate} min={filtroAg.de || undefined}
+                    onChange={e => { setFiltroAg(f => ({ ...f, ate: e.target.value })); setVisiveis(PAGE_SIZE) }}
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
+                </label>
+                <div className="ml-auto flex items-center gap-3">
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                    {agendamentosParaExportar.length} {agendamentosParaExportar.length === 1 ? 'agendamento' : 'agendamentos'} no relatório
+                  </span>
+                  <ExportarPdfButton label="Exportar relatório" onClick={exportarPdf}
+                    disabled={agendamentosParaExportar.length === 0} />
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 

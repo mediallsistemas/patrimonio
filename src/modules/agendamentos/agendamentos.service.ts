@@ -9,6 +9,20 @@ export async function listarAgendamentos(tenantId: string | null) {
         ...(tenantId ? { tenantId } : {}),
       },
       orderBy: { dataAgendada: 'asc' },
+      select: {
+        id: true,
+        trilogoAssetId: true,
+        patrimony: true,
+        descricaoBem: true,
+        companyName: true,
+        ambiente: true,
+        titulo: true,
+        dataAgendada: true,
+        dataRealizada: true,
+        observacao: true,
+        status: true,
+        criadoPor: { select: { nome: true } },
+      },
     })
   } catch (error) {
     console.error('[agendamentos.service] listarAgendamentos:', error)

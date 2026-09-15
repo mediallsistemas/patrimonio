@@ -3,12 +3,17 @@ export interface Empresa { id: number; nome: string }
 export interface Agendamento {
   id: string
   trilogoAssetId: number
+  // Snapshot do bem gravado ao agendar
+  patrimony: string
+  descricaoBem: string
+  companyName: string
+  ambiente: string
   titulo: string
   dataAgendada: string
   dataRealizada: string | null
   observacao: string | null
   status: 'pendente' | 'realizado' | 'cancelado'
-  criadoPor: string
+  criadoPor: { nome: string }
 }
 
 export interface Asset {
@@ -46,6 +51,17 @@ export function parseEndereco(full: string) {
     ambienteSimples: parts[4] ?? parts[3] ?? '—',
     ambiente:       parts.length > 1 ? parts.slice(-2).join(' > ') : parts[0] ?? '—',
   }
+}
+
+// Rótulo da unidade para cabeçalhos: "Mediall Brasil - AMAPÁ" + "HRPG" →
+// "AMAPÁ - Projeto HRPG". O prefixo "Mediall Brasil -" é comum às empresas do
+// Trílogo e não distingue nada; outras empresas mantêm o nome. O companyName do
+// Trílogo vem com espaços irregulares ("Mediall Brasil -  RONDÔNIA").
+export function rotuloUnidade(empresa: string | null | undefined, projeto: string | null | undefined): string | null {
+  const nomeEmpresa = (empresa ?? '').replace(/\s+/g, ' ').trim().replace(/^Mediall Brasil\s*-\s*/i, '')
+  const nomeProjeto = (projeto ?? '').trim()
+  const partes = [nomeEmpresa, nomeProjeto ? `Projeto ${nomeProjeto}` : ''].filter(Boolean)
+  return partes.length > 0 ? partes.join(' - ') : null
 }
 
 export function moeda(v: number | null) {

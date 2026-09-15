@@ -43,6 +43,9 @@ interface ExportarTabelaPdfInput { titulo, subtitulo?, colunas, linhas, nomeArqu
 exportarTabelaPdf(input: ExportarTabelaPdfInput): void   // gera PDF landscape e dispara download
 ```
 
+O subtítulo quebra em várias linhas quando não cabe na largura da página (ex.: lista
+de filtros aplicados) e a tabela desce junto; com uma linha, o layout é o de sempre.
+
 Presets por domínio (colunas + mapeador de linha):
 
 ```ts
@@ -54,6 +57,9 @@ linhaManutencaoPdf(m): Record<string, string | number>   // labels: Elétrica/Hi
 
 COLUNAS_INSPECOES_PDF
 linhaRodadaPdf(r): Record<string, string | number>
+
+COLUNAS_AGENDAMENTOS_PDF                                  // relatório de agendamentos (admin/bens)
+linhaAgendamentoPdf(ag, hojeStr?): Record<string, string | number>  // situação via agendamentos.rules
 ```
 
 Os mapeadores calculam duração em minutos (`finalizadoEm - iniciadoEm`) e status

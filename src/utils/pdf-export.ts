@@ -2,6 +2,8 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { format } from 'date-fns'
 
+import { SITUACAO_AGENDAMENTO_LABEL, hojeIso, situacaoAgendamento } from '@/modules/agendamentos/agendamentos.rules'
+
 export interface ColunaPdf {
   header: string
   key: string
@@ -27,14 +29,19 @@ export function exportarTabelaPdf({
   doc.setFontSize(14)
   doc.text(titulo, 14, 15)
 
+  // Subtítulo quebra em linhas quando não cabe (ex.: lista de filtros aplicados);
+  // com uma linha só, o layout é o mesmo de sempre.
+  let startY = 22
   if (subtitulo) {
     doc.setFontSize(10)
     doc.setTextColor(120)
-    doc.text(subtitulo, 14, 21)
+    const linhasSubtitulo: string[] = doc.splitTextToSize(subtitulo, doc.internal.pageSize.getWidth() - 28)
+    doc.text(linhasSubtitulo, 14, 21)
+    startY = 26 + (linhasSubtitulo.length - 1) * 5
   }
 
   autoTable(doc, {
-    startY: subtitulo ? 26 : 22,
+    startY,
     head: [colunas.map((c) => c.header)],
     body: linhas.map((linha) => colunas.map((c) => String(linha[c.key] ?? '—'))),
     styles: { fontSize: 8, cellPadding: 2 },
@@ -140,13 +147,57 @@ export function linhaManutencaoPdf(m: ManutencaoParaPdf): Record<string, string 
   }
 }
 
-// ── Inspeções de gases ───────────────────────────────────────────────────────
-
 // Mesmo relatório, com a unidade na frente — o painel do admin atravessa tenants.
 export const COLUNAS_MANUTENCOES_ADMIN_PDF: ColunaPdf[] = [
   { header: 'Unidade', key: 'unidade' },
   ...COLUNAS_MANUTENCOES_PDF,
 ]
+
+// ── Agendamentos de manutenção ───────────────────────────────────────────────
+
+export const COLUNAS_AGENDAMENTOS_PDF: ColunaPdf[] = [
+  { header: 'Data agendada', key: 'dataAgendada' },
+  { header: 'Patrimônio', key: 'patrimonio' },
+  { header: 'Bem', key: 'bem' },
+  { header: 'Ambiente', key: 'ambiente' },
+  { header: 'Título', key: 'titulo' },
+  { header: 'Status', key: 'status' },
+  { header: 'Realizado em', key: 'dataRealizada' },
+  { header: 'Agendado por', key: 'responsavel' },
+  { header: 'Observação', key: 'observacao' },
+]
+
+interface AgendamentoParaPdf {
+  patrimony: string
+  descricaoBem: string
+  ambiente: string
+  titulo: string
+  dataAgendada: string
+  dataRealizada: string | null
+  observacao: string | null
+  status: string
+  criadoPor: { nome: string }
+}
+
+/** `hojeStr` (yyyy-MM-dd) define o atraso — ver `situacaoAgendamento`. */
+export function linhaAgendamentoPdf(
+  ag: AgendamentoParaPdf,
+  hojeStr: string = hojeIso(),
+): Record<string, string | number> {
+  return {
+    dataAgendada: format(new Date(ag.dataAgendada), 'dd/MM/yyyy'),
+    patrimonio: ag.patrimony,
+    bem: ag.descricaoBem,
+    ambiente: ag.ambiente,
+    titulo: ag.titulo,
+    status: SITUACAO_AGENDAMENTO_LABEL[situacaoAgendamento(ag, hojeStr)],
+    dataRealizada: ag.dataRealizada ? format(new Date(ag.dataRealizada), 'dd/MM/yyyy') : '—',
+    responsavel: ag.criadoPor.nome,
+    observacao: ag.observacao || '—',
+  }
+}
+
+// ── Inspeções de gases ───────────────────────────────────────────────────────
 
 export const COLUNAS_INSPECOES_PDF: ColunaPdf[] = [
   { header: 'Data/Hora', key: 'dataHora' },

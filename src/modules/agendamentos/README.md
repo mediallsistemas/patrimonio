@@ -15,12 +15,25 @@ ou `cancelado`. Os agendamentos aparecem no modal de bens do admin e na página 
 |---|---|
 | `agendamentos.service.ts` | Queries Prisma (listar, criar, atualizar status) |
 | `agendamentos.types.ts` | Schemas Zod `CreateAgendamentoSchema` e `UpdateAgendamentoSchema` |
+| `agendamentos.rules.ts` | Regras puras (sem I/O): situação do agendamento (agendado/atrasado/realizado/cancelado) e filtro por situação + período — usadas pela tela de bens e pelo relatório PDF |
+| `agendamentos.rules.test.ts` | Testes Vitest das regras |
 
 ## Funções públicas
 
 | Função | Assinatura real | Descrição |
 |---|---|---|
-| `listarAgendamentos` | `listarAgendamentos(tenantId: string \| null)` | Todos com `status != 'cancelado'`, ordenados por `dataAgendada asc`; `tenantId null` (super_admin) → sem filtro de tenant (cross-tenant) |
+| `listarAgendamentos` | `listarAgendamentos(tenantId: string \| null)` | Todos com `status != 'cancelado'`, ordenados por `dataAgendada asc`; `tenantId null` (super_admin) → sem filtro de tenant (cross-tenant). `select` explícito: `id`, `trilogoAssetId`, snapshot do bem (`patrimony`, `descricaoBem`, `companyName`, `ambiente`), `titulo`, `dataAgendada`, `dataRealizada`, `observacao`, `status` e `criadoPor { nome }` |
+
+### Regras (`agendamentos.rules.ts`)
+
+| Export | Descrição |
+|---|---|
+| `situacaoAgendamento(ag, hojeStr)` | `realizado`/`cancelado` pelo status; `pendente` com `dataAgendada` (dia, yyyy-MM-dd) anterior a `hojeStr` → `atrasado`, senão `agendado`. Mesma regra visual do `BemRow`/`ModalAgendamento` |
+| `SITUACAO_AGENDAMENTO_LABEL` | Rótulos pt-BR das situações |
+| `hojeIso()` | Hoje em yyyy-MM-dd (UTC), base da comparação de atraso |
+| `FiltroAgendamentos` / `FILTRO_AGENDAMENTOS_VAZIO` | `{ situacao: '' \| 'agendado' \| 'atrasado' \| 'realizado', de, ate }` — `de`/`ate` inclusivos sobre a data agendada |
+| `filtroAgendamentosAtivo(f)` | Algum campo preenchido |
+| `agendamentoPassaFiltro(ag, f, hojeStr)` | Período E situação |
 | `criarAgendamento` | `criarAgendamento(input: CreateAgendamentoInput, criadoPorId: string, tenantId: string \| null)` | Cria com snapshot do bem (`patrimony`, `descricaoBem`, `companyId`, `companyName`, `ambiente`); `criadoPorId` sempre do JWT |
 | `atualizarStatusAgendamento` | `atualizarStatusAgendamento(id: string, input: UpdateAgendamentoInput, atualizadoPorId: string)` | `status: 'realizado' \| 'cancelado'`; grava `dataRealizada` se enviada e `atualizadoPorId` |
 
@@ -50,7 +63,8 @@ mas via `listarAgendamentosPorAssets` do módulo `links-publicos` (ver README da
 
 ## Consumo no client
 
-- `src/services/agendamentos.service.ts` — apenas `listar()` (tipo `Agendamento` importado de `src/app/admin/bens/bens.types`).
+- `src/services/agendamentos.service.ts` — apenas `listar()` (tipo `Agendamento` importado de `src/app/admin/bens/bens.types`, espelhando o `select` de `listarAgendamentos`).
+- **Relatório de agendamentos** (`src/app/admin/bens/page.tsx`): linha "Agendamentos" no card de filtros, com situação e período (De/Até) + `ExportarPdfButton`. Os filtros de agendamento também recortam a tabela (só bens com algum agendamento que casa). O PDF leva os agendamentos **dos bens filtrados** (unidade, busca, tipo, projeto, ambiente, status do bem, com anexo) **que passam em `agendamentoPassaFiltro`**, ordenados por data agendada, via `COLUNAS_AGENDAMENTOS_PDF` + `linhaAgendamentoPdf` (`utils/pdf-export`). O título leva a unidade como "AMAPÁ - Projeto HRPG" (`rotuloUnidade` em `app/admin/bens/bens.types.ts`: empresa do Trílogo sem o prefixo "Mediall Brasil -" + projeto da unidade ou o filtrado) e o subtítulo lista os demais filtros aplicados. Cancelados nunca entram (a listagem já os exclui).
 - Criação e atualização **não passam por service**: `src/app/admin/bens/components/ModalAgendamento.tsx` faz `fetch('/api/agendamentos', ...)` e `fetch('/api/agendamentos/${id}', ...)` direto, com invalidação da query `['agendamentos']` (TanStack Query em `src/app/admin/bens/page.tsx`).
 
 ## Padrões aplicados
