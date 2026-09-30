@@ -180,6 +180,9 @@ const TIPO_FILTROS: { value: TipoManutencao | null; label: string }[] = [
   { value: null, label: 'Todas' },
   { value: 'eletrica', label: 'Elétrica' },
   { value: 'hidraulica', label: 'Hidráulica' },
+  // 'predial' e um TIPOS_MANUTENCAO valido e tem registros em producao.
+  // Sem esta opcao o filtro por tipo nunca alcancava essas linhas.
+  { value: 'predial', label: 'Predial' },
   { value: 'patrimonio', label: 'Patrimônio' },
 ]
 
