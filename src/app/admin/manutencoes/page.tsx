@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 import { listarManutencoesAdmin, type ManutencaoAdmin, type TipoManutencaoAdmin } from '@/services/admin-manutencoes.service'
 import { listarTenants } from '@/services/admin-tenants.service'
+import { buscarRealizadaDetalhe } from '@/services/manutencoes.service'
 import { KpiCard } from '@/components/ui/ronda/KpiCard'
 import FotoLightbox, { type FotoAmpliavel } from '@/components/ui/FotoLightbox'
 import ExportarPdfButton from '@/components/ui/ExportarPdfButton'
@@ -109,10 +110,21 @@ function ManutencaoListItem({ m }: { m: ManutencaoAdmin }) {
   const [fotosAbertas, setFotosAbertas] = useState(false)
   const [lightbox, setLightbox] = useState<number | null>(null)
 
-  const fotos: FotoAmpliavel[] = [
-    { src: m.fotoAntes, legenda: 'Antes' },
-    ...(m.fotoDepois ? [{ src: m.fotoDepois, legenda: 'Depois' }] : []),
-  ]
+  // As fotos não vêm na listagem (seriam ~96MB de base64 no payload): são
+  // buscadas por registro só quando o operador abre "Ver fotos".
+  const { data: detalhe, isLoading: fotosCarregando } = useQuery({
+    queryKey: ['manutencao-detalhe', m.id],
+    queryFn: () => buscarRealizadaDetalhe(m.id),
+    enabled: fotosAbertas,
+    staleTime: 5 * 60_000,
+  })
+
+  const fotos: FotoAmpliavel[] = detalhe
+    ? [
+        { src: detalhe.fotoAntes, legenda: 'Antes' },
+        ...(detalhe.fotoDepois ? [{ src: detalhe.fotoDepois, legenda: 'Depois' }] : []),
+      ]
+    : []
 
   const duracao = !emAndamento && m.finalizadaEm
     ? Math.round((new Date(m.finalizadaEm).getTime() - new Date(m.iniciadaEm).getTime()) / 60000)
@@ -193,23 +205,28 @@ function ManutencaoListItem({ m }: { m: ManutencaoAdmin }) {
 
             {/* Fotos expandidas */}
             {fotosAbertas && (
+              fotosCarregando ? (
+                <p className="text-xs text-gray-400 pt-1">Carregando fotos...</p>
+              ) : !detalhe ? (
+                <p className="text-xs text-gray-400 pt-1">Não foi possível carregar as fotos.</p>
+              ) : (
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Antes</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={m.fotoAntes}
+                    src={detalhe.fotoAntes}
                     alt="Foto antes"
                     onClick={() => setLightbox(0)}
                     className="w-full max-h-48 object-cover rounded-lg ring-1 ring-gray-200 cursor-zoom-in"
                   />
                 </div>
-                {m.fotoDepois ? (
+                {detalhe.fotoDepois ? (
                   <div>
                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Depois</p>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={m.fotoDepois}
+                      src={detalhe.fotoDepois}
                       alt="Foto depois"
                       onClick={() => setLightbox(fotos.length - 1)}
                       className="w-full max-h-48 object-cover rounded-lg ring-1 ring-gray-200 cursor-zoom-in"
@@ -221,6 +238,7 @@ function ManutencaoListItem({ m }: { m: ManutencaoAdmin }) {
                   </div>
                 )}
               </div>
+              )
             )}
           </div>
 

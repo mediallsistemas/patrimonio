@@ -159,16 +159,17 @@ export async function listarHistorico(tenantId: string | null, tenantIds?: strin
 /**
  * Todas as manutenções das unidades do escopo, para o painel gerencial do admin.
  *
- * Difere de `listarHistorico` em duas coisas: atravessa unidades (o super_admin
- * enxerga todas) e traz as fotos, porque a tela mostra antes/depois direto na
- * lista em vez de abrir uma por uma.
+ * Difere de `listarHistorico` por atravessar unidades (o super_admin enxerga
+ * todas). NÃO traz fotos: elas ficam atrás do toggle "Ver fotos" na tela e são
+ * lidas sob demanda por `buscarRealizadaComFotos`. Trazê-las aqui fazia a
+ * resposta chegar a ~96MB de base64 e forçava um `take` que truncava a lista
+ * em silêncio.
  */
 export async function listarManutencoesAdmin(escopo: EscopoLeitura) {
   try {
     return await prisma.manutencaoRealizada.findMany({
       where: filtroEscopo(escopo),
       orderBy: { iniciadaEm: 'desc' },
-      take: 500,
       select: {
         id: true,
         tipo: true,
@@ -180,8 +181,6 @@ export async function listarManutencoesAdmin(escopo: EscopoLeitura) {
         descricaoBemSnapshot: true,
         subtipoPatrimonio: true,
         observacaoFinal: true,
-        fotoAntes: true,
-        fotoDepois: true,
         iniciadaEm: true,
         finalizadaEm: true,
         criadoPor: { select: { nome: true } },

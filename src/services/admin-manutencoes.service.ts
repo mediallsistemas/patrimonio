@@ -16,8 +16,6 @@ export interface ManutencaoAdmin {
   descricaoBemSnapshot: string | null
   subtipoPatrimonio: string | null
   observacaoFinal: string | null
-  fotoAntes: string
-  fotoDepois: string | null
   iniciadaEm: string
   finalizadaEm: string | null
   tenant: { id: string; nome: string }
