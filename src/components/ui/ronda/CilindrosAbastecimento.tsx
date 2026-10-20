@@ -58,7 +58,7 @@ export default function CilindrosAbastecimento({ cilindros, errors, onChange }: 
                     onClick={() => atualizarLinha(i, { opcao })}
                     className={`py-2.5 rounded-xl border-2 font-sans font-bold text-sm transition-all active:scale-95 ${
                       selecionada
-                        ? 'border-sky-400 bg-sky-50 text-sky-700'
+                        ? 'border-blue-base bg-blue-light text-blue-dark'
                         : 'border-gray-200 text-gray-300 bg-white hover:border-gray-300'
                     }`}
                   >
@@ -98,7 +98,7 @@ export default function CilindrosAbastecimento({ cilindros, errors, onChange }: 
       <button
         type="button"
         onClick={() => onChange([...cilindros, cilindroVazio()])}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-sky-200 text-sky-700 font-sans font-semibold text-sm hover:bg-sky-50 transition-colors"
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-base/50 text-blue-dark font-sans font-semibold text-sm hover:bg-blue-light transition-colors"
       >
         <Plus className="w-4 h-4" />
         Adicionar outro tamanho

@@ -20,8 +20,8 @@ export default function GasesAbastecimentoDetalhe({ estado, errors, atualizar, v
   return (
     <Card shadow="md">
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center shrink-0">
-          <Package className="w-5 h-5 text-sky-600" />
+        <div className="w-10 h-10 rounded-xl bg-blue-light flex items-center justify-center shrink-0">
+          <Package className="w-5 h-5 text-blue-base" />
         </div>
         <Text as="h2" variant="heading-sm" className="text-dark block">Dados do Abastecimento</Text>
       </div>
