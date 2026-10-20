@@ -36,8 +36,10 @@ export interface RegistroAmbiente {
   fotosMedicoes?: { medicao: string }[]
   backupLigado?: boolean | null
   temAbastecimento?: boolean | null
+  // Resumo do abastecimento; registros anteriores à lista `cilindros` só têm estes
   qtdCilindros?: number | null
   tamCilindro?: string | null
+  cilindros?: { tamanho: string; quantidade: number }[]
   ocorrencias: OcorrenciaDetalhe[]
 }
 

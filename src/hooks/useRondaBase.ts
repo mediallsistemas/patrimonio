@@ -15,6 +15,7 @@ import {
   type RegistroConcluido,
 } from '@/app/[tenantSlug]/ronda/ronda.types'
 import * as rondasService from '@/services/rondas.service'
+import { cilindrosDoDraft, cilindrosParaEnviar, validarCilindros } from '@/utils/cilindros'
 
 export interface UseRondaBaseOptions {
   onIniciar: () => Promise<{ rondaId: string | null; estado: DraftEstado }>
@@ -123,6 +124,7 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
       fotosMedicoes: {},
       backupLigado: null,
       abastecimento: { quantidade: '', tamanho: null },
+      cilindros: [],
     })
   }
 
@@ -182,7 +184,8 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
       }
 
       const isGases = local.tipo === 'gases'
-      const temAbast = isGases && Boolean(estado.abastecimento.quantidade && estado.abastecimento.tamanho)
+      const cilindros = isGases ? cilindrosParaEnviar(cilindrosDoDraft(estado)) : []
+      const temAbast = cilindros.length > 0
 
       const ocorrenciasValidas = detalhes.filter((d) => d.tipo !== null).map((d) => ({
         tipo: d.tipo!,
@@ -201,8 +204,7 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
             pressaoAr: Number(estado.medicoes.pressaoAr),
             backupLigado: estado.backupLigado ?? false,
             temAbastecimento: temAbast,
-            qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null,
-            tamCilindro: temAbast ? estado.abastecimento.tamanho : null,
+            cilindros,
             fotosMedicoes: estado.fotosMedicoes,
             temOcorrencia,
             ...(ocorrenciasValidas.length ? { ocorrencias: ocorrenciasValidas } : {}),
@@ -235,8 +237,8 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
               pressaoAr: Number(estado.medicoes.pressaoAr),
               backupLigado: estado.backupLigado ?? false,
               temAbastecimento: temAbast,
-              qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null,
-              tamCilindro: temAbast ? estado.abastecimento.tamanho : null,
+              qtdCilindros: temAbast ? cilindros.reduce((total, c) => total + c.quantidade, 0) : null,
+              tamCilindro: temAbast ? cilindros.map((c) => c.tamanho).join(' + ') : null,
             }
           : {}),
       }
@@ -334,11 +336,7 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
   }
 
   function validarAbastecimento() {
-    const e: Record<string, string> = {}
-    if (!estado.abastecimento.quantidade || isNaN(Number(estado.abastecimento.quantidade)) || Number(estado.abastecimento.quantidade) < 1)
-      e.quantidade = 'Informe a quantidade'
-    if (!estado.abastecimento.tamanho) e.tamanho = 'Selecione o tamanho'
-    return e
+    return validarCilindros(cilindrosDoDraft(estado))
   }
 
   function validarDetalhe() {

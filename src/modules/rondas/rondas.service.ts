@@ -1,15 +1,21 @@
 import { prisma } from '@/lib/db'
 import { filtroEscopo, tenantFilter, type EscopoLeitura } from '@/modules/auth/tenant-filter'
-import { fotosMedicoesParaGravar } from './rondas.rules'
+import { cilindrosParaGravar, fotosMedicoesParaGravar, resumoCilindros } from './rondas.rules'
 import type { MedicaoGas, RegistroAmbienteInput } from './rondas.types'
 
-// Medições de gases nas listagens: os valores e QUAIS têm foto do relógio —
-// a foto em si vem sob demanda (buscarFotoMedicao), nunca na lista.
+// Medições de gases nas listagens: os valores, o abastecimento e QUAIS
+// medições têm foto do relógio — a foto em si vem sob demanda
+// (buscarFotoMedicao), nunca na lista. qtdCilindros/tamCilindro cobrem os
+// registros anteriores à tabela cilindros_abastecidos.
 const SELECT_GASES_LISTA = {
   tipoRegistro: true,
   purezaO2: true,
   pressaoO2: true,
   pressaoAr: true,
+  temAbastecimento: true,
+  qtdCilindros: true,
+  tamCilindro: true,
+  cilindros: { select: { tamanho: true, quantidade: true } },
   fotosMedicoes: { select: { medicao: true } },
 } as const
 
@@ -139,6 +145,7 @@ export async function finalizarRonda(id: string, tenantId: string | null, tenant
 
 export async function registrarAmbiente(rondaId: string, input: RegistroAmbienteInput) {
   try {
+    const cilindros = cilindrosParaGravar(input)
     const gasesData =
       input.tipoRegistro === 'gases'
         ? {
@@ -146,9 +153,8 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
             pressaoO2: input.pressaoO2,
             pressaoAr: input.pressaoAr,
             backupLigado: input.backupLigado,
-            temAbastecimento: input.temAbastecimento,
-            qtdCilindros: input.qtdCilindros ?? null,
-            tamCilindro: input.tamCilindro ?? null,
+            temAbastecimento: cilindros.length > 0,
+            ...resumoCilindros(cilindros),
           }
         : {}
 
@@ -162,6 +168,7 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
         temOcorrencia: input.temOcorrencia,
         ...gasesData,
         ...(fotosMedicoes.length ? { fotosMedicoes: { createMany: { data: fotosMedicoes } } } : {}),
+        ...(cilindros.length ? { cilindros: { createMany: { data: cilindros } } } : {}),
         ...(input.temOcorrencia && input.ocorrencias?.length
           ? {
               ocorrencias: {

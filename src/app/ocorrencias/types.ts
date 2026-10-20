@@ -1,5 +1,6 @@
 import type React from 'react'
 import type { MedicaoGas } from '@/services/rondas.types'
+import type { CilindroDraft } from '@/utils/cilindros'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,11 @@ export interface DraftEstado {
   // antes das fotos não têm o campo.
   fotosMedicoes?: FotosMedicoes
   backupLigado: boolean | null
+  // Formato antigo, um tamanho só: só é lido de drafts salvos antes de `cilindros`
   abastecimento: { quantidade: string; tamanho: TamanhoCilindro | null }
+  // Linhas do abastecimento (tamanho + quantidade). Opcional pelo mesmo motivo
+  // das fotos; ler com cilindrosDoDraft (utils/cilindros).
+  cilindros?: CilindroDraft[]
   iniciadoEm: string
 }
 
@@ -92,7 +97,6 @@ export const TIPOS_OCORRENCIA: { value: TipoOcorrencia; label: string; active: s
   { value: 'patrimonio', label: 'Patrimônio', active: 'border-purple-400 bg-purple-50 text-purple-700' },
 ]
 
-export const TAMANHOS_CILINDRO: TamanhoCilindro[] = ['P7', 'P10', 'P45', 'P50']
 export const DRAFT_DEBOUNCE_MS = 1500
 
 // ── Tipos de blocos/ambientes dinâmicos (vindos da API) ───────────────────────
@@ -169,6 +173,7 @@ export function estadoInicial(): DraftEstado {
     fotosMedicoes: {},
     backupLigado: null,
     abastecimento: { quantidade: '', tamanho: null },
+    cilindros: [],
     iniciadoEm: new Date().toISOString(),
   }
 }

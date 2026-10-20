@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale'
 import FotoLightbox from '@/components/ui/FotoLightbox'
 import * as rondasService from '@/services/rondas.service'
 import type { MedicaoGas, RegistroAmbiente } from '@/services/rondas.types'
+import { descreverCilindros, type CilindroAbastecido } from '@/utils/cilindros'
 
 const MEDICOES: { chave: MedicaoGas; rotulo: string; unidade: string }[] = [
   { chave: 'purezaO2', rotulo: 'Pureza O₂', unidade: '%' },
@@ -20,9 +21,18 @@ function formatar(valor: number | null | undefined, unidade: string): string {
   return `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${unidade}`
 }
 
+// Registros anteriores à lista de cilindros só têm o resumo de um tamanho
+function cilindrosDoRegistro(registro: RegistroAmbiente): CilindroAbastecido[] {
+  if (!registro.temAbastecimento) return []
+  if (registro.cilindros?.length) return registro.cilindros
+  return registro.tamCilindro && registro.qtdCilindros
+    ? [{ tamanho: registro.tamCilindro, quantidade: registro.qtdCilindros }]
+    : []
+}
+
 // Medições de gases da ronda selecionada no histórico, com a foto do relógio
-// de cada valor. A lista só diz quais medições têm foto; a imagem é buscada
-// quando alguém pede para vê-la.
+// de cada valor e o abastecimento de cilindros. A lista só diz quais medições
+// têm foto; a imagem é buscada quando alguém pede para vê-la.
 export function MedicoesGasesRonda({ ambientes }: { ambientes: RegistroAmbiente[] }) {
   const registros = ambientes.filter((a) => a.tipoRegistro === 'gases')
   if (registros.length === 0) return null
@@ -49,6 +59,7 @@ export function MedicoesGasesRonda({ ambientes }: { ambientes: RegistroAmbiente[
 
 function CartaoMedicoes({ registro }: { registro: RegistroAmbiente }) {
   const comFoto = new Set((registro.fotosMedicoes ?? []).map((f) => f.medicao))
+  const cilindros = cilindrosDoRegistro(registro)
 
   return (
     <div className="bg-white rounded-xl ring-1 ring-gray-100 px-4 py-3">
@@ -74,6 +85,12 @@ function CartaoMedicoes({ registro }: { registro: RegistroAmbiente }) {
             </dd>
           </div>
         ))}
+        {cilindros.length > 0 && (
+          <div className="flex items-start justify-between gap-2 text-xs">
+            <dt className="text-gray-400 shrink-0">Abastecimento</dt>
+            <dd className="font-semibold text-gray-700 text-right">{descreverCilindros(cilindros)}</dd>
+          </div>
+        )}
       </dl>
     </div>
   )

@@ -35,7 +35,7 @@ export default function GasesAbastecimento({ atualizar }: GasesAbastecimentoProp
         </button>
         <button
           onClick={() =>
-            atualizar({ abastecimento: { quantidade: '', tamanho: null }, etapa: 'ocorrencia_pergunta' })
+            atualizar({ abastecimento: { quantidade: '', tamanho: null }, cilindros: [], etapa: 'ocorrencia_pergunta' })
           }
           className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600 font-sans font-bold transition-all active:scale-95"
         >

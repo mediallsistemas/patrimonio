@@ -39,8 +39,7 @@ export interface RegistrarAmbienteBody {
   pressaoAr?: number
   backupLigado?: boolean
   temAbastecimento?: boolean
-  qtdCilindros?: number | null
-  tamCilindro?: string | null
+  cilindros?: { tamanho: string; quantidade: number }[]
   fotosMedicoes?: Partial<Record<MedicaoGas, string | null>>
 }
 

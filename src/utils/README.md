@@ -1,8 +1,24 @@
 # `src/utils` — Funções utilitárias puras
 
-Sem I/O de rede, sem Prisma. `format.ts` e `moeda.ts` são puros; `foto.ts` e
-`pdf-export.ts` dependem de APIs de browser (canvas / download) — usar apenas em
-código client.
+Sem I/O de rede, sem Prisma. `format.ts`, `moeda.ts` e `cilindros.ts` são puros;
+`foto.ts` e `pdf-export.ts` dependem de APIs de browser (canvas / download) —
+usar apenas em código client.
+
+## `cilindros.ts` — abastecimento da inspeção de gases
+
+Opções de tamanho e regras da tela de abastecimento (testes em `cilindros.test.ts`):
+
+```ts
+OPCOES_CILINDRO                                  // 'P7','P10','P45','P50','1 m³','3 m³','7 m³','10 m³'
+OPCAO_OUTRO                                      // 'outro' → capacidade digitada em m³
+cilindroVazio(): CilindroDraft                   // { opcao, outroM3, quantidade } da linha em edição
+lerM3(texto): number | null                      // "2,5" ou "2.5" → 2.5; vazio/zero/negativo → null
+tamanhoDoCilindro(c): string | null              // 'P10', '3 m³', ou "2,5 m³" para "Outro"
+cilindrosDoDraft(estado): CilindroDraft[]        // lista do draft; drafts antigos (um tamanho) convertidos
+validarCilindros(cilindros): Record<string,string> // cilindro_<i>_tamanho / cilindro_<i>_quantidade
+cilindrosParaEnviar(cilindros): CilindroAbastecido[] // só as linhas completas, { tamanho, quantidade }
+descreverCilindros(cilindros): string            // "4× 3 m³ · 2× P10"
+```
 
 ## `format.ts` — CPF
 

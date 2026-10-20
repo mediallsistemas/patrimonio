@@ -184,12 +184,15 @@ model RegistroAmbiente {
   pressaoO2     Float?
   pressaoAr     Float?
   backupLigado  Boolean?
-  // Abastecimento de cilindros (gases)
+  // Abastecimento de cilindros (gases). O detalhe por tamanho vive em
+  // cilindros_abastecidos; qtdCilindros (total) e tamCilindro (tamanhos) seguem
+  // preenchidos como resumo, para quem já lê essas colunas.
   temAbastecimento Boolean?
   qtdCilindros  Int?
   tamCilindro   String?
   ocorrencias   OcorrenciaDetalhe[]
   fotosMedicoes FotoMedicaoGas[]
+  cilindros     CilindroAbastecido[]
   ronda         RondaOcorrencia     @relation(fields: [rondaId], references: [id])
 
   @@index([rondaId])
@@ -212,6 +215,21 @@ model FotoMedicaoGas {
 
   @@unique([registroId, medicao])
   @@map("fotos_medicoes_gases")
+}
+
+// Cilindros de um abastecimento de gases, um por tamanho: a unidade pode
+// receber, no mesmo registro, cilindros de capacidades diferentes (ex.: 4 de
+// 3 m³ e 2 de P10).
+model CilindroAbastecido {
+  id         String           @id @default(uuid())
+  registroId String
+  // 'P7' | 'P10' | 'P45' | 'P50' | '3 m³' | capacidade digitada ('2,5 m³')
+  tamanho    String
+  quantidade Int
+  registro   RegistroAmbiente @relation(fields: [registroId], references: [id], onDelete: Cascade)
+
+  @@index([registroId])
+  @@map("cilindros_abastecidos")
 }
 
 model OcorrenciaDetalhe {
