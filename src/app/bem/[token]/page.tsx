@@ -1,43 +1,30 @@
 import { notFound } from 'next/navigation'
-import { Package, MapPin } from 'lucide-react'
-import { buscarLinkAmbiente } from '@/modules/links-publicos/links-publicos.service'
+import { Package, MapPin, Info } from 'lucide-react'
+import {
+  buscarLinkAmbiente,
+  listarBensDoLink,
+  type BemPublico,
+} from '@/modules/links-publicos/links-publicos.service'
+import type { ResolucaoAmbiente } from '@/modules/links-publicos/ambiente-do-link'
 import BensConteudo from './BensConteudo'
 
-interface Asset {
-  id: number
-  patrimony: string
-  description: string
-  brand: string | null
-  model: string | null
-  serialNumber: string | null
-  departmentFullAddress: string
-  status: number
-  assetTypeName: string
-  companyId: number
-  companyName: string
-  coverPermalink: string | null
-  creationDate: string | null
+function listaDeNomes(nomes: string[]): string {
+  return nomes.map(n => `“${n}”`).join(', ')
 }
 
-const TOKEN_ENV = process.env.TRILOGO_TOKEN ?? ''
-const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
-
-async function fetchBensDoAmbiente(companyId: number, projeto: string, ambiente: string): Promise<Asset[]> {
-  try {
-    const res = await fetch(`${TRILOGO_BASE}/asset`, {
-      headers: { accept: 'application/json', token: TOKEN_ENV },
-      next: { revalidate: 600 },
-    })
-    if (!res.ok) return []
-    const all = (await res.json()) as Asset[]
-    return all.filter(a => {
-      const parts = String(a.departmentFullAddress ?? '').split('>').map(s => s.trim())
-      return String(a.companyId) === String(companyId)
-        && (parts[2] ?? '') === projeto
-        && (parts[4] ?? parts[3] ?? '') === ambiente
-    })
-  } catch {
-    return []
+// O QR guarda o nome do ambiente de quando foi gerado; se o Trílogo mudou o
+// nome, quem escaneia precisa saber por que a lista não bate com a placa.
+function avisoDeMudanca(resolucao: ResolucaoAmbiente<BemPublico>): string | null {
+  switch (resolucao.tipo) {
+    case 'grafia':
+    case 'renomeado':
+      return `No Trílogo, este ambiente agora se chama ${listaDeNomes(resolucao.ambientesAtuais)}.`
+    case 'subdividido':
+      return resolucao.ambientesAtuais.length === 1
+        ? `No Trílogo, os bens deste ambiente agora ficam em ${listaDeNomes(resolucao.ambientesAtuais)}.`
+        : `No Trílogo, este ambiente foi dividido em ${listaDeNomes(resolucao.ambientesAtuais)}. A lista mostra os bens de todos.`
+    default:
+      return null
   }
 }
 
@@ -64,9 +51,17 @@ export default async function BemPublicoPage({
   const link = await buscarLinkAmbiente(token)
   if (!link) notFound()
 
-  const bens = await fetchBensDoAmbiente(link.companyId, link.projeto, link.ambiente)
+  // Trílogo fora do ar não pode virar "nenhum bem neste ambiente".
+  let resolucao: ResolucaoAmbiente<BemPublico> | null = null
+  try {
+    resolucao = await listarBensDoLink(link)
+  } catch (error) {
+    console.error('[bem/[token]] listarBensDoLink:', error)
+  }
 
+  const bens = resolucao?.bens ?? []
   const ativos = bens.filter(a => a.status === 1).length
+  const aviso = resolucao ? avisoDeMudanca(resolucao) : null
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -83,6 +78,13 @@ export default async function BemPublicoPage({
           </div>
         </div>
 
+        {aviso && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-2xl p-3 text-sm text-amber-800">
+            <Info size={16} className="shrink-0 mt-0.5" />
+            <p>{aviso}</p>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
           <StatCard label="Total"  value={bens.length} icon={<Package size={18} className="text-purple-600"  />} bg="bg-purple-100"  />
@@ -91,9 +93,21 @@ export default async function BemPublicoPage({
 
         {/* Bens do ambiente + busca (client) */}
         {bens.length === 0 ? (
-          <div className="text-center py-16 text-gray-400 text-sm bg-white rounded-2xl border border-gray-100">
+          <div className="text-center py-16 px-6 text-gray-400 text-sm bg-white rounded-2xl border border-gray-100 space-y-2">
             <Package size={40} className="mx-auto mb-3 opacity-30" />
-            Nenhum bem encontrado neste ambiente.
+            {resolucao === null ? (
+              <p>Não foi possível consultar os bens no Trílogo agora. Tente de novo em alguns minutos.</p>
+            ) : (
+              <>
+                <p>
+                  Este ambiente não aparece mais no Trílogo com esse nome. Ele foi renomeado, dividido
+                  ou esvaziado depois que o QR code foi gerado. Peça ao patrimônio um QR code novo.
+                </p>
+                {resolucao.candidatos.length > 0 && (
+                  <p>Ambientes com nome parecido hoje: {listaDeNomes(resolucao.candidatos)}.</p>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <BensConteudo
