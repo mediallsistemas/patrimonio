@@ -16,6 +16,7 @@ import { listarTenants } from '@/services/admin-tenants.service'
 import { desnormalizarOcorrencias } from '@/lib/rondas-admin-utils'
 import { KpiCard } from '@/components/ui/ronda/KpiCard'
 import { OcorrenciaRow } from '@/components/ui/ronda/OcorrenciaRow'
+import { MedicoesGasesRonda } from '@/components/ui/ronda/MedicoesGasesRonda'
 import ExportarPdfButton from '@/components/ui/ExportarPdfButton'
 import { exportarTabelaPdf, COLUNAS_RONDAS_ADMIN_PDF, linhaRondaPdf } from '@/utils/pdf-export'
 import type { Ronda } from '@/services/rondas.types'
@@ -370,6 +371,8 @@ export default function AdminRondasPage() {
                 </div>
               </section>
             )}
+
+            {rondaSelecionada && <MedicoesGasesRonda ambientes={rondaSelecionada.ambientes} />}
 
             {/* ── Seção 2: Ocorrências ─────────────────────────────────────── */}
             <section ref={ocorrenciasRef} className="space-y-3 scroll-mt-6">

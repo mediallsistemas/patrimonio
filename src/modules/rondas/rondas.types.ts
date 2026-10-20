@@ -11,6 +11,19 @@ export const OcorrenciaDetalheSchema = z.object({
   bemDescricao: z.string().max(255).optional().nullable(),
 })
 
+// Medições da inspeção de gases que aceitam foto do relógio
+export const MEDICOES_GAS = ['purezaO2', 'pressaoO2', 'pressaoAr'] as const
+export const MedicaoGasSchema = z.enum(MEDICOES_GAS)
+
+const FotoMedicaoSchema = z.string().max(2_000_000) // ~1.5MB imagem base64
+
+// Foto do relógio de cada medição — todas opcionais
+export const FotosMedicoesSchema = z.object({
+  purezaO2: FotoMedicaoSchema.nullish(),
+  pressaoO2: FotoMedicaoSchema.nullish(),
+  pressaoAr: FotoMedicaoSchema.nullish(),
+})
+
 export const RegistroAmbienteSchema = z.discriminatedUnion('tipoRegistro', [
   z.object({
     tipoRegistro: z.literal('ocorrencia'),
@@ -28,6 +41,7 @@ export const RegistroAmbienteSchema = z.discriminatedUnion('tipoRegistro', [
     temAbastecimento: z.boolean(),
     qtdCilindros: z.number().int().min(1).optional().nullable(),
     tamCilindro: z.string().optional().nullable(),
+    fotosMedicoes: FotosMedicoesSchema.optional(),
     temOcorrencia: z.boolean(),
     ocorrencias: z.array(OcorrenciaDetalheSchema).optional(),
   }),
@@ -42,6 +56,7 @@ export const FiltrosRondaSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 })
 
+export type MedicaoGas = z.infer<typeof MedicaoGasSchema>
 export type RegistroAmbienteInput = z.infer<typeof RegistroAmbienteSchema>
 export type CreateRondaInput = z.infer<typeof CreateRondaSchema>
 export type FiltrosRondaInput = z.infer<typeof FiltrosRondaSchema>

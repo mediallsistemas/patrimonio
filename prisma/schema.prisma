@@ -189,10 +189,29 @@ model RegistroAmbiente {
   qtdCilindros  Int?
   tamCilindro   String?
   ocorrencias   OcorrenciaDetalhe[]
+  fotosMedicoes FotoMedicaoGas[]
   ronda         RondaOcorrencia     @relation(fields: [rondaId], references: [id])
 
   @@index([rondaId])
   @@map("registros_ambientes")
+}
+
+// Foto do relógio (analisador/manômetro) de uma medição de gases, para o
+// operador guardar o registro do valor que leu. Tabela própria, e não colunas em
+// registros_ambientes, porque o detalhe da ronda traz os registros inteiros
+// (include) e passaria a carregar base64 sem pedir.
+model FotoMedicaoGas {
+  id         String           @id @default(uuid())
+  registroId String
+  // 'purezaO2' | 'pressaoO2' | 'pressaoAr' (MEDICOES_GAS em modules/rondas)
+  medicao    String
+  // base64 (data URL), mesmo teto ~1.5MB dos demais fluxos de foto
+  foto       String
+  criadoEm   DateTime         @default(now())
+  registro   RegistroAmbiente @relation(fields: [registroId], references: [id], onDelete: Cascade)
+
+  @@unique([registroId, medicao])
+  @@map("fotos_medicoes_gases")
 }
 
 model OcorrenciaDetalhe {

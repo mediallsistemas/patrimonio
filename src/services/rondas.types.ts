@@ -19,16 +19,21 @@ export interface OcorrenciaDetalhe {
   bemDescricao: string | null
 }
 
+// Medições da inspeção de gases que aceitam foto do relógio
+export type MedicaoGas = 'purezaO2' | 'pressaoO2' | 'pressaoAr'
+
 export interface RegistroAmbiente {
   id: string
   ambiente: string
-  tipoRegistro?: string        // só presente na view do operador (gases)
+  tipoRegistro?: string        // 'ocorrencia' | 'gases'
   temOcorrencia: boolean
   concluidoEm: string
-  // gases (operador)
+  // gases
   purezaO2?: number | null
   pressaoO2?: number | null
   pressaoAr?: number | null
+  // Quais medições têm foto do relógio; a foto vem sob demanda (buscarFotoMedicao)
+  fotosMedicoes?: { medicao: string }[]
   backupLigado?: boolean | null
   temAbastecimento?: boolean | null
   qtdCilindros?: number | null

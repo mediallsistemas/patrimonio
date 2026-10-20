@@ -1,4 +1,5 @@
 import type React from 'react'
+import type { MedicaoGas } from '@/services/rondas.types'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -73,10 +74,15 @@ export interface DraftEstado {
   concluidos: RegistroConcluido[]
   detalhes: DetalheOcorrencia[]
   medicoes: { purezaO2: string; pressaoO2: string; pressaoAr: string }
+  // Foto do relógio de cada medição (base64). Opcional porque drafts salvos
+  // antes das fotos não têm o campo.
+  fotosMedicoes?: FotosMedicoes
   backupLigado: boolean | null
   abastecimento: { quantidade: string; tamanho: TamanhoCilindro | null }
   iniciadoEm: string
 }
+
+export type FotosMedicoes = Partial<Record<MedicaoGas, string | null>>
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 
@@ -160,6 +166,7 @@ export function estadoInicial(): DraftEstado {
     concluidos: [],
     detalhes: [detalheVazio()],
     medicoes: { purezaO2: '', pressaoO2: '', pressaoAr: '' },
+    fotosMedicoes: {},
     backupLigado: null,
     abastecimento: { quantidade: '', tamanho: null },
     iniciadoEm: new Date().toISOString(),

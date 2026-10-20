@@ -120,6 +120,7 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
       etapa,
       detalhes: [detalheVazio()],
       medicoes: { purezaO2: '', pressaoO2: '', pressaoAr: '' },
+      fotosMedicoes: {},
       backupLigado: null,
       abastecimento: { quantidade: '', tamanho: null },
     })
@@ -202,6 +203,7 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
             temAbastecimento: temAbast,
             qtdCilindros: temAbast ? Number(estado.abastecimento.quantidade) : null,
             tamCilindro: temAbast ? estado.abastecimento.tamanho : null,
+            fotosMedicoes: estado.fotosMedicoes,
             temOcorrencia,
             ...(ocorrenciasValidas.length ? { ocorrencias: ocorrenciasValidas } : {}),
           }
@@ -252,6 +254,8 @@ export function useRondaBase({ onIniciar, onAbandonar }: UseRondaBaseOptions) {
         concluidos: novosConcluidos,
         etapa: blocoAgora ? 'bloco_concluido' : 'locais',
         localSelecionado: null,
+        // Já gravadas com o registro — não carregar o base64 no draft à toa
+        fotosMedicoes: {},
       }
       setEstado(novoEstado)
       salvarDraft(novoEstado)

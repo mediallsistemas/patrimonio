@@ -1,7 +1,7 @@
 import { api } from '@/services/api'
-import type { OcorrenciaDetalhe, RegistroAmbiente, Ronda } from '@/services/rondas.types'
+import type { MedicaoGas, OcorrenciaDetalhe, RegistroAmbiente, Ronda } from '@/services/rondas.types'
 
-export type { OcorrenciaDetalhe, RegistroAmbiente, Ronda }
+export type { MedicaoGas, OcorrenciaDetalhe, RegistroAmbiente, Ronda }
 
 export interface BlocoAPI {
   id: string
@@ -41,6 +41,7 @@ export interface RegistrarAmbienteBody {
   temAbastecimento?: boolean
   qtdCilindros?: number | null
   tamCilindro?: string | null
+  fotosMedicoes?: Partial<Record<MedicaoGas, string | null>>
 }
 
 export async function listar(): Promise<Ronda[]> {
@@ -98,5 +99,10 @@ export async function buscarAmbientesTenant(tenantSlug: string): Promise<Ambient
 
 export async function buscarFotoOcorrencia(ocorrenciaId: string): Promise<{ foto: string | null }> {
   const json = await api.get<{ data: { foto: string | null } }>(`ocorrencias/${ocorrenciaId}/foto`)
+  return json.data ?? { foto: null }
+}
+
+export async function buscarFotoMedicao(registroId: string, medicao: MedicaoGas): Promise<{ foto: string | null }> {
+  const json = await api.get<{ data: { foto: string | null } }>(`rondas/registros/${registroId}/fotos/${medicao}`)
   return json.data ?? { foto: null }
 }
