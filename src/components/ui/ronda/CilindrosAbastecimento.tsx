@@ -3,8 +3,9 @@
 import { Plus, Trash2 } from 'lucide-react'
 import Input from '@/components/ui/Input'
 import {
+  CILINDROS_POR_CAPACIDADE,
+  CILINDROS_POR_CODIGO,
   OPCAO_OUTRO,
-  OPCOES_CILINDRO,
   cilindroVazio,
   type CilindroDraft,
 } from '@/utils/cilindros'
@@ -15,9 +16,11 @@ interface CilindrosAbastecimentoProps {
   onChange: (cilindros: CilindroDraft[]) => void
 }
 
-// Linhas do abastecimento de gases: em cada uma, o tamanho do cilindro (P ou
-// m³, ou a capacidade digitada em "Outro") e a quantidade. A unidade pode
-// receber cilindros de vários tamanhos no mesmo abastecimento.
+// Linhas do abastecimento de gases: em cada uma, o tipo de cilindro (do
+// catálogo pré-cadastrado em utils/cilindros, ou a capacidade digitada em
+// "Outro") e a quantidade. A unidade pode receber cilindros de vários tipos no
+// mesmo abastecimento. A lista é longa, então é um <select> — no celular abre o
+// seletor nativo.
 export default function CilindrosAbastecimento({ cilindros, errors, onChange }: CilindrosAbastecimentoProps) {
   const atualizarLinha = (indice: number, parcial: Partial<CilindroDraft>) =>
     onChange(cilindros.map((c, i) => (i === indice ? { ...c, ...parcial } : c)))
@@ -27,45 +30,48 @@ export default function CilindrosAbastecimento({ cilindros, errors, onChange }: 
   return (
     <div className="space-y-4">
       {cilindros.map((cilindro, i) => {
-        const erroTamanho = errors[`cilindro_${i}_tamanho`]
+        const erroTipo = errors[`cilindro_${i}_tamanho`]
         return (
           <div key={i} className="rounded-xl border border-gray-200 p-3 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <span id={`cilindro-${i}-tamanho`} className="text-sm font-semibold text-gray-400 font-sans">
-                {variasLinhas ? `Tamanho dos cilindros (${i + 1})` : 'Tamanho dos cilindros'}
-              </span>
-              {variasLinhas && (
-                <button
-                  type="button"
-                  onClick={() => removerLinha(i)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-base hover:bg-red-50 transition-colors"
-                  aria-label={`Remover tamanho ${i + 1}`}
-                  title="Remover"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div role="group" aria-labelledby={`cilindro-${i}-tamanho`} className="grid grid-cols-4 gap-2">
-              {[...OPCOES_CILINDRO, OPCAO_OUTRO].map((opcao) => {
-                const selecionada = cilindro.opcao === opcao
-                return (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor={`cilindro-${i}-tipo`} className="text-sm font-semibold text-gray-400 font-sans">
+                  {variasLinhas ? `Tipo de cilindro (${i + 1})` : 'Tipo de cilindro'}
+                </label>
+                {variasLinhas && (
                   <button
-                    key={opcao}
                     type="button"
-                    aria-pressed={selecionada}
-                    onClick={() => atualizarLinha(i, { opcao })}
-                    className={`py-2.5 rounded-xl border-2 font-sans font-bold text-sm transition-all active:scale-95 ${
-                      selecionada
-                        ? 'border-blue-base bg-blue-light text-blue-dark'
-                        : 'border-gray-200 text-gray-300 bg-white hover:border-gray-300'
-                    }`}
+                    onClick={() => removerLinha(i)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-base hover:bg-red-light transition-colors"
+                    aria-label={`Remover o tipo de cilindro ${i + 1}`}
+                    title="Remover"
                   >
-                    {opcao === OPCAO_OUTRO ? 'Outro' : opcao}
+                    <Trash2 className="w-4 h-4" />
                   </button>
-                )
-              })}
+                )}
+              </div>
+              <select
+                id={`cilindro-${i}-tipo`}
+                value={cilindro.opcao ?? ''}
+                onChange={(e) => atualizarLinha(i, { opcao: e.target.value || null })}
+                aria-invalid={Boolean(erroTipo)}
+                className={`w-full px-4 py-3 rounded-xl border font-sans text-dark text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-base transition-all ${
+                  erroTipo ? 'border-red-base' : 'border-gray-200'
+                }`}
+              >
+                <option value="">Selecione o cilindro</option>
+                <optgroup label="Capacidade (m³)">
+                  {CILINDROS_POR_CAPACIDADE.map((tipo) => (
+                    <option key={tipo} value={tipo}>Cilindro de {tipo}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Código do fornecedor">
+                  {CILINDROS_POR_CODIGO.map((tipo) => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
+                </optgroup>
+                <option value={OPCAO_OUTRO}>Outro: digitar a capacidade em m³</option>
+              </select>
             </div>
 
             {cilindro.opcao === OPCAO_OUTRO && (
@@ -78,7 +84,7 @@ export default function CilindrosAbastecimento({ cilindros, errors, onChange }: 
                 onChange={(e) => atualizarLinha(i, { outroM3: e.target.value })}
               />
             )}
-            {erroTamanho && <span className="block text-xs text-red-base font-sans">{erroTamanho}</span>}
+            {erroTipo && <span className="block text-xs text-red-base font-sans">{erroTipo}</span>}
 
             <Input
               id={`cilindro-${i}-quantidade`}
@@ -101,7 +107,7 @@ export default function CilindrosAbastecimento({ cilindros, errors, onChange }: 
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-base/50 text-blue-dark font-sans font-semibold text-sm hover:bg-blue-light transition-colors"
       >
         <Plus className="w-4 h-4" />
-        Adicionar outro tamanho
+        Adicionar outro tipo de cilindro
       </button>
     </div>
   )

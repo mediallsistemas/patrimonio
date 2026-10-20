@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CILINDROS_POR_CAPACIDADE,
+  CILINDROS_POR_CODIGO,
   OPCAO_OUTRO,
+  OPCOES_CILINDRO,
   cilindroVazio,
   cilindrosDoDraft,
   cilindrosParaEnviar,
@@ -61,7 +64,7 @@ describe('validarCilindros', () => {
       { opcao: null, outroM3: '', quantidade: '0' },
       { opcao: OPCAO_OUTRO, outroM3: '', quantidade: '1.5' },
     ])).toEqual({
-      cilindro_1_tamanho: 'Selecione o tamanho',
+      cilindro_1_tamanho: 'Selecione o tipo de cilindro',
       cilindro_1_quantidade: 'Informe a quantidade',
       cilindro_2_tamanho: 'Informe a capacidade em m³',
       cilindro_2_quantidade: 'Informe a quantidade',
@@ -70,6 +73,20 @@ describe('validarCilindros', () => {
 
   it('sem erro quando tudo está preenchido', () => {
     expect(validarCilindros([{ opcao: OPCAO_OUTRO, outroM3: '2,5', quantidade: '3' }])).toEqual({})
+  })
+})
+
+describe('catálogo pré-cadastrado', () => {
+  it('capacidade digitada em "Outro" gera o mesmo rótulo do catálogo', () => {
+    // Senão "Outro 3,5" e o cilindro de 3,5 m³ do catálogo virariam linhas diferentes
+    for (const rotulo of CILINDROS_POR_CAPACIDADE) {
+      const numero = rotulo.replace(' m³', '')
+      expect(tamanhoDoCilindro({ opcao: OPCAO_OUTRO, outroM3: numero, quantidade: '1' })).toBe(rotulo)
+    }
+  })
+
+  it('reúne capacidades e códigos sem repetir', () => {
+    expect(new Set(OPCOES_CILINDRO).size).toBe(CILINDROS_POR_CAPACIDADE.length + CILINDROS_POR_CODIGO.length)
   })
 })
 

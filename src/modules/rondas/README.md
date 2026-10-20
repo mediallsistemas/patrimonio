@@ -65,7 +65,7 @@ O role `admin_multi` (e seu alias legado `viewer`) opera em várias unidades: a 
 
 - `src/services/rondas.service.ts` — `listar`, `criar`, `finalizar`, `registrarAmbiente`, `buscarDraft`, `salvarDraftAPI`, `descartarDraftAPI`, `buscarBlocos` (via `/api/me/blocos`), `buscarFotoOcorrencia`, `buscarFotoMedicao`.
 - Fotos do relógio: `components/ui/ronda/CampoMedicaoGas.tsx` (câmera ou galeria ao lado do rótulo de cada medição, nos dois `GasesMedicoes`) e `components/ui/ronda/MedicoesGasesRonda.tsx` (valores, abastecimento e "Foto" sob demanda na ronda selecionada dos quatro históricos: operador, `/ocorrencias`, admin e viewer).
-- Cilindros: `components/ui/ronda/CilindrosAbastecimento.tsx` (linhas de tamanho + quantidade, nos dois `GasesAbastecimentoDetalhe`); opções, validação e o que vai para a API em `src/utils/cilindros.ts`.
+- Cilindros: `components/ui/ronda/CilindrosAbastecimento.tsx` (linhas de tipo de cilindro + quantidade, nos dois `GasesAbastecimentoDetalhe`); catálogo pré-cadastrado de tipos, validação e o que vai para a API em `src/utils/cilindros.ts`.
 - `src/services/admin-rondas.service.ts` — `listarRondas()` → `GET /api/admin/rondas`.
 - Hooks: `useRondaBase` (base compartilhada), `useRonda` (fluxo tenant `/[tenantSlug]/ronda`) e `useOcorrenciaRonda` (fluxo `/ocorrencias`) — ambos estendem `useRondaBase` via `onIniciar`/`onAbandonar`.
 - Libs de apoio: `src/lib/ronda-tipos.ts` (labels/cores de tipos de ocorrência) e `src/lib/rondas-admin-utils.ts` (`desnormalizarOcorrencias`, `agruparPorData` sobre o tipo `Ronda` retornado pelas rotas) — usados pelas páginas de histórico/admin.

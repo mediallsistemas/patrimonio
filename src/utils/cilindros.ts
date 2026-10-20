@@ -1,9 +1,17 @@
-// Cilindros do abastecimento da inspeção de gases: as opções de tamanho e as
-// regras da tela (linhas, validação, o que vai para a API). Puro, sem I/O.
+// Cilindros do abastecimento da inspeção de gases: o catálogo pré-cadastrado e
+// as regras da tela (linhas, validação, o que vai para a API). Puro, sem I/O.
 
-// Os "P" são os tamanhos que as unidades já registravam; os de m³, os cilindros
-// por capacidade. Fora da lista, o operador digita a capacidade em m³ ("Outro").
-export const OPCOES_CILINDRO = ['P7', 'P10', 'P45', 'P50', '1 m³', '3 m³', '7 m³', '10 m³'] as const
+// Capacidades nominais dos cilindros de oxigênio e ar medicinal no mercado:
+// fichas de fornecedor (ex.: Linde, 1,0 a 9,6 m³) e editais de compra de gases
+// medicinais (portátil de 0,5 m³; 1, 3, 7, 8 e 10 m³).
+export const CILINDROS_POR_CAPACIDADE = [
+  '0,5 m³', '1 m³', '1,42 m³', '2,25 m³', '3 m³', '3,5 m³',
+  '4,5 m³', '6,6 m³', '7 m³', '8 m³', '9,6 m³', '10 m³',
+] as const
+// Códigos que as unidades já usavam nos registros
+export const CILINDROS_POR_CODIGO = ['P7', 'P10', 'P45', 'P50'] as const
+export const OPCOES_CILINDRO = [...CILINDROS_POR_CAPACIDADE, ...CILINDROS_POR_CODIGO] as const
+// Fora do catálogo, o operador digita a capacidade em m³
 export const OPCAO_OUTRO = 'outro'
 
 // Uma linha da tela, como está sendo digitada
@@ -54,7 +62,7 @@ export function cilindrosDoDraft(estado: {
 export function validarCilindros(cilindros: CilindroDraft[]): Record<string, string> {
   const erros: Record<string, string> = {}
   cilindros.forEach((cilindro, i) => {
-    if (!cilindro.opcao) erros[`cilindro_${i}_tamanho`] = 'Selecione o tamanho'
+    if (!cilindro.opcao) erros[`cilindro_${i}_tamanho`] = 'Selecione o tipo de cilindro'
     else if (tamanhoDoCilindro(cilindro) === null) erros[`cilindro_${i}_tamanho`] = 'Informe a capacidade em m³'
     const quantidade = Number(cilindro.quantidade)
     if (!cilindro.quantidade || !Number.isInteger(quantidade) || quantidade < 1)

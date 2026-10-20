@@ -6,10 +6,17 @@ usar apenas em código client.
 
 ## `cilindros.ts` — abastecimento da inspeção de gases
 
-Opções de tamanho e regras da tela de abastecimento (testes em `cilindros.test.ts`):
+Catálogo pré-cadastrado de tipos de cilindro e regras da tela de abastecimento
+(testes em `cilindros.test.ts`). As capacidades são as nominais dos cilindros de
+oxigênio e ar medicinal no mercado (fichas de fornecedor e editais de compra);
+os códigos P são os que as unidades já registravam. Para incluir um tipo, basta
+acrescentá-lo à lista — o teste garante que "Outro" com o mesmo número gera o
+mesmo rótulo.
 
 ```ts
-OPCOES_CILINDRO                                  // 'P7','P10','P45','P50','1 m³','3 m³','7 m³','10 m³'
+CILINDROS_POR_CAPACIDADE                         // '0,5 m³','1 m³','1,42 m³','2,25 m³','3 m³','3,5 m³','4,5 m³','6,6 m³','7 m³','8 m³','9,6 m³','10 m³'
+CILINDROS_POR_CODIGO                             // 'P7','P10','P45','P50'
+OPCOES_CILINDRO                                  // as duas listas juntas
 OPCAO_OUTRO                                      // 'outro' → capacidade digitada em m³
 cilindroVazio(): CilindroDraft                   // { opcao, outroM3, quantidade } da linha em edição
 lerM3(texto): number | null                      // "2,5" ou "2.5" → 2.5; vazio/zero/negativo → null
