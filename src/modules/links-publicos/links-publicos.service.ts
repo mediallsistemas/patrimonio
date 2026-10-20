@@ -1,4 +1,30 @@
 import { prisma } from '@/lib/db'
+import { resolverAmbienteDoLink, type ResolucaoAmbiente } from './ambiente-do-link'
+
+const TRILOGO_TOKEN = process.env.TRILOGO_TOKEN ?? ''
+const TRILOGO_BASE = process.env.TRILOGO_BASE_URL ?? 'https://public.api.trilogo.app/api'
+
+// Bens por companyId — 10 min por instância. O /asset devolve a base inteira
+// (~12 mil bens, bem acima dos 2 MB do cache de fetch do Next), então o cache
+// fica em memória, como a rota pública já fazia.
+const cacheBens = new Map<number, { data: BemPublico[]; at: number }>()
+const TTL_BENS = 10 * 60 * 1000
+
+export interface BemPublico {
+  id: number
+  patrimony: string
+  description: string
+  brand: string | null
+  model: string | null
+  serialNumber: string | null
+  departmentFullAddress: string
+  status: number
+  assetTypeName: string
+  companyId: number
+  companyName: string
+  coverPermalink: string | null
+  creationDate: string | null
+}
 
 export interface CriarLinkAmbienteInput {
   companyId: number
@@ -38,6 +64,35 @@ export async function buscarLinkAmbiente(id: string) {
     console.error('[links-publicos.service] buscarLinkAmbiente:', error)
     throw error
   }
+}
+
+async function listarBensDaEmpresa(companyId: number): Promise<BemPublico[]> {
+  const hit = cacheBens.get(companyId)
+  if (hit && Date.now() - hit.at < TTL_BENS) return hit.data
+
+  const res = await fetch(`${TRILOGO_BASE}/asset`, {
+    headers: { accept: 'application/json', token: TRILOGO_TOKEN },
+  })
+  if (!res.ok) throw new Error(`Trilogo assets error: ${res.status}`)
+
+  const all = (await res.json()) as BemPublico[]
+  const daEmpresa = all.filter((a) => String(a.companyId) === String(companyId))
+  cacheBens.set(companyId, { data: daEmpresa, at: Date.now() })
+  return daEmpresa
+}
+
+/**
+ * Bens que o QR do link mostra hoje. Segue o ambiente quando ele foi renomeado
+ * ou subdividido no Trílogo; se não der para saber qual é, volta 'nao-encontrado'
+ * (ver `ambiente-do-link.ts`). Lança se o Trílogo falhar.
+ */
+export async function listarBensDoLink(link: {
+  companyId: number
+  projeto: string
+  ambiente: string
+}): Promise<ResolucaoAmbiente<BemPublico>> {
+  const bens = await listarBensDaEmpresa(link.companyId)
+  return resolverAmbienteDoLink(link, bens)
 }
 
 export async function listarAgendamentosPorAssets(trilogoAssetIds: number[]) {

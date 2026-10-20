@@ -44,7 +44,8 @@ fotos), `agendamentos` e `manutencoes`.
 | `GET /api/rondas/bens-tenant?ambiente=&bloco=` | `super_admin, tenant_admin, admin_multi, viewer, operator, operator_patrimonio` (`verifyAuthDetailed`) | Bens do ambiente/bloco atual da ronda (`filtrarPorAmbiente`), unidade via `resolveActiveTenantId` |
 
 As rotas `/api/trilogo/*` e `/api/public/bens/[token]` **não** usam este módulo — têm fetch/caches próprios
-(as primeiras recortam por `modules/trilogo/escopo`; a pública filtra pelo link).
+(as primeiras recortam por `modules/trilogo/escopo`; a pública e a página `/bem/[token]` usam
+`links-publicos.listarBensDoLink`, que resolve o ambiente do link).
 
 ## Consumo no client
 
