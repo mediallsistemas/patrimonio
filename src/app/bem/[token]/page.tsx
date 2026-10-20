@@ -79,7 +79,7 @@ export default async function BemPublicoPage({
         </div>
 
         {aviso && (
-          <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-2xl p-3 text-sm text-amber-800">
+          <div className="flex items-start gap-2 bg-amber-100/70 border border-amber-500/30 rounded-2xl p-3 text-sm text-amber-700">
             <Info size={16} className="shrink-0 mt-0.5" />
             <p>{aviso}</p>
           </div>

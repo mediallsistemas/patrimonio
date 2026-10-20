@@ -47,6 +47,9 @@ trafegar base64 nas listagens).
 | `AmbienteOcorrenciaRow.tsx` | `ambiente: RegistroAmbiente` | Linha de ambiente com ocorrência |
 | `GrupoAmbientes.tsx` | `titulo`, `ambientes: RegistroAmbiente[]`, `variante: 'normal'\|'ocorrencia'` | Agrupa ambientes (colapsável) |
 | `FotoLazy.tsx` | `ocorrenciaId: string` | Carrega a foto base64 sob demanda (IntersectionObserver) |
+| `CampoMedicaoGas.tsx` | `id`, `label`, `error?`, `foto`, `onFotoChange` + props do `<input>` | Campo de medição de gases com câmera e galeria ao lado do rótulo (foto do relógio, opcional); usado pelos dois `GasesMedicoes` |
+| `MedicoesGasesRonda.tsx` | `ambientes: RegistroAmbiente[]` | Seção "Medições de gases" da ronda selecionada nos históricos: valores, abastecimento (`4× 3 m³ · 2× P10`, ou o resumo antigo) e "Foto" do relógio sob demanda (`buscarFotoMedicao`); não renderiza nada sem registro de gases |
+| `CilindrosAbastecimento.tsx` | `cilindros: CilindroDraft[]`, `errors`, `onChange` | Linhas do abastecimento: tipo de cilindro num `<select>` com o catálogo pré-cadastrado (capacidades em m³ e códigos P, de `utils/cilindros`) ou "Outro" com a capacidade em m³, + quantidade, com "Adicionar outro tipo de cilindro"; usado pelos dois `GasesAbastecimentoDetalhe` |
 | `StatusBadge.tsx` | `ronda: Ronda` | Badge Em andamento/Conforme/Com ocorrências |
 | `KpiCard.tsx` | `label`, `value`, `icon: LucideIcon`, `iconBg?`, `iconColor?`, `valueColor?`, `highlight?` | Tile de KPI dos dashboards |
 | `RondaEmAndamentoBanner.tsx` | callbacks retomar/descartar | Banner de draft pendente |

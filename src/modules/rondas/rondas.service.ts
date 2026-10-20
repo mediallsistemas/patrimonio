@@ -1,6 +1,23 @@
 import { prisma } from '@/lib/db'
-import { tenantFilter } from '@/modules/auth/tenant-filter'
-import type { RegistroAmbienteInput } from './rondas.types'
+import { filtroEscopo, tenantFilter, type EscopoLeitura } from '@/modules/auth/tenant-filter'
+import { cilindrosParaGravar, fotosMedicoesParaGravar, resumoCilindros } from './rondas.rules'
+import type { MedicaoGas, RegistroAmbienteInput } from './rondas.types'
+
+// Medições de gases nas listagens: os valores, o abastecimento e QUAIS
+// medições têm foto do relógio — a foto em si vem sob demanda
+// (buscarFotoMedicao), nunca na lista. qtdCilindros/tamCilindro cobrem os
+// registros anteriores à tabela cilindros_abastecidos.
+const SELECT_GASES_LISTA = {
+  tipoRegistro: true,
+  purezaO2: true,
+  pressaoO2: true,
+  pressaoAr: true,
+  temAbastecimento: true,
+  qtdCilindros: true,
+  tamCilindro: true,
+  cilindros: { select: { tamanho: true, quantidade: true } },
+  fotosMedicoes: { select: { medicao: true } },
+} as const
 
 // Usado em operações de detalhe (buscar, criar, finalizar uma ronda)
 const INCLUDE_AMBIENTES = {
@@ -28,6 +45,7 @@ const SELECT_RONDA_LIGHT = {
       ambiente: true,
       temOcorrencia: true,
       concluidoEm: true,
+      ...SELECT_GASES_LISTA,
       ocorrencias: {
         select: { id: true, tipo: true, descricao: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
       },
@@ -127,6 +145,7 @@ export async function finalizarRonda(id: string, tenantId: string | null, tenant
 
 export async function registrarAmbiente(rondaId: string, input: RegistroAmbienteInput) {
   try {
+    const cilindros = cilindrosParaGravar(input)
     const gasesData =
       input.tipoRegistro === 'gases'
         ? {
@@ -134,11 +153,12 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
             pressaoO2: input.pressaoO2,
             pressaoAr: input.pressaoAr,
             backupLigado: input.backupLigado,
-            temAbastecimento: input.temAbastecimento,
-            qtdCilindros: input.qtdCilindros ?? null,
-            tamCilindro: input.tamCilindro ?? null,
+            temAbastecimento: cilindros.length > 0,
+            ...resumoCilindros(cilindros),
           }
         : {}
+
+    const fotosMedicoes = fotosMedicoesParaGravar(input)
 
     const registro = await prisma.registroAmbiente.create({
       data: {
@@ -147,6 +167,8 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
         tipoRegistro: input.tipoRegistro,
         temOcorrencia: input.temOcorrencia,
         ...gasesData,
+        ...(fotosMedicoes.length ? { fotosMedicoes: { createMany: { data: fotosMedicoes } } } : {}),
+        ...(cilindros.length ? { cilindros: { createMany: { data: cilindros } } } : {}),
         ...(input.temOcorrencia && input.ocorrencias?.length
           ? {
               ocorrencias: {
@@ -177,6 +199,27 @@ export async function registrarAmbiente(rondaId: string, input: RegistroAmbiente
     return registro
   } catch (error) {
     console.error('[rondas.service] registrarAmbiente:', error)
+    throw error
+  }
+}
+
+/**
+ * Foto do relógio de uma medição, só se a ronda do registro estiver no escopo
+ * de leitura da sessão. null quando não há foto ou o registro é de outra unidade.
+ */
+export async function buscarFotoMedicao(
+  registroId: string,
+  medicao: MedicaoGas,
+  escopo: EscopoLeitura,
+): Promise<string | null> {
+  try {
+    const encontrada = await prisma.fotoMedicaoGas.findFirst({
+      where: { registroId, medicao, registro: { ronda: filtroEscopo(escopo) } },
+      select: { foto: true },
+    })
+    return encontrada?.foto ?? null
+  } catch (error) {
+    console.error('[rondas.service] buscarFotoMedicao:', error)
     throw error
   }
 }
@@ -224,6 +267,7 @@ export async function listarRondasAdmin(limit = 100, tenantId?: string, tenantId
             ambiente: true,
             temOcorrencia: true,
             concluidoEm: true,
+            ...SELECT_GASES_LISTA,
             ocorrencias: {
               select: { id: true, tipo: true, descricao: true, foto: true, trilogoChamado: true, bemPatrimony: true, bemDescricao: true },
             },

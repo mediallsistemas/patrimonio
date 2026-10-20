@@ -1,8 +1,31 @@
 # `src/utils` — Funções utilitárias puras
 
-Sem I/O de rede, sem Prisma. `format.ts` e `moeda.ts` são puros; `foto.ts` e
-`pdf-export.ts` dependem de APIs de browser (canvas / download) — usar apenas em
-código client.
+Sem I/O de rede, sem Prisma. `format.ts`, `moeda.ts` e `cilindros.ts` são puros;
+`foto.ts` e `pdf-export.ts` dependem de APIs de browser (canvas / download) —
+usar apenas em código client.
+
+## `cilindros.ts` — abastecimento da inspeção de gases
+
+Catálogo pré-cadastrado de tipos de cilindro e regras da tela de abastecimento
+(testes em `cilindros.test.ts`). As capacidades são as nominais dos cilindros de
+oxigênio e ar medicinal no mercado (fichas de fornecedor e editais de compra);
+os códigos P são os que as unidades já registravam. Para incluir um tipo, basta
+acrescentá-lo à lista — o teste garante que "Outro" com o mesmo número gera o
+mesmo rótulo.
+
+```ts
+CILINDROS_POR_CAPACIDADE                         // '0,5 m³','1 m³','1,42 m³','2,25 m³','3 m³','3,5 m³','4,5 m³','6,6 m³','7 m³','8 m³','9,6 m³','10 m³'
+CILINDROS_POR_CODIGO                             // 'P7','P10','P45','P50'
+OPCOES_CILINDRO                                  // as duas listas juntas
+OPCAO_OUTRO                                      // 'outro' → capacidade digitada em m³
+cilindroVazio(): CilindroDraft                   // { opcao, outroM3, quantidade } da linha em edição
+lerM3(texto): number | null                      // "2,5" ou "2.5" → 2.5; vazio/zero/negativo → null
+tamanhoDoCilindro(c): string | null              // 'P10', '3 m³', ou "2,5 m³" para "Outro"
+cilindrosDoDraft(estado): CilindroDraft[]        // lista do draft; drafts antigos (um tamanho) convertidos
+validarCilindros(cilindros): Record<string,string> // cilindro_<i>_tamanho / cilindro_<i>_quantidade
+cilindrosParaEnviar(cilindros): CilindroAbastecido[] // só as linhas completas, { tamanho, quantidade }
+descreverCilindros(cilindros): string            // "4× 3 m³ · 2× P10"
+```
 
 ## `format.ts` — CPF
 

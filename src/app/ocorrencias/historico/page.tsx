@@ -16,6 +16,7 @@ import { desnormalizarOcorrencias } from '@/lib/rondas-admin-utils'
 import { KpiCard } from '@/components/ui/ronda/KpiCard'
 import { OcorrenciaRow } from '@/components/ui/ronda/OcorrenciaRow'
 import { FotoLazy } from '@/components/ui/ronda/FotoLazy'
+import { MedicoesGasesRonda } from '@/components/ui/ronda/MedicoesGasesRonda'
 import Header from '@/components/ui/Header'
 import ExportarPdfButton from '@/components/ui/ExportarPdfButton'
 import { exportarTabelaPdf, COLUNAS_RONDAS_PDF, linhaRondaPdf } from '@/utils/pdf-export'
@@ -336,6 +337,8 @@ export default function HistoricoOcorrenciasPage() {
                 </div>
               </section>
             )}
+
+            {rondaSelecionada && <MedicoesGasesRonda ambientes={rondaSelecionada.ambientes} />}
 
             {/* ── Seção 2: Ocorrências ─────────────────────────────────────── */}
             <section ref={ocorrenciasRef} className="space-y-3 scroll-mt-6">
